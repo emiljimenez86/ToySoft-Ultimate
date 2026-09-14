@@ -1,7 +1,7 @@
 {
-    "name": "ToySoft IMG Version - Sistema POS",
-  "short_name": "IMG Version",
-  "description": "Sistema de Punto de Venta IMG Version para Restaurantes",
+    "name": "ToySoft Ultimate Version - Sistema POS",
+  "short_name": "Ultimate Version",
+  "description": "Sistema de Punto de Venta Ultimate Version para Restaurantes",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",

@@ -2002,7 +2002,7 @@ function probarEnvioEmail() {
         const datosPrueba = {
             tipo: 'prueba',
             fecha: new Date().toLocaleString(),
-            negocio: 'ToySoft IMG Version',
+            negocio: 'ToySoft Ultimate Version',
             mensaje: 'Este es un email de prueba para verificar que la configuración de EmailJS funciona correctamente.'
         };
 
@@ -2020,7 +2020,7 @@ function enviarEmailPrueba(emailDestino, nombreDestinatario, datos) {
         const templateParams = {
             to_email: emailDestino,
             to_name: nombreDestinatario || 'Usuario',
-            from_name: 'ToySoft IMG Version',
+            from_name: 'ToySoft Ultimate Version',
             message: datos.mensaje,
             fecha: datos.fecha,
             tipo: 'Prueba de Configuración'
@@ -2059,7 +2059,7 @@ function enviarCierreOperativoEmail(cierre) {
         const templateParams = {
             to_email: configuracion.emailDestino,
             to_name: configuracion.nombreDestinatario || 'Usuario',
-            from_name: 'ToySoft IMG Version',
+            from_name: 'ToySoft Ultimate Version',
             asunto: asunto,
             tipo_cierre: 'Operativo',
             fecha: new Date(cierre.fecha).toLocaleString(),
@@ -2106,7 +2106,7 @@ function enviarCierreAdministrativoEmail(cierre) {
         const templateParams = {
             to_email: configuracion.emailDestino,
             to_name: configuracion.nombreDestinatario || 'Usuario',
-            from_name: 'ToySoft IMG Version',
+            from_name: 'ToySoft Ultimate Version',
             asunto: asunto,
             tipo_cierre: 'Administrativo',
             fecha: new Date(cierre.fecha).toLocaleString(),
