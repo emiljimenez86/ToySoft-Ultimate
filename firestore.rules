@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userData() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function sameNegocio(negocioId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && userData().negocioId == negocioId;
+    }
+
+    match /usuarios/{uid} {
+      allow read: if signedIn() && (
+        request.auth.uid == uid ||
+        (exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+          && userData().negocioId == resource.data.negocioId)
+      );
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.negocioId is string
+        && request.resource.data.rol is string;
+      allow update: if signedIn() && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    match /negocios/{negocioId} {
+      allow read: if sameNegocio(negocioId);
+      allow create: if signedIn();
+      allow update: if sameNegocio(negocioId);
+      allow delete: if false;
+
+      match /{subcol}/{docId} {
+        allow read, write: if sameNegocio(negocioId);
+      }
+    }
+  }
+}

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario - Donde Luis Restaurante</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;800;900&family=Exo+2:wght@400;600;700;800&family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+      /* Estilos específicos para botones de ayuda Toy de Ayudas */
+      .btn span[style*="Orbitron"] {
+        font-family: 'Orbitron', 'Exo 2', 'Rajdhani', 'Roboto Mono', monospace !important;
+        font-weight: 800 !important;
+        font-size: 1rem !important;
+        letter-spacing: 0.3px !important;
+        line-height: 1.1 !important;
+        display: block !important;
+        text-align: center !important;
+      }
+      .lista-platos-componente {
+        max-height: 220px;
+        overflow-y: auto;
+        background: #1a1d20;
+      }
+      .lista-platos-componente .grupo-categoria {
+        font-size: 0.75rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #6edff6;
+        margin: 0.4rem 0 0.2rem;
+      }
+      .lista-platos-componente .form-check {
+        padding: 0.25rem 0.5rem 0.25rem 1.7rem;
+        border-radius: 0.25rem;
+      }
+      .lista-platos-componente .form-check:hover {
+        background: rgba(13, 202, 240, 0.08);
+      }
+      .lista-platos-componente .form-check-input:checked {
+        background-color: #0dcaf0;
+        border-color: #0dcaf0;
+      }
+    </style>
+</head>
+<body class="bg-dark text-white">
+    <div class="container-fluid py-3">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h1>Gestión de Inventario</h1>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-success" onclick="mostrarModalProducto(null, true)">
+                            <i class="fas fa-plus"></i> Ingrediente / Insumo
+                        </button>
+                        <button class="btn btn-info" onclick="exportarInventarioExcel()">
+                            <i class="fas fa-file-excel"></i> Exportar a Excel
+                        </button>
+                        <button class="btn btn-success" onclick="imprimirTirillaInventario()">
+                            <i class="fas fa-print"></i> Imprimir Tirilla Inventario
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="cargarProductosPOS()">
+                            <i class="fas fa-refresh"></i> Refrescar Productos POS
+                        </button>
+                        <button class="btn btn-secondary" onclick="mostrarReporteMovimientos()">
+                            <i class="fas fa-chart-line"></i> Reporte Movimientos
+                        </button>
+                        <button class="btn btn-outline-info" onclick="mostrarInfoIntegracion()">
+                            <i class="fas fa-info-circle"></i> Info Integración
+                        </button>
+                        <a href="POS.html" class="btn btn-outline-light">
+                            <i class="fas fa-arrow-left"></i> Volver al POS
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card bg-dark">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <input type="text" class="form-control bg-dark text-white border-light" 
+                                       id="buscarProducto" placeholder="Buscar producto, ingrediente o insumo...">
+                            </div>
+                            <div class="col-md-4">
+                                <select class="form-select bg-dark text-white border-light" id="filtroCategoria">
+                                    <option value="">Todas las categorías</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select bg-dark text-white border-light" id="filtroTipo">
+                                    <option value="">Todos los tipos</option>
+                                    <option value="producto">Productos Principales</option>
+                                    <option value="componente">Componentes / Materia Prima</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select bg-dark text-white border-light" id="filtroEstado">
+                                    <option value="">Todos los estados</option>
+                                    <option value="bajo">Stock Bajo</option>
+                                    <option value="normal">Stock Normal</option>
+                                    <option value="alto">Stock Alto</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de Inventario -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card bg-dark">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Producto</th>
+                                        <th>Categoría</th>
+                                        <th>Stock Actual</th>
+                                        <th>Stock Mínimo</th>
+                                        <th>Stock Máximo</th>
+                                        <th>Estado</th>
+                                        <th>Última Actualización</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaInventario">
+                                    <!-- Los productos se cargarán aquí -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Producto -->
+    <div class="modal fade" id="modalProducto" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalProductoTitle">Ingrediente / Insumo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formProducto">
+                        <div class="mb-3">
+                            <label class="form-label">Código</label>
+                            <input type="text" class="form-control bg-dark text-white border-light" 
+                                   id="codigoProducto" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" class="form-control bg-dark text-white border-light" 
+                                   id="nombreProducto" required>
+                        </div>
+                        <div class="mb-3" id="tipoProductoContainer">
+                            <label class="form-label">Tipo</label>
+                            <select class="form-select bg-dark text-white border-light" 
+                                    id="tipoProducto" required onchange="toggleCamposComponente()">
+                                <option value="producto">Producto Principal</option>
+                                <option value="componente">Componente / Materia Prima</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="productoPrincipalContainer" style="display: none;">
+                            <label class="form-label">Platos del POS que llevan este componente</label>
+                            <input type="search" class="form-control bg-dark text-white border-light mb-2"
+                                   id="filtroProductosComponente" placeholder="Buscar plato..."
+                                   oninput="filtrarListaProductosComponente()">
+                            <div class="d-flex gap-2 mb-2">
+                                <button type="button" class="btn btn-sm btn-outline-info" onclick="marcarTodosProductosComponente(true)">Marcar visibles</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="marcarTodosProductosComponente(false)">Quitar marcas</button>
+                            </div>
+                            <div id="listaProductosComponente" class="lista-platos-componente border border-secondary rounded p-2"></div>
+                            <small class="form-text text-muted d-block mt-1" id="resumenProductosComponente">
+                                Marque todos los platos que usan este insumo. El stock es uno solo y se descuenta al vender cualquiera.
+                            </small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Categoría</label>
+                            <select class="form-select bg-dark text-white border-light" 
+                                    id="categoriaProducto" required>
+                                <!-- Las categorías se cargarán aquí -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Stock Actual</label>
+                            <input type="number" class="form-control bg-dark text-white border-light" 
+                                   id="stockActual" min="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Stock Mínimo</label>
+                            <input type="number" class="form-control bg-dark text-white border-light" 
+                                   id="stockMinimo" min="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Stock Máximo</label>
+                            <input type="number" class="form-control bg-dark text-white border-light" 
+                                   id="stockMaximo" min="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Unidad de Medida</label>
+                            <select class="form-select bg-dark text-white border-light" 
+                                    id="unidadMedida" required onchange="toggleCantidadPorUnidad()">
+                                <option value="unidad">Unidad</option>
+                                <option value="kg">Kilogramo</option>
+                                <option value="g">Gramo</option>
+                                <option value="l">Litro</option>
+                                <option value="ml">Mililitro</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="cantidadPorUnidadContainer" style="display: none;">
+                            <label class="form-label">
+                                Cantidad por Unidad Vendida 
+                                <small class="text-muted" id="unidadMedidaLabel"></small>
+                            </label>
+                            <input type="number" class="form-control bg-dark text-white border-light" 
+                                   id="cantidadPorUnidad" min="0" step="0.01" 
+                                   placeholder="Ej: 10">
+                            <small class="form-text text-muted">
+                                Indica cuánto se descuenta del inventario por cada unidad vendida. 
+                                Ejemplo: Si cada café usa 10 gramos, ingresa 10.
+                            </small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarProducto()">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Ajuste de Stock -->
+    <div class="modal fade" id="modalAjusteStock" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header">
+                    <h5 class="modal-title">Ajuste de Stock</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formAjusteStock">
+                        <div class="mb-3">
+                            <label class="form-label">Tipo de Ajuste</label>
+                            <select class="form-select bg-dark text-white border-light" 
+                                    id="tipoAjuste" required>
+                                <option value="entrada">Entrada</option>
+                                <option value="salida">Salida</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Cantidad</label>
+                            <input type="number" class="form-control bg-dark text-white border-light" 
+                                   id="cantidadAjuste" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Motivo</label>
+                            <textarea class="form-control bg-dark text-white border-light" 
+                                      id="motivoAjuste" rows="3" required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="procesarAjusteStock()">Procesar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Ayuda Contextual -->
+    <div class="modal fade" id="modalAyuda" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <img src="image/logo-ToySoft.png" alt="ToySoft" style="width: 32px; height: 32px; margin-right: 8px; vertical-align: middle;">
+                        <span style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 600; font-size: 1.2rem; color: #0dcaf0;">Toy Ayudas</span>
+                        <span id="tituloAyuda" style="color: #ffffff; font-size: 1rem; margin-left: 8px;">- Gestión de Inventario</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="contenidoAyuda"></div>
+                    <div id="enlacesAyuda" class="mt-3">
+                        <h6>Enlaces Relacionados:</h6>
+                        <div class="list-group list-group-flush bg-dark">
+                            <!-- Enlaces dinámicos -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="ayuda.js"></script>
+    <script src="inventario.js"></script>
+</body>
+</html> 

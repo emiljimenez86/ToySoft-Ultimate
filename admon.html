@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración - POS Restaurante</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;800;900&family=Exo+2:wght@400;600;700;800&family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+      /* Estilos específicos para botones de ayuda Toy de Ayudas */
+      .btn span[style*="Orbitron"] {
+        font-family: 'Orbitron', 'Exo 2', 'Rajdhani', 'Roboto Mono', monospace !important;
+        font-weight: 800 !important;
+        font-size: 1rem !important;
+        letter-spacing: 0.3px !important;
+        line-height: 1.1 !important;
+        display: block !important;
+        text-align: center !important;
+      }
+      /* Asegurar que el contenido de administración esté centrado */
+      #contenidoAdministracion {
+        width: 100%;
+      }
+    </style>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a1a">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+<body>
+    <!-- Modal de PIN para Administración -->
+    <div class="modal fade" id="modalPinAdministracion" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">
+                        <i class="fas fa-lock me-2"></i>Acceso a Administración
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <img src="image/logo-ToySoft.png" alt="Logo" class="img-fluid mb-3" style="max-width: 100px;">
+                        <h4 class="text-info">Ingrese el PIN de Administración</h4>
+                    </div>
+                    <form id="formPinAdministracion" onsubmit="event.preventDefault(); verificarPinAdministracion();">
+                        <div class="mb-3">
+                            <label for="pinAdministracion" class="form-label">PIN</label>
+                            <input type="password" 
+                                   class="form-control form-control-lg text-center bg-dark text-white border-light" 
+                                   id="pinAdministracion" 
+                                   maxlength="4" 
+                                   pattern="[0-9]{4}" 
+                                   placeholder="0000"
+                                   required
+                                   autofocus
+                                   inputmode="numeric"
+                                   oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4);"
+                                   style="font-size: 1.5rem; letter-spacing: 0.5rem; font-weight: bold;">
+                            <div class="invalid-feedback" id="pinError" style="display: none;">
+                                PIN incorrecto. Por favor, intente nuevamente.
+                            </div>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-info btn-lg">
+                                <i class="fas fa-unlock me-2"></i>Ingresar
+                            </button>
+                        </div>
+                    </form>
+                    <div class="text-center mt-3">
+                        <a href="index.html" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i>Volver al Inicio</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido principal (oculto hasta validar PIN) -->
+    <div id="contenidoAdministracion" style="display: none;">
+    <div class="container-fluid mt-4 px-2 px-md-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+                    <h1 class="text-white mb-3 mb-md-0 fs-2 fs-md-1">Administración</h1>
+                    <a href="index.html" class="btn btn-outline-light">Volver al Inicio</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Horario de operación (cierre después de medianoche) -->
+        <div class="card bg-dark text-white mb-4">
+            <div class="card-header">
+                <h2 class="mb-0 fs-3 fs-md-2"><i class="fas fa-clock me-2"></i>Horario de operación</h2>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">Si tu punto cierra después de las 12:00 de la noche, activa esta opción para que el "día" de cierre y ventas no cambie a medianoche. El día laboral terminará a la hora que indiques (ej: 4 = 4:00 AM).</p>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="operarDespuesMedianoche">
+                    <label class="form-check-label" for="operarDespuesMedianoche">Este punto opera después de medianoche (cierre pasado las 12)</label>
+                </div>
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <label for="horaFinDiaLaboral" class="form-label mb-0">Hora de fin del día laboral (0-23):</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="number" id="horaFinDiaLaboral" class="form-control" min="0" max="23" value="4" style="width: 4rem;"> <span class="text-muted small">(ej: 4 = 4:00 AM)</span>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="button" class="btn btn-info" onclick="guardarConfigHorarioOperacion()">
+                        <i class="fas fa-save me-1"></i>Guardar configuración
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gestión de Clientes -->
+        <div class="card bg-dark text-white mb-4">
+            <div class="card-header">
+                <h2 class="mb-0 fs-3 fs-md-2">Gestión de Clientes</h2>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <input type="text" id="documentoCliente" class="form-control" placeholder="Documento o NIT">
+                            <input type="text" id="nombreCliente" class="form-control mt-2" placeholder="Nombres">
+                            <input type="text" id="apellidoCliente" class="form-control mt-2" placeholder="Apellidos">
+                            <input type="tel" id="telefonoCliente" class="form-control mt-2" placeholder="Teléfono">
+                            <input type="text" id="direccionCliente" class="form-control mt-2" placeholder="Dirección">
+                            <input type="email" id="correoCliente" class="form-control mt-2" placeholder="Correo electrónico (opcional)">
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="d-flex flex-column flex-md-row gap-2">
+                                <button class="btn btn-info" onclick="agregarCliente()">Agregar Cliente</button>
+                                <button class="btn btn-danger" onclick="eliminarCliente()">Eliminar Clientes Seleccionados</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="row mb-3">
+                        <div class="col-12 col-md-6">
+                            <input type="text" id="buscarCliente" class="form-control" placeholder="Buscar cliente..." onkeyup="filtrarClientes()">
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped">
+                            <thead>
+                                <tr>
+                                    <th class="text-nowrap">Seleccionar</th>
+                                    <th class="text-nowrap">Documento</th>
+                                    <th class="text-nowrap">Nombre</th>
+                                    <th class="text-nowrap">Apellido</th>
+                                    <th class="text-nowrap">Teléfono</th>
+                                    <th class="text-nowrap">Dirección</th>
+                                    <th class="text-nowrap">Correo</th>
+                                    <th class="text-nowrap">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="listaClientes">
+                                <!-- Los clientes se cargarán aquí -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3">
+                        <div class="mb-3 mb-md-0 w-100 w-md-auto">
+                            <select id="clientesPorPagina" class="form-select" onchange="cambiarPaginaClientes(1)">
+                                <option value="5">5 por página</option>
+                                <option value="10" selected>10 por página</option>
+                                <option value="20">20 por página</option>
+                            </select>
+                        </div>
+                        <nav class="w-100 w-md-auto">
+                            <ul class="pagination justify-content-center" id="paginacionClientes">
+                                <!-- La paginación se generará aquí -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gestión de Categorías -->
+        <div class="card bg-dark text-white mb-4">
+            <div class="card-header">
+                <h2 class="mb-0 fs-3 fs-md-2">Gestión de Categorías</h2>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <input type="text" id="nuevaCategoria" class="form-control" placeholder="Escribe el nombre de la nueva categoria">
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="d-flex flex-column flex-md-row gap-2">
+                                <button class="btn btn-info" onclick="agregarCategoria()">Agregar Categoría</button>
+                                <button class="btn btn-danger" onclick="eliminarCategoria()">Eliminar Categorías Seleccionadas</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="listaCategorias" class="mt-3">
+                    <!-- Las categorías se cargarán aquí -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Gestión de Productos -->
+        <div class="card bg-dark text-white mb-4">
+            <div class="card-header">
+                <h2 class="mb-0 fs-3 fs-md-2">Gestión de Productos</h2>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <input type="text" id="nombreProducto" class="form-control" placeholder="Escribir el nombre del nuevo producto">
+                            <input type="number" id="precioProducto" class="form-control mt-2" placeholder="Escribir el precio en numeros sin puntos Ejemplo: 12800">
+                            <input type="number" id="costoProducto" class="form-control mt-2" placeholder="Costo del producto (opcional) Ejemplo: 8000" step="0.01">
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-info-circle"></i> El costo es opcional y se usa para calcular la utilidad
+                            </small>
+                            <select id="categoriaProducto" class="form-select mt-2">
+                                <option value="">Seleccionar categoría</option>
+                            </select>
+                            <div class="mt-2">
+                                <label for="imagenProducto" class="form-label">
+                                    Imagen del producto
+                                    <button type="button" class="btn btn-sm btn-outline-info ms-2" data-bs-toggle="modal" data-bs-target="#modalAyudaImagen" title="Ayuda para obtener URL de imagen">
+                                        <i class="fas fa-question-circle"></i> Ayuda
+                                    </button>
+                                </label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="imagenProducto" placeholder="Pega la URL de la imagen">
+                                    <button class="btn btn-outline-secondary" type="button" id="btnPegarImagen" title="Pegar URL desde portapapeles">
+                                        <i class="fas fa-paste"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted d-block mt-1">
+                                    <i class="fas fa-info-circle"></i> En Android: Mantén presionada la imagen → "Abrir imagen" → Copia la URL de la barra de direcciones
+                                </small>
+                                <div class="mt-2">
+                                    <img id="previewImagen" src="" alt="Vista previa" style="max-width: 120px; max-height: 120px; display: none; border-radius: 8px; border: 1px solid #ccc;" />
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="llevaSalsasProducto" onchange="var c=document.getElementById('contenedorSalsasProducto');if(c)c.style.display=this.checked?'block':'none';">
+                                    <label class="form-check-label" for="llevaSalsasProducto">Modificaciones</label>
+                                </div>
+                                <div class="mt-2" id="contenedorSalsasProducto" style="display: none;">
+                                    <label for="salsasProducto" class="form-label small">Lista de modificaciones (una por línea)</label>
+                                    <textarea id="salsasProducto" class="form-control form-control-sm" rows="3" placeholder="Sin cebolla&#10;Extra queso&#10;Sin ají"></textarea>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="llevaOpcionesSalsasProducto" onchange="var c=document.getElementById('contenedorOpcionesSalsasProducto');if(c)c.style.display=this.checked?'block':'none';">
+                                    <label class="form-check-label" for="llevaOpcionesSalsasProducto">Salsas</label>
+                                </div>
+                                <div class="mt-2" id="contenedorOpcionesSalsasProducto" style="display: none;">
+                                    <label for="opcionesSalsasProducto" class="form-label small">Lista de salsas (una por línea)</label>
+                                    <textarea id="opcionesSalsasProducto" class="form-control form-control-sm" rows="3" placeholder="Ají&#10;Mayonesa&#10;Rosada&#10;Piña"></textarea>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="editableEnVentaProducto">
+                                    <label class="form-check-label" for="editableEnVentaProducto">Nombre y precio editables en venta</label>
+                                </div>
+                                <small class="text-muted d-block mt-1">
+                                    <i class="fas fa-info-circle"></i> Al vender, el cajero podrá cambiar el nombre y el precio (útil para productos personalizados).
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="d-flex flex-column flex-md-row gap-2">
+                                <button class="btn btn-info" onclick="agregarProducto()">Agregar Producto</button>
+                                <button class="btn btn-danger" onclick="eliminarProducto()">Eliminar Productos Seleccionados</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="row mb-3">
+                        <div class="col-12 col-md-6">
+                            <input type="text" id="buscarProducto" class="form-control" placeholder="Buscar producto..." onkeyup="filtrarProductos()">
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped">
+                            <thead>
+                                <tr>
+                                    <th class="text-nowrap">Seleccionar</th>
+                                    <th class="text-nowrap">Nombre</th>
+                                    <th class="text-nowrap">Precio</th>
+                                    <th class="text-nowrap">Categoría</th>
+                                    <th class="text-nowrap">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="listaProductos">
+                                <!-- Los productos se cargarán aquí -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3">
+                        <div class="mb-3 mb-md-0 w-100 w-md-auto">
+                            <select id="productosPorPagina" class="form-select" onchange="cambiarPaginaProductos(1)">
+                                <option value="5">5 por página</option>
+                                <option value="10" selected>10 por página</option>
+                                <option value="20">20 por página</option>
+                            </select>
+                        </div>
+                        <nav class="w-100 w-md-auto">
+                            <ul class="pagination justify-content-center" id="paginacionProductos">
+                                <!-- La paginación se generará aquí -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Sección de Backup -->
+        <div class="card bg-dark mb-4">
+            <div class="card-body">
+                <h4 class="text-info mb-3">Backup y Restauración</h4>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-info" onclick="exportarDatos()">
+                        <i class="fas fa-download"></i> Exportar Datos
+                    </button>
+                    <input type="file" id="inputImportarDatos" style="display:none" accept="application/json" onchange="importarDatos(event)">
+                    <button class="btn btn-outline-info" onclick="document.getElementById('inputImportarDatos').click()">
+                        <i class="fas fa-upload"></i> Importar Datos
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Herramientas del Sistema -->
+        <div class="card bg-dark mb-4">
+            <div class="card-body">
+                <h4 class="text-warning mb-3">
+                    <i class="fas fa-tools"></i> Herramientas del Sistema
+                </h4>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>¡ADVERTENCIA!</strong> Estas herramientas pueden afectar permanentemente los datos de la aplicación.
+                </div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-danger" onclick="confirmarReinicioSistema()">
+                        <i class="fas fa-trash-alt"></i> Reiniciar Sistema Completamente
+                    </button>
+                    <button class="btn btn-outline-warning" onclick="limpiarDatosTemporales()">
+                        <i class="fas fa-broom"></i> Limpiar Datos Temporales
+                    </button>
+                    <a href="test-reinicio-sistema.html" class="btn btn-outline-info" target="_blank">
+                        <i class="fas fa-flask"></i> Probar Reinicio del Sistema
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de Logo -->
+        <div class="card bg-dark mb-4">
+            <div class="card-body">
+                <h4 class="text-info mb-3">
+                    <i class="fas fa-image"></i> Logo del Negocio
+                </h4>
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-eye"></i> Vista Previa del Logo
+                    </label>
+                    <div id="logoPreview" class="mb-2 p-3 border border-secondary rounded">
+                        <img id="logoActual" src="" alt="Logo actual" style="max-width: 200px; max-height: 100px; display: none;" class="img-fluid">
+                        <p id="noLogo" class="text-muted mb-0">
+                            <i class="fas fa-image"></i> No hay logo cargado
+                        </p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-upload"></i> Cargar Nuevo Logo
+                    </label>
+                    <input type="file" class="form-control bg-dark text-white border-light" 
+                           id="logoInput" accept="image/*" onchange="previewLogo(event)">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> Formatos permitidos: JPG, PNG, GIF. Tamaño máximo: 500KB
+                    </small>
+                </div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-info" onclick="guardarLogo()">
+                        <i class="fas fa-save"></i> Guardar Logo
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="eliminarLogo()">
+                        <i class="fas fa-trash"></i> Eliminar Logo
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="verificarEstadoLogo()" style="font-size: 0.8rem;">
+                        <i class="fas fa-bug"></i> Debug Logo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gestión del Negocio -->
+        <div class="mt-5 mb-4">
+            <div class="card bg-dark text-white">
+                <div class="card-header">
+                    <h5 class="mb-0">Datos del Negocio</h5>
+                </div>
+                <div class="card-body">
+                    <form id="formNegocio">
+                        <div class="mb-3">
+                            <label for="nombreNegocio" class="form-label">Nombre del Negocio</label>
+                            <input type="text" class="form-control bg-dark text-white" id="nombreNegocio">
+                        </div>
+                        <div class="mb-3">
+                            <label for="nitNegocio" class="form-label">NIT o Cédula</label>
+                            <input type="text" class="form-control bg-dark text-white" id="nitNegocio">
+                        </div>
+                        <div class="mb-3">
+                            <label for="direccionNegocio" class="form-label">Dirección</label>
+                            <input type="text" class="form-control bg-dark text-white" id="direccionNegocio">
+                        </div>
+                        <div class="mb-3">
+                            <label for="correoNegocio" class="form-label">Correo Electrónico</label>
+                            <input type="text" class="form-control bg-dark text-white" id="correoNegocio">
+                        </div>
+                        <div class="mb-3">
+                            <label for="telefonoNegocio" class="form-label">Teléfono</label>
+                            <input type="text" class="form-control bg-dark text-white" id="telefonoNegocio">
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="guardarDatosNegocio()">Guardar Datos</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuración de Pantalla de Cocina -->
+        <div class="card bg-dark text-white mb-4">
+            <div class="card-header">
+                <h2 class="mb-0 fs-3 fs-md-2"><i class="fas fa-tv me-2"></i>Pantalla de Cocina</h2>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">Configura la pantalla de cocina que se mostrará en el televisor. Los pedidos se mostrarán automáticamente cuando se envíen a cocina.</p>
+                
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="pantallaCocinaActivada">
+                    <label class="form-check-label" for="pantallaCocinaActivada">Activar pantalla de cocina</label>
+                    <small class="text-muted d-block mt-1">Cuando está activada, se abrirá automáticamente en una segunda pantalla si está conectada</small>
+                </div>
+                
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="cocinaSonidoActivado">
+                    <label class="form-check-label" for="cocinaSonidoActivado">Activar sonido de notificación</label>
+                    <small class="text-muted d-block mt-1">Reproduce un sonido cuando llega un nuevo pedido a cocina</small>
+                </div>
+                
+                <div class="row g-2 align-items-center mb-3">
+                    <div class="col-auto">
+                        <label for="cocinaIntervaloActualizacion" class="form-label mb-0">Intervalo de actualización (segundos):</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="number" id="cocinaIntervaloActualizacion" class="form-control" min="1" max="60" value="30" style="width: 5rem;">
+                        <small class="text-muted d-block mt-1">Tiempo entre actualizaciones automáticas (1-60 segundos)</small>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <button type="button" class="btn btn-info" onclick="guardarConfigPantallaCocina()">
+                        <i class="fas fa-save me-1"></i>Guardar configuración
+                    </button>
+                    <button type="button" class="btn btn-outline-info ms-2" onclick="abrirPantallaCocina()">
+                        <i class="fas fa-tv me-1"></i>Abrir Pantalla de Cocina Ahora
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuración de EmailJS -->
+        <div class="mt-5 mb-4">
+            <div class="card bg-dark text-white">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-envelope me-2"></i>Configuración de Envío de Cierres por Email
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Configuración EmailJS:</strong> Configura el email donde recibirás automáticamente los cierres operativos y administrativos.
+                    </div>
+                    
+                    <form id="formEmailJS">
+                        <div class="mb-3">
+                            <label for="emailDestino" class="form-label">
+                                <i class="fas fa-at me-1"></i>Email de Destino
+                            </label>
+                            <input type="email" class="form-control bg-dark text-white border-light" 
+                                   id="emailDestino" placeholder="ejemplo@correo.com" required>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Email donde recibirás los cierres automáticamente
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="nombreDestinatario" class="form-label">
+                                <i class="fas fa-user me-1"></i>Nombre del Destinatario
+                            </label>
+                            <input type="text" class="form-control bg-dark text-white border-light" 
+                                   id="nombreDestinatario" placeholder="Nombre completo">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Nombre que aparecerá en el saludo del email
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="enviarCierresOperativos" checked>
+                                <label class="form-check-label" for="enviarCierresOperativos">
+                                    <i class="fas fa-user-clock me-1"></i>Enviar Cierres Operativos
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="enviarCierresAdministrativos" checked>
+                                <label class="form-check-label" for="enviarCierresAdministrativos">
+                                    <i class="fas fa-calculator me-1"></i>Enviar Cierres Administrativos
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="asuntoPersonalizado" class="form-label">
+                                <i class="fas fa-tag me-1"></i>Asunto Personalizado (Opcional)
+                            </label>
+                            <input type="text" class="form-control bg-dark text-white border-light" 
+                                   id="asuntoPersonalizado" placeholder="Cierre de Caja - {fecha}">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Usa {fecha} para incluir la fecha automáticamente
+                            </small>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-success" onclick="guardarConfiguracionEmailJS()">
+                                <i class="fas fa-save me-1"></i>Guardar Configuración
+                            </button>
+                            <button type="button" class="btn btn-info" onclick="probarEnvioEmail()">
+                                <i class="fas fa-paper-plane me-1"></i>Probar Envío
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-history me-1"></i>Historial de Emails Enviados</h6>
+                            <div id="historialEmails" class="bg-secondary p-3 rounded" style="max-height: 200px; overflow-y: auto;">
+                                <small class="text-muted">No hay emails enviados aún</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-cog me-1"></i>Estado de EmailJS</h6>
+                            <div id="estadoEmailJS" class="bg-secondary p-3 rounded">
+                                <div class="d-flex align-items-center">
+                                    <span id="estadoIcono" class="me-2">⏳</span>
+                                    <span id="estadoTexto">Verificando configuración...</span>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-warning" onclick="limpiarHistorialEmails()">
+                                    <i class="fas fa-trash me-1"></i>Limpiar Historial
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Cierre Diario -->
+    <div class="modal fade" id="modalCierreDiario" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cierre Diario</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre de quien cierra</label>
+                            <input type="text" class="form-control bg-dark text-white" id="nombreCierre" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre de quien recibe</label>
+                            <input type="text" class="form-control bg-dark text-white" id="nombreRecibe" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Monto base de caja</label>
+                            <input type="number" class="form-control bg-dark text-white" id="montoBaseCaja" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Detalles adicionales</label>
+                            <textarea class="form-control bg-dark text-white" id="detallesCierre" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" onclick="exportarCierresDiariosExcel()">
+                        <i class="fas fa-file-excel"></i> Exportar a Excel
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="guardarCierreDiario()">Guardar Cierre</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Configuración de Cierre -->
+    <div class="modal fade" id="modalConfiguracionCierre" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header">
+                    <h5 class="modal-title">Configurar Hora de Cierre</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Hora de Cierre</label>
+                        <div class="row">
+                            <div class="col-4">
+                                <input type="number" class="form-control bg-dark text-white" id="horaCierre" min="1" max="12" value="11">
+                            </div>
+                            <div class="col-4">
+                                <input type="number" class="form-control bg-dark text-white" id="minutoCierre" min="0" max="59" value="30">
+                            </div>
+                            <div class="col-4">
+                                <select class="form-select bg-dark text-white" id="periodoCierre">
+                                    <option value="AM">AM</option>
+                                    <option value="PM" selected>PM</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="activarHoraCierre">
+                        <label class="form-check-label" for="activarHoraCierre">
+                            Activar hora de cierre automático
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarConfiguracionCierre()">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Modificar Cliente -->
+    <div class="modal fade" id="modalModificarCliente" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header">
+                    <h5 class="modal-title">Modificar Cliente</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formModificarCliente">
+                        <input type="hidden" id="clienteIdModificar">
+                        <div class="mb-3">
+                            <label for="nombreClienteModificar" class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="nombreClienteModificar" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="telefonoClienteModificar" class="form-label">Teléfono</label>
+                            <input type="tel" class="form-control" id="telefonoClienteModificar" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarModificacionCliente()">Guardar cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Modificar Categoría -->
+    <div class="modal fade" id="modalModificarCategoria" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header">
+                    <h5 class="modal-title">Modificar Categoría</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formModificarCategoria">
+                        <input type="hidden" id="categoriaActualModificar">
+                        <div class="mb-3">
+                            <label for="nombreCategoriaModificar" class="form-label">Nombre de la categoría</label>
+                            <input type="text" class="form-control" id="nombreCategoriaModificar" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarModificacionCategoria()">Guardar cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Modificar Producto -->
+    <div class="modal fade" id="modalModificarProducto" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header">
+                    <h5 class="modal-title">Modificar Producto</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formModificarProducto">
+                        <input type="hidden" id="productoIdModificar">
+                        <div class="mb-3">
+    <label for="nombreProductoModificar" class="form-label">Nombre del producto</label>
+    <input type="text" class="form-control" id="nombreProductoModificar" required>
+</div>
+<div class="mb-3">
+    <label for="precioProductoModificar" class="form-label">Precio</label>
+    <input type="number" class="form-control" id="precioProductoModificar" required>
+</div>
+<div class="mb-3">
+    <label for="costoProductoModificar" class="form-label">Costo del producto (opcional)</label>
+    <input type="number" class="form-control" id="costoProductoModificar" placeholder="Ejemplo: 8000" step="0.01">
+    <small class="text-muted">Se usa para calcular la utilidad</small>
+</div>
+<div class="mb-3">
+    <label for="categoriaProductoModificar" class="form-label">Categoría</label>
+    <select class="form-select" id="categoriaProductoModificar" required>
+        <option value="">Seleccionar categoría</option>
+    </select>
+</div>
+<div class="mb-3">
+    <label for="imagenProductoModificar" class="form-label">
+        Imagen del producto
+        <button type="button" class="btn btn-sm btn-outline-info ms-2" data-bs-toggle="modal" data-bs-target="#modalAyudaImagen" title="Ayuda para obtener URL de imagen">
+            <i class="fas fa-question-circle"></i> Ayuda
+        </button>
+    </label>
+    <div class="input-group">
+        <input type="text" class="form-control" id="imagenProductoModificar" placeholder="Pega la URL de la imagen o selecciona un archivo">
+        <button class="btn btn-outline-secondary" type="button" id="btnPegarImagenModificar" title="Pegar URL desde portapapeles">
+            <i class="fas fa-paste"></i>
+        </button>
+        <input type="file" class="form-control" id="examinarImagenModificar" accept="image/*" style="max-width: 180px;">
+    </div>
+    <small class="text-muted d-block mt-1">
+        <i class="fas fa-info-circle"></i> En Android: Mantén presionada la imagen → "Abrir imagen" → Copia la URL de la barra de direcciones
+    </small>
+    <div class="mt-2">
+        <img id="previewImagenModificar" src="" alt="Vista previa" style="max-width: 120px; max-height: 120px; display: none; border-radius: 8px; border: 1px solid #ccc;" />
+    </div>
+</div>
+<div class="mb-3">
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="llevaSalsasProductoModificar" onchange="var c=document.getElementById('contenedorSalsasProductoModificar');if(c)c.style.display=this.checked?'block':'none';">
+        <label class="form-check-label" for="llevaSalsasProductoModificar">Modificaciones</label>
+    </div>
+    <div class="mt-2" id="contenedorSalsasProductoModificar" style="display: none;">
+        <label for="salsasProductoModificar" class="form-label small">Lista de modificaciones (una por línea)</label>
+        <textarea id="salsasProductoModificar" class="form-control form-control-sm" rows="3" placeholder="Sin cebolla&#10;Extra queso&#10;Sin ají"></textarea>
+    </div>
+</div>
+<div class="mb-3">
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="llevaOpcionesSalsasProductoModificar" onchange="var c=document.getElementById('contenedorOpcionesSalsasProductoModificar');if(c)c.style.display=this.checked?'block':'none';">
+        <label class="form-check-label" for="llevaOpcionesSalsasProductoModificar">Salsas</label>
+    </div>
+    <div class="mt-2" id="contenedorOpcionesSalsasProductoModificar" style="display: none;">
+        <label for="opcionesSalsasProductoModificar" class="form-label small">Lista de salsas (una por línea)</label>
+        <textarea id="opcionesSalsasProductoModificar" class="form-control form-control-sm" rows="3" placeholder="Ají&#10;Mayonesa&#10;Rosada&#10;Piña"></textarea>
+    </div>
+</div>
+<div class="mb-3">
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="editableEnVentaProductoModificar">
+        <label class="form-check-label" for="editableEnVentaProductoModificar">Nombre y precio editables en venta</label>
+    </div>
+    <small class="text-muted">Al vender, el cajero podrá cambiar el nombre y el precio.</small>
+</div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarModificacionProducto()">Guardar cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Ayuda Contextual -->
+    <div class="modal fade" id="modalAyuda" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <img src="image/logo-ToySoft.png" alt="ToySoft" style="width: 32px; height: 32px; margin-right: 8px; vertical-align: middle;">
+                        <span style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 600; font-size: 1.2rem; color: #0dcaf0;">Toy Ayudas</span>
+                        <span id="tituloAyuda" style="color: #ffffff; font-size: 1rem; margin-left: 8px;">- Administración</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="contenidoAyuda"></div>
+                    <div id="enlacesAyuda" class="mt-3">
+                        <h6>Enlaces Relacionados:</h6>
+                        <div class="list-group list-group-flush bg-dark">
+                            <!-- Enlaces dinámicos -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Modal de Ayuda para Obtener URL de Imagen -->
+    <div class="modal fade" id="modalAyudaImagen" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-image me-2"></i>¿Cómo obtener la URL de una imagen?
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="accordion" id="accordionAyudaImagen">
+                        <!-- Android -->
+                        <div class="accordion-item bg-dark border-secondary">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button bg-dark text-white collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAndroid">
+                                    <i class="fab fa-android me-2"></i><strong>En Android</strong>
+                                </button>
+                            </h2>
+                            <div id="collapseAndroid" class="accordion-collapse collapse show" data-bs-parent="#accordionAyudaImagen">
+                                <div class="accordion-body bg-dark text-white">
+                                    <ol class="mb-0">
+                                        <li class="mb-2">Abre <strong>Google Imágenes</strong> en tu navegador</li>
+                                        <li class="mb-2">Busca la imagen que deseas usar</li>
+                                        <li class="mb-2"><strong>Mantén presionada la imagen</strong> hasta que aparezca un menú</li>
+                                        <li class="mb-2">Selecciona <strong>"Abrir imagen"</strong> o <strong>"Ver imagen"</strong></li>
+                                        <li class="mb-2">La imagen se abrirá sola en una nueva pestaña</li>
+                                        <li class="mb-2">Copia la <strong>URL completa</strong> de la barra de direcciones del navegador</li>
+                                        <li class="mb-2">Pega la URL en el campo "Imagen del producto"</li>
+                                    </ol>
+                                    <div class="alert alert-info mt-3 mb-0">
+                                        <i class="fas fa-lightbulb me-2"></i><strong>Consejo:</strong> También puedes usar el botón <i class="fas fa-paste"></i> <strong>Pegar</strong> junto al campo para pegar directamente desde el portapapeles.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Windows -->
+                        <div class="accordion-item bg-dark border-secondary">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button bg-dark text-white collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWindows">
+                                    <i class="fab fa-windows me-2"></i><strong>En Windows</strong>
+                                </button>
+                            </h2>
+                            <div id="collapseWindows" class="accordion-collapse collapse" data-bs-parent="#accordionAyudaImagen">
+                                <div class="accordion-body bg-dark text-white">
+                                    <ol class="mb-0">
+                                        <li class="mb-2">Abre <strong>Google Imágenes</strong> en tu navegador</li>
+                                        <li class="mb-2">Busca la imagen que deseas usar</li>
+                                        <li class="mb-2"><strong>Haz clic derecho</strong> sobre la imagen</li>
+                                        <li class="mb-2">Selecciona <strong>"Copiar dirección de la imagen"</strong> o <strong>"Copy image address"</strong></li>
+                                        <li class="mb-2">Pega la URL en el campo "Imagen del producto"</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Alternativa: Compartir -->
+                        <div class="accordion-item bg-dark border-secondary">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button bg-dark text-white collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAlternativa">
+                                    <i class="fas fa-share-alt me-2"></i><strong>Método Alternativo (Android)</strong>
+                                </button>
+                            </h2>
+                            <div id="collapseAlternativa" class="accordion-collapse collapse" data-bs-parent="#accordionAyudaImagen">
+                                <div class="accordion-body bg-dark text-white">
+                                    <ol class="mb-0">
+                                        <li class="mb-2">Mantén presionada la imagen en Google Imágenes</li>
+                                        <li class="mb-2">Selecciona <strong>"Compartir"</strong> o <strong>"Share"</strong></li>
+                                        <li class="mb-2">Elige <strong>"Copiar enlace"</strong> o <strong>"Copy link"</strong></li>
+                                        <li class="mb-2">Abre el enlace copiado en una nueva pestaña</li>
+                                        <li class="mb-2">Mantén presionada la imagen nuevamente y selecciona <strong>"Abrir imagen"</strong></li>
+                                        <li class="mb-2">Copia la URL de la barra de direcciones</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i><strong>Importante:</strong> Asegúrate de copiar la URL completa que termine en la extensión de la imagen (como .jpg, .png, .webp, etc.)
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Fin del contenido principal -->
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="firebase-init.js"></script>
+    <script src="seguridad.js"></script>
+    <script src="ayuda.js"></script>
+    <script src="gastos-modelo.js"></script>
+    <script src="admon.js"></script>
+</body>
+</html> 
