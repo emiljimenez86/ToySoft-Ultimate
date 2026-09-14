@@ -20,21 +20,29 @@ function loginFormularioValores() {
     return { email: email, clave: clave };
 }
 
-function alternarVerClave() {
+function alternarVerClave(evento) {
+    if (evento) {
+        evento.preventDefault();
+        evento.stopPropagation();
+    }
     const input = document.getElementById('clave');
     const boton = document.getElementById('btnVerClave');
     if (!input || !boton) return;
 
-    const visible = input.type === 'password';
-    input.type = visible ? 'text' : 'password';
-    boton.setAttribute('aria-pressed', visible ? 'true' : 'false');
-    boton.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
-    boton.title = visible ? 'Ocultar contraseña' : 'Mostrar contraseña';
+    const visible = input.getAttribute('data-clave-visible') !== '1';
+    input.setAttribute('data-clave-visible', visible ? '1' : '0');
+    try {
+        input.type = visible ? 'text' : 'password';
+    } catch (e) {}
+    input.style.webkitTextSecurity = visible ? 'none' : 'disc';
 
     const ojo = boton.querySelector('.icon-eye');
     const ojoTachado = boton.querySelector('.icon-eye-off');
-    if (ojo) ojo.hidden = visible;
-    if (ojoTachado) ojoTachado.hidden = !visible;
+    if (ojo) ojo.style.display = visible ? 'none' : 'block';
+    if (ojoTachado) ojoTachado.style.display = visible ? 'block' : 'none';
+    boton.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    boton.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    boton.title = visible ? 'Ocultar contraseña' : 'Mostrar contraseña';
 }
 
 async function verificarSesion() {

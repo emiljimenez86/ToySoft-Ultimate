@@ -62,6 +62,44 @@
     body, #appSection, #loginSection {
       display: none;
     }
+    .login-password-wrap {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+    }
+    .login-password-wrap .form-control {
+      flex: 1;
+      min-width: 0;
+      padding-right: 0.75rem;
+    }
+    .login-password-toggle {
+      flex: 0 0 42px;
+      width: 42px;
+      border: 1px solid #444;
+      border-radius: 8px;
+      background: #333;
+      color: #8b9aa3;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      padding: 0;
+      position: relative;
+      z-index: 2;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .login-password-toggle[aria-pressed="true"],
+    .login-password-toggle:hover,
+    .login-password-toggle:focus-visible {
+      color: #0dcaf0;
+      border-color: #0dcaf0;
+      background: rgba(13, 202, 240, 0.12);
+      outline: none;
+    }
+    .login-password-toggle svg {
+      width: 18px;
+      height: 18px;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -82,12 +120,12 @@
         </div>
         <div class="login-password-wrap mb-2">
           <input type="password" id="clave" class="form-control form-control-sm" placeholder="Contraseña" autocomplete="current-password" required>
-          <button type="button" class="login-password-toggle" id="btnVerClave" onclick="alternarVerClave()" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña">
+          <button type="button" class="login-password-toggle" id="btnVerClave" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña">
             <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
               <circle cx="12" cy="12" r="3"/>
             </svg>
-            <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+            <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
               <path d="M3 3l18 18"/>
               <path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/>
               <path d="M9.9 5.2A11.4 11.4 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-2.2 3.2"/>
@@ -99,6 +137,38 @@
           <button type="submit" class="btn btn-info btn-sm">Iniciar sesión</button>
         </div>
       </form>
+      <script>
+        (function () {
+          function pintarOjo(visible) {
+            var boton = document.getElementById('btnVerClave');
+            if (!boton) return;
+            var ojo = boton.querySelector('.icon-eye');
+            var ojoOff = boton.querySelector('.icon-eye-off');
+            if (ojo) ojo.style.display = visible ? 'none' : 'block';
+            if (ojoOff) ojoOff.style.display = visible ? 'block' : 'none';
+            boton.setAttribute('aria-pressed', visible ? 'true' : 'false');
+            boton.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+            boton.title = visible ? 'Ocultar contraseña' : 'Mostrar contraseña';
+          }
+          window.alternarVerClave = function (evento) {
+            if (evento) {
+              evento.preventDefault();
+              evento.stopPropagation();
+            }
+            var input = document.getElementById('clave');
+            if (!input) return;
+            var visible = input.getAttribute('data-clave-visible') !== '1';
+            input.setAttribute('data-clave-visible', visible ? '1' : '0');
+            try { input.type = visible ? 'text' : 'password'; } catch (e) {}
+            input.style.webkitTextSecurity = visible ? 'none' : 'disc';
+            pintarOjo(visible);
+          };
+          document.addEventListener('click', function (evento) {
+            var boton = evento.target.closest ? evento.target.closest('#btnVerClave') : null;
+            if (boton) window.alternarVerClave(evento);
+          });
+        })();
+      </script>
       <!-- Botón de instalación -->
       <div class="mt-2 text-center">
         <button id="installButton" class="btn btn-outline-info btn-sm" onclick="installPWA()">
