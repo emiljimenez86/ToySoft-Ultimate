@@ -54,7 +54,7 @@ window.addEventListener('appinstalled', (evt) => {
 async function installPWA() {
     try {
         // Registrar el Service Worker primero
-            const registration = await navigator.serviceWorker.register('./sw.js?v=4');
+            const registration = await navigator.serviceWorker.register('./sw.js?v=5');
         console.log('ServiceWorker registrado:', registration);
 
         // Esperar a que el Service Worker esté activo
@@ -104,7 +104,7 @@ function showInstallInstructions() {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('./sw.js?v=4');
+            const registration = await navigator.serviceWorker.register('./sw.js?v=5');
             console.log('ServiceWorker registrado:', registration);
         } catch (error) {
             console.error('Error al registrar ServiceWorker:', error);

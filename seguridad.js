@@ -54,8 +54,7 @@ async function iniciarSesion() {
     mostrarLoginMensaje('');
 
     if (!window.ToySoftFirebase || !ToySoftFirebase.estaConfigurado()) {
-        mostrarLoginMensaje('Primero pega la configuración de Firebase.');
-        if (window.ToySoftFirebase) ToySoftFirebase.mostrarPanelSetup(true);
+        mostrarLoginMensaje('No hay conexión con Firebase. Recarga la página.');
         return;
     }
 
@@ -71,58 +70,6 @@ async function iniciarSesion() {
     } catch (error) {
         console.log('Login fallido', error);
         mostrarLoginMensaje(ToySoftFirebase.mensajeErrorAuth(error));
-    }
-}
-
-async function crearCuentaNegocio() {
-    const { email, clave } = loginFormularioValores();
-    mostrarLoginMensaje('');
-
-    if (!window.ToySoftFirebase || !ToySoftFirebase.estaConfigurado()) {
-        mostrarLoginMensaje('Primero pega la configuración de Firebase.');
-        ToySoftFirebase.mostrarPanelSetup(true);
-        return;
-    }
-
-    if (!email || !clave) {
-        mostrarLoginMensaje('Escribe el correo y una contraseña de al menos 6 caracteres.');
-        return;
-    }
-
-    try {
-        await ToySoftFirebase.init();
-        await ToySoftFirebase.crearCuentaInicial(email, clave);
-        mostrarApp();
-    } catch (error) {
-        console.log('Alta de cuenta fallida', error);
-        mostrarLoginMensaje(ToySoftFirebase.mensajeErrorAuth(error));
-    }
-}
-
-function guardarConfigFirebaseDesdeLogin() {
-    const area = document.getElementById('firebaseConfigTexto');
-    mostrarLoginMensaje('');
-    if (!area || !window.ToySoftFirebase) return;
-    try {
-        const cfg = ToySoftFirebase.parsearConfigFirebase(area.value);
-        ToySoftFirebase.guardarConfig(cfg);
-        mostrarLoginMensaje('Configuración guardada. Recargando…', 'ok');
-        setTimeout(function () { window.location.reload(); }, 600);
-    } catch (error) {
-        mostrarLoginMensaje('No pude leer la config. Copia el objeto firebaseConfig completo. ' + (error.message || ''));
-    }
-}
-
-async function copiarReglasFirestore() {
-    mostrarLoginMensaje('');
-    try {
-        const res = await fetch('firestore.rules');
-        if (!res.ok) throw new Error('No se encontró firestore.rules');
-        const texto = await res.text();
-        await navigator.clipboard.writeText(texto);
-        mostrarLoginMensaje('Reglas copiadas. En Firebase: Firestore → Reglas → pega → Publicar.', 'ok');
-    } catch (error) {
-        mostrarLoginMensaje('No pude copiar las reglas. Ábreas en el archivo firestore.rules y pégalas en la consola.');
     }
 }
 
@@ -182,11 +129,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                 loginSection.style.display = 'block';
                 loginSection.style.opacity = '1';
                 appSection.style.display = 'none';
-                ToySoftFirebase.mostrarPanelSetup(true);
+                mostrarLoginMensaje('No hay conexión con Firebase. Recarga la página.');
                 return;
             }
 
-            ToySoftFirebase.mostrarPanelSetup(false);
             if (!iniciado) {
                 loginSection.style.display = 'block';
                 loginSection.style.opacity = '1';
@@ -214,7 +160,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             loginSection.style.opacity = '1';
             appSection.style.display = 'none';
             mostrarLoginMensaje((error && error.message) || 'No se pudo conectar con Firebase.');
-            if (!ToySoftFirebase.estaConfigurado()) ToySoftFirebase.mostrarPanelSetup(true);
         } finally {
             mostrarCuerpo();
         }

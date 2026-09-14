@@ -40,38 +40,6 @@
     return null;
   }
 
-  function parsearConfigFirebase(texto) {
-    const t = String(texto || '').trim();
-    const match = t.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('No se encontró un objeto { ... }');
-    const raw = match[0];
-    try {
-      return JSON.parse(raw);
-    } catch (e) {
-      const jsonish = raw
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/\/\/.*$/gm, '')
-        .replace(/,(\s*[}\]])/g, '$1')
-        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')
-        .replace(/'/g, '"');
-      return JSON.parse(jsonish);
-    }
-  }
-
-  function guardarConfig(cfg) {
-    if (!configValida(cfg)) {
-      throw new Error('Faltan apiKey, projectId o appId');
-    }
-    localStorage.setItem(STORAGE_CONFIG, JSON.stringify({
-      apiKey: cfg.apiKey,
-      authDomain: cfg.authDomain || (cfg.projectId + '.firebaseapp.com'),
-      projectId: cfg.projectId,
-      storageBucket: cfg.storageBucket || '',
-      messagingSenderId: cfg.messagingSenderId || '',
-      appId: cfg.appId
-    }));
-  }
-
   function estaConfigurado() {
     return configValida(obtenerConfig());
   }
@@ -201,9 +169,9 @@
     const mapa = {
       'auth/invalid-email': 'El correo no es válido.',
       'auth/user-disabled': 'Esta cuenta está deshabilitada.',
-      'auth/user-not-found': 'No existe una cuenta con ese correo.',
+      'auth/user-not-found': 'Esa cuenta no existe. Créala en Authentication de Firebase.',
       'auth/wrong-password': 'Contraseña incorrecta.',
-      'auth/invalid-credential': 'Correo o contraseña incorrectos.',
+      'auth/invalid-credential': 'Correo o contraseña incorrectos. Las cuentas se crean en Firebase Authentication.',
       'auth/email-already-in-use': 'Ese correo ya tiene una cuenta. Inicia sesión.',
       'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
       'auth/network-request-failed': 'Sin conexión. Revisa internet e inténtalo de nuevo.',
@@ -220,14 +188,6 @@
 
   async function iniciarSesion(email, password) {
     const cred = await auth().signInWithEmailAndPassword(email, password);
-    await asegurarNegocio();
-    localStorage.setItem('sesionActiva', 'true');
-    localStorage.setItem('usuarioActual', 'admin');
-    return cred.user;
-  }
-
-  async function crearCuentaInicial(email, password) {
-    const cred = await auth().createUserWithEmailAndPassword(email, password);
     await asegurarNegocio();
     localStorage.setItem('sesionActiva', 'true');
     localStorage.setItem('usuarioActual', 'admin');
@@ -284,43 +244,14 @@
     return initPromise;
   }
 
-  function plantillaConfig() {
-    const actual = obtenerConfig() || (typeof FIREBASE_CONFIG_ARCHIVO !== 'undefined' ? FIREBASE_CONFIG_ARCHIVO : {}) || {};
-    return [
-      'const firebaseConfig = {',
-      '  apiKey: "' + (actual.apiKey || 'PEGA_AQUI') + '",',
-      '  authDomain: "' + (actual.authDomain || 'toysoft-ultimate.firebaseapp.com') + '",',
-      '  projectId: "' + (actual.projectId || 'toysoft-ultimate') + '",',
-      '  storageBucket: "' + (actual.storageBucket || 'toysoft-ultimate.firebasestorage.app') + '",',
-      '  messagingSenderId: "' + (actual.messagingSenderId || '1004634598810') + '",',
-      '  appId: "' + (actual.appId || 'PEGA_AQUI') + '"',
-      '};'
-    ].join('\n');
-  }
-
-  function mostrarPanelSetup(forzar) {
-    const panel = document.getElementById('firebaseSetupPanel');
-    const loginForm = document.getElementById('loginFormFirebase');
-    const area = document.getElementById('firebaseConfigTexto');
-    if (!panel) return;
-    const falta = !estaConfigurado();
-    panel.style.display = (falta || forzar) ? 'block' : 'none';
-    if (loginForm) loginForm.style.display = 'block';
-    if (area && !area.value.trim()) area.value = plantillaConfig();
-  }
-
   global.ToySoftFirebase = {
-    STORAGE_CONFIG: STORAGE_CONFIG,
     NOMBRE_NEGOCIO_DEFAULT: NOMBRE_NEGOCIO_DEFAULT,
     obtenerConfig: obtenerConfig,
-    parsearConfigFirebase: parsearConfigFirebase,
-    guardarConfig: guardarConfig,
     estaConfigurado: estaConfigurado,
     estaListo: estaListo,
     init: init,
     esperarAuth: esperarAuth,
     iniciarSesion: iniciarSesion,
-    crearCuentaInicial: crearCuentaInicial,
     cerrarSesion: cerrarSesion,
     asegurarNegocio: asegurarNegocio,
     guardarDatosNegocio: guardarDatosNegocio,
@@ -329,7 +260,6 @@
     getUsuario: getUsuario,
     db: db,
     auth: auth,
-    mensajeErrorAuth: mensajeErrorAuth,
-    mostrarPanelSetup: mostrarPanelSetup
+    mensajeErrorAuth: mensajeErrorAuth
   };
 })(window);
