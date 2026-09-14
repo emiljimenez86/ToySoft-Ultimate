@@ -20,6 +20,23 @@ function loginFormularioValores() {
     return { email: email, clave: clave };
 }
 
+function alternarVerClave() {
+    const input = document.getElementById('clave');
+    const boton = document.getElementById('btnVerClave');
+    if (!input || !boton) return;
+
+    const visible = input.type === 'password';
+    input.type = visible ? 'text' : 'password';
+    boton.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    boton.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    boton.title = visible ? 'Ocultar contraseña' : 'Mostrar contraseña';
+
+    const ojo = boton.querySelector('.icon-eye');
+    const ojoTachado = boton.querySelector('.icon-eye-off');
+    if (ojo) ojo.hidden = visible;
+    if (ojoTachado) ojoTachado.hidden = !visible;
+}
+
 async function verificarSesion() {
     if (window.ToySoftFirebase) {
         await ToySoftFirebase.init();
