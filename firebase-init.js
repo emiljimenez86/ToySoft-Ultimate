@@ -1,6 +1,14 @@
 (function (global) {
   const STORAGE_CONFIG = 'toysoftFirebaseConfig';
   const NOMBRE_NEGOCIO_DEFAULT = 'ToySoft Ultimate';
+  const FIREBASE_CONFIG_EMBEBIDA = {
+    apiKey: 'AIzaSyD5qyCTo-tRc-lAxhst-k7iH0eurJICn5Y',
+    authDomain: 'toysoft-ultimate.firebaseapp.com',
+    projectId: 'toysoft-ultimate',
+    storageBucket: 'toysoft-ultimate.firebasestorage.app',
+    messagingSenderId: '1004634598810',
+    appId: '1:1004634598810:web:b25b6e9f71ac0b68f75e23'
+  };
 
   let appIniciada = false;
   let initPromise = null;
@@ -15,6 +23,11 @@
   }
 
   function obtenerConfig() {
+    if (configValida(FIREBASE_CONFIG_EMBEBIDA)) return FIREBASE_CONFIG_EMBEBIDA;
+    if (configValida(global.FIREBASE_CONFIG_EMBEBIDA)) return global.FIREBASE_CONFIG_EMBEBIDA;
+    if (typeof FIREBASE_CONFIG_ARCHIVO !== 'undefined' && configValida(FIREBASE_CONFIG_ARCHIVO)) {
+      return FIREBASE_CONFIG_ARCHIVO;
+    }
     try {
       const guardada = localStorage.getItem(STORAGE_CONFIG);
       if (guardada) {
@@ -23,9 +36,6 @@
       }
     } catch (e) {
       console.warn('Config Firebase en localStorage inválida', e);
-    }
-    if (typeof FIREBASE_CONFIG_ARCHIVO !== 'undefined' && configValida(FIREBASE_CONFIG_ARCHIVO)) {
-      return FIREBASE_CONFIG_ARCHIVO;
     }
     return null;
   }
@@ -295,7 +305,7 @@
     if (!panel) return;
     const falta = !estaConfigurado();
     panel.style.display = (falta || forzar) ? 'block' : 'none';
-    if (loginForm) loginForm.style.display = falta ? 'none' : 'block';
+    if (loginForm) loginForm.style.display = 'block';
     if (area && !area.value.trim()) area.value = plantillaConfig();
   }
 

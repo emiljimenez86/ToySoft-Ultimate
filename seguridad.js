@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 mostrarLoginMensaje('No cargó el SDK de Firebase. Revisa la conexión a internet.');
                 return;
             }
-            if (!iniciado || !ToySoftFirebase.estaConfigurado()) {
+            if (!ToySoftFirebase.estaConfigurado()) {
                 loginSection.style.display = 'block';
                 loginSection.style.opacity = '1';
                 appSection.style.display = 'none';
@@ -187,6 +187,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
 
             ToySoftFirebase.mostrarPanelSetup(false);
+            if (!iniciado) {
+                loginSection.style.display = 'block';
+                loginSection.style.opacity = '1';
+                appSection.style.display = 'none';
+                mostrarLoginMensaje('Hay configuración, pero no se pudo conectar con Firebase. Revisa internet, Authentication y Firestore.');
+                return;
+            }
             const user = await ToySoftFirebase.esperarAuth();
 
             if (user) {
@@ -207,7 +214,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             loginSection.style.opacity = '1';
             appSection.style.display = 'none';
             mostrarLoginMensaje((error && error.message) || 'No se pudo conectar con Firebase.');
-            ToySoftFirebase.mostrarPanelSetup(true);
+            if (!ToySoftFirebase.estaConfigurado()) ToySoftFirebase.mostrarPanelSetup(true);
         } finally {
             mostrarCuerpo();
         }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'toysoft-pos-v3';
+const CACHE_NAME = 'toysoft-pos-v4';
 const urlsToCache = [
     './',
     './index.html',
@@ -7,8 +7,6 @@ const urlsToCache = [
     './app.js',
     './gastos-modelo.js',
     './seguridad.js',
-    './firebase-config.js',
-    './firebase-init.js',
     './install.js',
     './styles.css',
     './manifest.json',
@@ -19,95 +17,78 @@ const urlsToCache = [
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
 ];
 
-// Instalación del Service Worker
+function esCodigo(request) {
+    const url = new URL(request.url);
+    return request.mode === 'navigate'
+        || url.pathname.endsWith('.js')
+        || url.pathname.endsWith('.html')
+        || url.pathname.endsWith('.css');
+}
+
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => {
-                console.log('Cache abierto');
-                return cache.addAll(urlsToCache);
-            })
-            .then(() => {
-                // Forzar la activación inmediata
-                return self.skipWaiting();
-            })
+            .then(cache => cache.addAll(urlsToCache))
+            .then(() => self.skipWaiting())
     );
 });
 
-// Activación del Service Worker
 self.addEventListener('activate', event => {
     event.waitUntil(
-        Promise.all([
-            // Limpiar caches antiguas
-            caches.keys().then(cacheNames => {
-                return Promise.all(
-                    cacheNames.map(cacheName => {
-                        if (cacheName !== CACHE_NAME) {
-                            return caches.delete(cacheName);
-                        }
-                    })
-                );
-            }),
-            // Tomar control de todas las páginas inmediatamente
-            self.clients.claim()
-        ])
-    );
-});
-
-// Interceptación de peticiones
-self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                // Cache hit - return response
-                if (response) {
-                    // Verificar si la respuesta está en caché y es una petición a nuestros archivos
-                    if (event.request.url.startsWith(self.location.origin)) {
-                        // Hacer una petición en segundo plano para actualizar el caché
-                        fetch(event.request).then(networkResponse => {
-                            if (networkResponse.status === 200) {
-                                caches.open(CACHE_NAME).then(cache => {
-                                    cache.put(event.request, networkResponse);
-                                });
-                            }
-                        });
-                    }
-                    return response;
-                }
-
-                // IMPORTANTE: Clonar la petición
-                const fetchRequest = event.request.clone();
-
-                return fetch(fetchRequest)
-                    .then(response => {
-                        // Verificar si recibimos una respuesta válida
-                        if (!response || response.status !== 200 || response.type !== 'basic') {
-                            return response;
-                        }
-
-                        // IMPORTANTE: Clonar la respuesta
-                        const responseToCache = response.clone();
-
-                        caches.open(CACHE_NAME)
-                            .then(cache => {
-                                cache.put(event.request, responseToCache);
-                            });
-
-                        return response;
-                    })
-                    .catch(() => {
-                        // Si falla la red y no hay caché, intentar servir la página offline
-                        if (event.request.mode === 'navigate') {
-                            return caches.match('./index.html');
-                        }
-                    });
+        caches.keys()
+            .then(cacheNames => Promise.all(
+                cacheNames
+                    .filter(name => name !== CACHE_NAME)
+                    .map(name => caches.delete(name))
+            ))
+            .then(() => self.clients.claim())
+            .then(() => self.clients.matchAll({ type: 'window' }))
+            .then(clients => {
+                clients.forEach(client => {
+                    if (client.url && 'navigate' in client) client.navigate(client.url);
+                });
             })
     );
 });
 
-// Manejo de mensajes
+self.addEventListener('fetch', event => {
+    if (esCodigo(event.request)) {
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    if (response && response.status === 200 && response.type === 'basic') {
+                        const copia = response.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copia));
+                    }
+                    return response;
+                })
+                .catch(() => caches.match(event.request).then(cached => {
+                    if (cached) return cached;
+                    if (event.request.mode === 'navigate') return caches.match('./index.html');
+                }))
+        );
+        return;
+    }
+
+    event.respondWith(
+        caches.match(event.request).then(response => {
+            if (response) return response;
+            return fetch(event.request.clone()).then(networkResponse => {
+                if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+                    return networkResponse;
+                }
+                const copia = networkResponse.clone();
+                caches.open(CACHE_NAME).then(cache => cache.put(event.request, copia));
+                return networkResponse;
+            }).catch(() => {
+                if (event.request.mode === 'navigate') return caches.match('./index.html');
+            });
+        })
+    );
+});
+
 self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
-}); 
+});
