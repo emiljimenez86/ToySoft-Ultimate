@@ -4,6 +4,20 @@ window.productos = JSON.parse(localStorage.getItem('productos')) || [];
 window.ventas = JSON.parse(localStorage.getItem('ventas')) || [];
 window.clientes = JSON.parse(localStorage.getItem('clientes')) || [];
 
+function persistirCatalogoLocal() {
+    localStorage.setItem('categorias', JSON.stringify(window.categorias || []));
+    localStorage.setItem('productos', JSON.stringify(window.productos || []));
+    if (window.ToySoftFirebase && ToySoftFirebase.estaListo()) {
+        ToySoftFirebase.guardarCatalogo({
+            categorias: window.categorias || [],
+            productos: window.productos || []
+        }).catch(function (error) {
+            console.error(error);
+            alert('Se guardó en este equipo, pero no en la nube: ' + ((window.ToySoftFirebase && ToySoftFirebase.mensajeErrorAuth(error)) || error.message));
+        });
+    }
+}
+
 // Función auxiliar para obtener todas las ventas (normales + rápidas)
 function obtenerTodasLasVentas() {
     const ventas = JSON.parse(localStorage.getItem('ventas')) || [];
@@ -164,9 +178,8 @@ function importarDatos(event) {
                 window.clientes = datos.clientes;
                 window.ventas = datos.ventas;
 
-                // Guardar en localStorage
-                localStorage.setItem('categorias', JSON.stringify(window.categorias));
-                localStorage.setItem('productos', JSON.stringify(window.productos));
+                // Guardar en localStorage y Firestore
+                persistirCatalogoLocal();
                 localStorage.setItem('clientes', JSON.stringify(window.clientes));
                 localStorage.setItem('ventas', JSON.stringify(window.ventas));
 
@@ -210,8 +223,7 @@ function mostrarBackupsAutomaticos() {
             window.clientes = backup.clientes;
             window.ventas = backup.ventas;
 
-            localStorage.setItem('categorias', JSON.stringify(window.categorias));
-            localStorage.setItem('productos', JSON.stringify(window.productos));
+            persistirCatalogoLocal();
             localStorage.setItem('clientes', JSON.stringify(window.clientes));
             localStorage.setItem('ventas', JSON.stringify(window.ventas));
 
@@ -308,6 +320,26 @@ async function inicializarAdministracion() {
   // Verificar acceso básico
   const ok = await verificarAcceso();
   if (ok === false) return;
+
+  if (window.ToySoftFirebase) {
+    try {
+      await ToySoftFirebase.init();
+      const user = await ToySoftFirebase.esperarAuth();
+      if (user) {
+        const catalogo = await ToySoftFirebase.sincronizarCatalogo();
+        window.categorias = catalogo.categorias;
+        window.productos = catalogo.productos;
+        ToySoftFirebase.escucharCatalogo(function (datos) {
+          window.categorias = datos.categorias;
+          window.productos = datos.productos;
+          if (typeof cargarCategorias === 'function') cargarCategorias();
+          if (typeof cargarProductos === 'function') cargarProductos();
+        });
+      }
+    } catch (error) {
+      console.warn('No se pudo cargar el catálogo de Firebase', error);
+    }
+  }
   
   // Cargar datos específicos de administración
   cargarCategorias();
@@ -401,6 +433,9 @@ function guardarConfigPantallaCocina() {
   localStorage.setItem('pantallaCocinaActivada', activada ? 'true' : 'false');
   localStorage.setItem('cocinaSonidoActivado', sonido ? 'true' : 'false');
   localStorage.setItem('cocinaIntervaloActualizacion', String(intervalo));
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
+    ToySoftFirebase.persistirOperacionInmediato();
+  }
   
   // Verificar que se guardó correctamente
   const valorGuardado = localStorage.getItem('cocinaIntervaloActualizacion');
@@ -526,7 +561,7 @@ function agregarCategoria() {
     }
 
     window.categorias.push(nombre);
-    localStorage.setItem('categorias', JSON.stringify(window.categorias));
+    persistirCatalogoLocal();
     cargarCategorias();
     inputCategoria.value = '';
     console.log('Categoría agregada:', nombre);
@@ -606,7 +641,7 @@ function agregarProducto() {
     };
 
     window.productos.push(producto);
-    localStorage.setItem('productos', JSON.stringify(window.productos));
+    persistirCatalogoLocal();
     
     // Actualizar productosFiltrados con todos los productos (resetear filtro)
     productosFiltrados = [...window.productos];
@@ -863,7 +898,7 @@ function eliminarCategoria() {
 
     if (confirmacion) {
         window.categorias = window.categorias.filter(c => !categoriasAEliminar.includes(c));
-        localStorage.setItem('categorias', JSON.stringify(window.categorias));
+        persistirCatalogoLocal();
         cargarCategorias();
     }
 }
@@ -880,7 +915,7 @@ function eliminarProducto() {
 
     if (confirmacion) {
         window.productos = window.productos.filter(p => !productosAEliminar.includes(p.id));
-        localStorage.setItem('productos', JSON.stringify(window.productos));
+        persistirCatalogoLocal();
         cargarProductos();
     }
 }
@@ -978,8 +1013,7 @@ function guardarModificacionCategoria() {
         });
 
         window.categorias[index] = nuevoNombre;
-        localStorage.setItem('categorias', JSON.stringify(window.categorias));
-        localStorage.setItem('productos', JSON.stringify(window.productos));
+        persistirCatalogoLocal();
         cargarCategorias();
         cargarProductos();
         
@@ -1123,7 +1157,7 @@ function guardarModificacionProducto() {
         producto.llevaOpcionesSalsas = !!llevaOpcionesSalsas;
         producto.opcionesSalsas = opcionesSalsas;
         producto.editableEnVenta = !!editableEnVenta;
-        localStorage.setItem('productos', JSON.stringify(window.productos));
+        persistirCatalogoLocal();
         cargarProductos();
         
         const modal = bootstrap.Modal.getInstance(document.getElementById('modalModificarProducto'));
@@ -1426,6 +1460,9 @@ function guardarCierreDiario() {
             
             // Limpiar mesas activas
             localStorage.setItem('mesasActivas', JSON.stringify([]));
+            if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
+              ToySoftFirebase.persistirOperacionInmediato();
+            }
 
             // Cerrar el modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('modalCierreDiario'));
@@ -2300,6 +2337,9 @@ Esta acción eliminará:
             
             // Limpiar historial de cocina temporal
             localStorage.setItem('historialCocina', JSON.stringify([]));
+            if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
+              ToySoftFirebase.persistirOperacionInmediato();
+            }
             
             // Limpiar variables globales si están disponibles
             if (typeof window.ventas !== 'undefined') window.ventas = [];

@@ -53,6 +53,7 @@ function guardarNombreDomiciliario(nombre) {
   lista = lista.slice(0, MAX_DOMICILIARIOS);
   localStorage.setItem(STORAGE_DOMICILIARIOS, JSON.stringify(lista));
   actualizarDatalistDomiciliarios();
+  notificarOperacionNube();
 }
 function actualizarDatalistDomiciliarios() {
   const datalist = document.getElementById('listaDomiciliarios');
@@ -898,6 +899,7 @@ function reiniciarSistemaCompleto() {
         if (typeof ordenesCocina !== 'undefined') {
             ordenesCocina.clear();
         }
+        if (typeof notificarOperacionNube === 'function') notificarOperacionNube(true);
         
         console.log('✅ Sistema reiniciado completamente');
         console.log('📊 Estado después del reinicio:');
@@ -1373,9 +1375,14 @@ function obtenerFechaLocalISO() {
 }
 
 
-// Función para guardar productos en localStorage
+// Función para guardar productos en localStorage y Firestore
 function guardarProductos() {
   localStorage.setItem('productos', JSON.stringify(productos));
+  if (window.ToySoftFirebase && ToySoftFirebase.estaListo()) {
+    ToySoftFirebase.persistirCatalogo(categorias, productos).catch(function (error) {
+      console.warn('Catálogo no se guardó en la nube', error);
+    });
+  }
 }
 
 // Función para guardar clientes en localStorage
@@ -1469,6 +1476,17 @@ function filtrarClientesParaLista(busqueda) {
   return [...fuente].slice(-12).reverse();
 }
 
+function notificarOperacionNube(inmediato) {
+  if (!window.ToySoftFirebase) return;
+  if (inmediato) {
+    if (typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
+      ToySoftFirebase.persistirOperacionInmediato();
+    }
+  } else if (typeof ToySoftFirebase.persistirOperacionDebounced === 'function') {
+    ToySoftFirebase.persistirOperacionDebounced();
+  }
+}
+
 // Función para guardar contadores en localStorage
 function guardarContadores() {
   localStorage.setItem('contadorDomicilios', String(contadorDomicilios || 0));
@@ -1476,6 +1494,7 @@ function guardarContadores() {
   if (ultimaFechaContadores) {
     localStorage.setItem('ultimaFechaContadores', ultimaFechaContadores);
   }
+  notificarOperacionNube();
 }
 
 // Reinicia DOM/REC a 0 en memoria y localStorage (próximo pedido = D1 / R1)
@@ -1488,6 +1507,7 @@ function reiniciarContadoresDomRec() {
   localStorage.setItem('ultimaFechaContadores', ultimaFechaContadores);
   // Limpiar clave antigua errónea (admon usaba "contadorDelivery")
   localStorage.removeItem('contadorDelivery');
+  notificarOperacionNube(true);
   console.log('🔁 Contadores DOM/REC reiniciados → próximo D1 / R1');
 }
 
@@ -1519,6 +1539,7 @@ function guardarHistorialVentas() {
 function guardarHistorialCocina() {
   // Guardar todo el historial de cocina
   localStorage.setItem('historialCocina', JSON.stringify(historialCocina));
+  notificarOperacionNube();
 }
 
 // ===== SISTEMA DE PANTALLA DE COCINA =====
@@ -1630,6 +1651,7 @@ function marcarPedidoListo(pedidoId) {
       });
       
       localStorage.setItem('pedidosCocinaListos', JSON.stringify(pedidosListos));
+      notificarOperacionNube();
       console.log('✅ Pedido marcado como listo. ID:', pedidoId, 'Hora:', fechaHoraListoMostrar);
       console.log('✅ Total pedidos listos:', pedidosListos.length);
       
@@ -2725,6 +2747,103 @@ function sincronizarConAdministracion() {
   console.log('✅ Sincronización completada:', { categorias, productos });
 }
 
+function aplicarCatalogoEnPOS(datos) {
+  const cats = Array.isArray(datos && datos.categorias) ? datos.categorias : [];
+  const prods = Array.isArray(datos && datos.productos) ? datos.productos : [];
+  const hash = JSON.stringify({ categorias: cats, productos: prods });
+  if (hash === window._catalogoPOSHash) return;
+  window._catalogoPOSHash = hash;
+  categorias = cats;
+  productos = prods;
+  window.categorias = categorias;
+  window.productos = productos;
+  if (document.getElementById('categorias') && typeof mostrarProductos === 'function') {
+    mostrarProductos();
+  }
+}
+
+async function cargarCatalogoDesdeNube() {
+  if (!window.ToySoftFirebase) return;
+  try {
+    await ToySoftFirebase.init();
+    const user = await ToySoftFirebase.esperarAuth();
+    if (!user) return;
+    const catalogo = await ToySoftFirebase.sincronizarCatalogo();
+    aplicarCatalogoEnPOS(catalogo);
+    ToySoftFirebase.escucharCatalogo(aplicarCatalogoEnPOS);
+  } catch (error) {
+    console.warn('No se pudo cargar el catálogo de Firebase', error);
+  }
+}
+
+function hashOperacionLocal(datos) {
+  try {
+    return JSON.stringify({
+      mesasActivas: datos && datos.mesasActivas,
+      ordenesCocina: datos && datos.ordenesCocina,
+      historialCocina: datos && datos.historialCocina,
+      pedidosCocinaListos: datos && datos.pedidosCocinaListos,
+      contadorDomicilios: datos && datos.contadorDomicilios,
+      contadorRecoger: datos && datos.contadorRecoger,
+      nombresDomiciliarios: datos && datos.nombresDomiciliarios,
+      pantallaCocinaActivada: datos && datos.pantallaCocinaActivada,
+      cocinaIntervaloActualizacion: datos && datos.cocinaIntervaloActualizacion
+    });
+  } catch (e) {
+    return String(Date.now());
+  }
+}
+
+function aplicarOperacionEnPOS(datos) {
+  if (!datos) return;
+  const hash = hashOperacionLocal(datos);
+  if (hash === window._operacionPOSHash) return;
+  window._operacionPOSHash = hash;
+
+  try {
+    mesasActivas = new Map(Array.isArray(datos.mesasActivas) ? datos.mesasActivas : []);
+    mesasActivas.forEach((pedido, mesaId) => {
+      mesasActivas.set(mesaId, typeof normalizarPedidoMesa === 'function' ? normalizarPedidoMesa(pedido) : pedido);
+    });
+  } catch (error) {
+    console.warn('No se pudieron aplicar mesas de la nube', error);
+  }
+
+  try {
+    ordenesCocina = new Map(Array.isArray(datos.ordenesCocina) ? datos.ordenesCocina : []);
+  } catch (error) {
+    console.warn('No se pudieron aplicar órdenes de cocina de la nube', error);
+  }
+
+  historialCocina = Array.isArray(datos.historialCocina) ? datos.historialCocina : [];
+  contadorDomicilios = parseInt(datos.contadorDomicilios, 10) || 0;
+  contadorRecoger = parseInt(datos.contadorRecoger, 10) || 0;
+  if (datos.ultimaFechaContadores) ultimaFechaContadores = datos.ultimaFechaContadores;
+
+  if (typeof actualizarMesasActivas === 'function') actualizarMesasActivas();
+  if (mesaSeleccionada && mesasActivas.has(mesaSeleccionada) && typeof actualizarVistaOrden === 'function') {
+    actualizarVistaOrden(mesaSeleccionada);
+  }
+  if (typeof actualizarPanelCocina === 'function') actualizarPanelCocina();
+  if (typeof actualizarBadgeCocina === 'function') actualizarBadgeCocina();
+  if (typeof actualizarDatalistDomiciliarios === 'function') actualizarDatalistDomiciliarios();
+  if (typeof actualizarVisibilidadBotónCocina === 'function') actualizarVisibilidadBotónCocina();
+}
+
+async function cargarOperacionDesdeNube() {
+  if (!window.ToySoftFirebase) return;
+  try {
+    await ToySoftFirebase.init();
+    const user = await ToySoftFirebase.esperarAuth();
+    if (!user) return;
+    const operacion = await ToySoftFirebase.sincronizarOperacion();
+    aplicarOperacionEnPOS(operacion);
+    ToySoftFirebase.escucharOperacion(aplicarOperacionEnPOS);
+  } catch (error) {
+    console.warn('No se pudo cargar la operación en vivo de Firebase', error);
+  }
+}
+
 // Función para inicializar datos de prueba si no existen (mantenida por compatibilidad)
 function inicializarDatosPrueba() {
   console.log('🔄 Llamando a sincronización con administración...');
@@ -3125,6 +3244,8 @@ function cargarDatos() {
     
     // Inicializar datos de prueba si no existen
     inicializarDatosPrueba();
+    cargarCatalogoDesdeNube();
+    cargarOperacionDesdeNube();
     
     // Asegurar que los elementos estén disponibles antes de mostrar productos
     setTimeout(() => {
@@ -3149,6 +3270,7 @@ function guardarMesas() {
     
     localStorage.setItem('mesasActivas', JSON.stringify(mesasArray));
     localStorage.setItem('ordenesCocina', JSON.stringify(ordenesCocinaArray));
+    notificarOperacionNube();
     
     console.log('Estado de mesas guardado exitosamente');
   } catch (error) {

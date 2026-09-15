@@ -802,6 +802,11 @@
     <!-- El sonido se generará con JavaScript -->
   </audio>
 
+  <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js?v=7"></script>
+  <script src="firebase-init.js?v=7"></script>
   <script>
     // Variables globales
     let pedidosPendientes = [];
@@ -1333,6 +1338,9 @@
           });
           
           localStorage.setItem('pedidosCocinaListos', JSON.stringify(pedidosListos));
+          if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
+            ToySoftFirebase.persistirOperacionInmediato();
+          }
           console.log('✅ Pedido marcado como listo desde cocina. ID:', pedidoId, 'Hora:', fechaHoraListoMostrar);
           
           // Disparar evento personalizado para notificar a otras ventanas
@@ -1508,6 +1516,22 @@
       }
     }
 
+    async function conectarOperacionNube() {
+      if (!window.ToySoftFirebase) return;
+      try {
+        await ToySoftFirebase.init();
+        const user = await ToySoftFirebase.esperarAuth();
+        if (!user) return;
+        await ToySoftFirebase.sincronizarOperacion();
+        ToySoftFirebase.escucharOperacion(function () {
+          actualizarVista();
+        });
+        actualizarVista();
+      } catch (error) {
+        console.warn('Cocina no pudo conectar con Firebase', error);
+      }
+    }
+
     // Función para inicializar
     function inicializar() {
       // Desbloquear sonido al primer clic o toque (los navegadores exigen interacción del usuario)
@@ -1523,6 +1547,7 @@
 
       // Actualizar vista inicial
       actualizarVista();
+      conectarOperacionNube();
       
       // Función auxiliar para obtener hash de pedidos listos
       function obtenerHashPedidosListos(pedidosListos) {

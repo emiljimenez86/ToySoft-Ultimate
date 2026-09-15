@@ -186,6 +186,339 @@
     return (error && error.message) || 'No se pudo completar la operación.';
   }
 
+  function refCatalogo() {
+    if (!negocioIdActual) throw new Error('No hay negocio asociado a esta cuenta');
+    return db().collection('negocios').doc(negocioIdActual).collection('catalogo').doc('actual');
+  }
+
+  function escribirCatalogoLocal(categorias, productos) {
+    localStorage.setItem('categorias', JSON.stringify(Array.isArray(categorias) ? categorias : []));
+    localStorage.setItem('productos', JSON.stringify(Array.isArray(productos) ? productos : []));
+  }
+
+  function catalogoDesdeLocal() {
+    let categorias = [];
+    let productos = [];
+    try {
+      const cats = JSON.parse(localStorage.getItem('categorias') || '[]');
+      if (Array.isArray(cats)) categorias = cats;
+    } catch (e) {}
+    try {
+      const prods = JSON.parse(localStorage.getItem('productos') || '[]');
+      if (Array.isArray(prods)) productos = prods;
+    } catch (e) {}
+    return { categorias: categorias, productos: productos };
+  }
+
+  function catalogoLimpio(datos) {
+    const origen = datos || {};
+    const texto = JSON.stringify({
+      categorias: Array.isArray(origen.categorias) ? origen.categorias : [],
+      productos: Array.isArray(origen.productos) ? origen.productos : []
+    }, function (clave, valor) {
+      return valor === undefined ? null : valor;
+    });
+    return JSON.parse(texto);
+  }
+
+  function catalogoDesdeSnap(snap) {
+    const data = snap && snap.exists ? (snap.data() || {}) : {};
+    return {
+      categorias: Array.isArray(data.categorias) ? data.categorias : [],
+      productos: Array.isArray(data.productos) ? data.productos : []
+    };
+  }
+
+  async function guardarCatalogo(datos) {
+    if (!negocioIdActual) await asegurarNegocio();
+    const limpio = catalogoLimpio(datos);
+    escribirCatalogoLocal(limpio.categorias, limpio.productos);
+    await refCatalogo().set({
+      categorias: limpio.categorias,
+      productos: limpio.productos,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return limpio;
+  }
+
+  function persistirCatalogo(categorias, productos) {
+    const limpio = catalogoLimpio({ categorias: categorias, productos: productos });
+    escribirCatalogoLocal(limpio.categorias, limpio.productos);
+    if (!estaListo()) return Promise.resolve(limpio);
+    return guardarCatalogo(limpio).catch(function (error) {
+      console.warn('Catálogo no se guardó en la nube', error);
+      throw error;
+    });
+  }
+
+  async function obtenerCatalogo() {
+    if (!negocioIdActual) await asegurarNegocio();
+    if (!negocioIdActual) return catalogoDesdeLocal();
+    const snap = await refCatalogo().get();
+    if (!snap.exists) return catalogoDesdeLocal();
+    const nube = catalogoDesdeSnap(snap);
+    escribirCatalogoLocal(nube.categorias, nube.productos);
+    return nube;
+  }
+
+  async function sincronizarCatalogo() {
+    if (!negocioIdActual) await asegurarNegocio();
+    const local = catalogoDesdeLocal();
+    if (!negocioIdActual) return local;
+    const snap = await refCatalogo().get();
+    if (snap.exists) {
+      const nube = catalogoDesdeSnap(snap);
+      escribirCatalogoLocal(nube.categorias, nube.productos);
+      return nube;
+    }
+    if (local.categorias.length || local.productos.length) {
+      await guardarCatalogo(local);
+      return local;
+    }
+    return { categorias: [], productos: [] };
+  }
+
+  let unsubCatalogo = null;
+  function escucharCatalogo(callback) {
+    if (unsubCatalogo) {
+      unsubCatalogo();
+      unsubCatalogo = null;
+    }
+    if (!negocioIdActual) return function () {};
+    unsubCatalogo = refCatalogo().onSnapshot(function (snap) {
+      if (!snap.exists) return;
+      const nube = catalogoDesdeSnap(snap);
+      escribirCatalogoLocal(nube.categorias, nube.productos);
+      if (typeof callback === 'function') callback(nube);
+    }, function (error) {
+      console.warn('No se pudo escuchar el catálogo', error);
+    });
+    return unsubCatalogo;
+  }
+
+  function refOperacion() {
+    if (!negocioIdActual) throw new Error('No hay negocio asociado a esta cuenta');
+    return db().collection('negocios').doc(negocioIdActual).collection('operacion').doc('actual');
+  }
+
+  function parseJsonLocal(clave, fallback) {
+    try {
+      const bruto = localStorage.getItem(clave);
+      if (bruto == null) return fallback;
+      return JSON.parse(bruto);
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function entradasAObjetos(entradas) {
+    if (!Array.isArray(entradas)) return [];
+    return entradas.map(function (par) {
+      if (par && !Array.isArray(par) && par.id != null) {
+        return { id: String(par.id), datos: par.datos };
+      }
+      if (!Array.isArray(par) || par.length < 2) return null;
+      return { id: String(par[0]), datos: par[1] };
+    }).filter(Boolean);
+  }
+
+  function objetosAEntradas(lista) {
+    if (!Array.isArray(lista)) return [];
+    return lista.map(function (item) {
+      if (Array.isArray(item) && item.length >= 2) return [String(item[0]), item[1]];
+      if (item && item.id != null) return [String(item.id), item.datos];
+      return null;
+    }).filter(function (par) { return par && par[1] !== undefined; });
+  }
+
+  function snapshotOperacionLocal() {
+    return {
+      mesasActivas: parseJsonLocal('mesasActivas', []),
+      ordenesCocina: parseJsonLocal('ordenesCocina', []),
+      historialCocina: parseJsonLocal('historialCocina', []),
+      pedidosCocinaListos: parseJsonLocal('pedidosCocinaListos', []),
+      contadorDomicilios: parseInt(localStorage.getItem('contadorDomicilios') || '0', 10) || 0,
+      contadorRecoger: parseInt(localStorage.getItem('contadorRecoger') || '0', 10) || 0,
+      ultimaFechaContadores: localStorage.getItem('ultimaFechaContadores') || '',
+      nombresDomiciliarios: parseJsonLocal('nombresDomiciliarios', []),
+      pantallaCocinaActivada: localStorage.getItem('pantallaCocinaActivada') !== 'false',
+      cocinaSonidoActivado: localStorage.getItem('cocinaSonidoActivado') !== 'false',
+      cocinaIntervaloActualizacion: localStorage.getItem('cocinaIntervaloActualizacion') || '30'
+    };
+  }
+
+  function operacionLimpia(datos) {
+    const origen = datos || {};
+    const texto = JSON.stringify({
+      mesasActivas: entradasAObjetos(origen.mesasActivas),
+      ordenesCocina: entradasAObjetos(origen.ordenesCocina),
+      historialCocina: Array.isArray(origen.historialCocina) ? origen.historialCocina : [],
+      pedidosCocinaListos: Array.isArray(origen.pedidosCocinaListos) ? origen.pedidosCocinaListos : [],
+      contadorDomicilios: parseInt(origen.contadorDomicilios, 10) || 0,
+      contadorRecoger: parseInt(origen.contadorRecoger, 10) || 0,
+      ultimaFechaContadores: origen.ultimaFechaContadores || '',
+      nombresDomiciliarios: Array.isArray(origen.nombresDomiciliarios) ? origen.nombresDomiciliarios : [],
+      pantallaCocinaActivada: origen.pantallaCocinaActivada !== false,
+      cocinaSonidoActivado: origen.cocinaSonidoActivado !== false,
+      cocinaIntervaloActualizacion: String(origen.cocinaIntervaloActualizacion || '30')
+    }, function (clave, valor) {
+      return valor === undefined ? null : valor;
+    });
+    return JSON.parse(texto);
+  }
+
+  function operacionParaLocal(nube) {
+    return {
+      mesasActivas: objetosAEntradas(nube.mesasActivas),
+      ordenesCocina: objetosAEntradas(nube.ordenesCocina),
+      historialCocina: Array.isArray(nube.historialCocina) ? nube.historialCocina : [],
+      pedidosCocinaListos: Array.isArray(nube.pedidosCocinaListos) ? nube.pedidosCocinaListos : [],
+      contadorDomicilios: parseInt(nube.contadorDomicilios, 10) || 0,
+      contadorRecoger: parseInt(nube.contadorRecoger, 10) || 0,
+      ultimaFechaContadores: nube.ultimaFechaContadores || '',
+      nombresDomiciliarios: Array.isArray(nube.nombresDomiciliarios) ? nube.nombresDomiciliarios : [],
+      pantallaCocinaActivada: nube.pantallaCocinaActivada !== false,
+      cocinaSonidoActivado: nube.cocinaSonidoActivado !== false,
+      cocinaIntervaloActualizacion: String(nube.cocinaIntervaloActualizacion || '30')
+    };
+  }
+
+  function escribirOperacionLocal(datos) {
+    const local = operacionParaLocal(datos || {});
+    localStorage.setItem('mesasActivas', JSON.stringify(local.mesasActivas));
+    localStorage.setItem('ordenesCocina', JSON.stringify(local.ordenesCocina));
+    localStorage.setItem('historialCocina', JSON.stringify(local.historialCocina));
+    localStorage.setItem('pedidosCocinaListos', JSON.stringify(local.pedidosCocinaListos));
+    localStorage.setItem('contadorDomicilios', String(local.contadorDomicilios));
+    localStorage.setItem('contadorRecoger', String(local.contadorRecoger));
+    if (local.ultimaFechaContadores) {
+      localStorage.setItem('ultimaFechaContadores', local.ultimaFechaContadores);
+    }
+    localStorage.setItem('nombresDomiciliarios', JSON.stringify(local.nombresDomiciliarios));
+    localStorage.setItem('pantallaCocinaActivada', local.pantallaCocinaActivada ? 'true' : 'false');
+    localStorage.setItem('cocinaSonidoActivado', local.cocinaSonidoActivado ? 'true' : 'false');
+    localStorage.setItem('cocinaIntervaloActualizacion', local.cocinaIntervaloActualizacion);
+    return local;
+  }
+
+  function operacionDesdeSnap(snap) {
+    const data = snap && snap.exists ? (snap.data() || {}) : {};
+    return operacionParaLocal(data);
+  }
+
+  function operacionTieneDatos(op) {
+    if (!op) return false;
+    return (op.mesasActivas && op.mesasActivas.length)
+      || (op.ordenesCocina && op.ordenesCocina.length)
+      || (op.historialCocina && op.historialCocina.length)
+      || (op.pedidosCocinaListos && op.pedidosCocinaListos.length)
+      || op.contadorDomicilios
+      || op.contadorRecoger
+      || (op.nombresDomiciliarios && op.nombresDomiciliarios.length);
+  }
+
+  async function guardarOperacion(datos) {
+    if (!negocioIdActual) await asegurarNegocio();
+    const limpio = operacionLimpia(datos || snapshotOperacionLocal());
+    escribirOperacionLocal(limpio);
+    await refOperacion().set({
+      mesasActivas: limpio.mesasActivas,
+      ordenesCocina: limpio.ordenesCocina,
+      historialCocina: limpio.historialCocina,
+      pedidosCocinaListos: limpio.pedidosCocinaListos,
+      contadorDomicilios: limpio.contadorDomicilios,
+      contadorRecoger: limpio.contadorRecoger,
+      ultimaFechaContadores: limpio.ultimaFechaContadores,
+      nombresDomiciliarios: limpio.nombresDomiciliarios,
+      pantallaCocinaActivada: limpio.pantallaCocinaActivada,
+      cocinaSonidoActivado: limpio.cocinaSonidoActivado,
+      cocinaIntervaloActualizacion: limpio.cocinaIntervaloActualizacion,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return operacionParaLocal(limpio);
+  }
+
+  let operacionTimer = null;
+  function persistirOperacionDebounced() {
+    if (operacionTimer) clearTimeout(operacionTimer);
+    operacionTimer = setTimeout(function () {
+      if (!estaListo()) return;
+      guardarOperacion(snapshotOperacionLocal()).catch(function (error) {
+        console.warn('Operación no se guardó en la nube', error);
+      });
+    }, 400);
+  }
+
+  function persistirOperacionInmediato() {
+    if (operacionTimer) {
+      clearTimeout(operacionTimer);
+      operacionTimer = null;
+    }
+    if (!estaListo()) return Promise.resolve();
+    return guardarOperacion(snapshotOperacionLocal()).catch(function (error) {
+      console.warn('Operación no se guardó en la nube', error);
+    });
+  }
+
+  async function sincronizarOperacion() {
+    if (!negocioIdActual) await asegurarNegocio();
+    const local = snapshotOperacionLocal();
+    if (!negocioIdActual) return operacionParaLocal(operacionLimpia(local));
+    const snap = await refOperacion().get();
+    if (snap.exists) {
+      const nube = operacionDesdeSnap(snap);
+      escribirOperacionLocal({
+        mesasActivas: entradasAObjetos(nube.mesasActivas),
+        ordenesCocina: entradasAObjetos(nube.ordenesCocina),
+        historialCocina: nube.historialCocina,
+        pedidosCocinaListos: nube.pedidosCocinaListos,
+        contadorDomicilios: nube.contadorDomicilios,
+        contadorRecoger: nube.contadorRecoger,
+        ultimaFechaContadores: nube.ultimaFechaContadores,
+        nombresDomiciliarios: nube.nombresDomiciliarios,
+        pantallaCocinaActivada: nube.pantallaCocinaActivada,
+        cocinaSonidoActivado: nube.cocinaSonidoActivado,
+        cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion
+      });
+      return nube;
+    }
+    if (operacionTieneDatos(local) || local.cocinaIntervaloActualizacion) {
+      await guardarOperacion(local);
+      return operacionParaLocal(operacionLimpia(local));
+    }
+    return operacionParaLocal(operacionLimpia(local));
+  }
+
+  let unsubOperacion = null;
+  function escucharOperacion(callback) {
+    if (unsubOperacion) {
+      unsubOperacion();
+      unsubOperacion = null;
+    }
+    if (!negocioIdActual) return function () {};
+    unsubOperacion = refOperacion().onSnapshot(function (snap) {
+      if (!snap.exists) return;
+      const nube = operacionDesdeSnap(snap);
+      escribirOperacionLocal({
+        mesasActivas: entradasAObjetos(nube.mesasActivas),
+        ordenesCocina: entradasAObjetos(nube.ordenesCocina),
+        historialCocina: nube.historialCocina,
+        pedidosCocinaListos: nube.pedidosCocinaListos,
+        contadorDomicilios: nube.contadorDomicilios,
+        contadorRecoger: nube.contadorRecoger,
+        ultimaFechaContadores: nube.ultimaFechaContadores,
+        nombresDomiciliarios: nube.nombresDomiciliarios,
+        pantallaCocinaActivada: nube.pantallaCocinaActivada,
+        cocinaSonidoActivado: nube.cocinaSonidoActivado,
+        cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion
+      });
+      if (typeof callback === 'function') callback(nube);
+    }, function (error) {
+      console.warn('No se pudo escuchar la operación en vivo', error);
+    });
+    return unsubOperacion;
+  }
+
   async function iniciarSesion(email, password) {
     const cred = await auth().signInWithEmailAndPassword(email, password);
     await asegurarNegocio();
@@ -195,6 +528,14 @@
   }
 
   async function cerrarSesion() {
+    if (unsubCatalogo) {
+      unsubCatalogo();
+      unsubCatalogo = null;
+    }
+    if (unsubOperacion) {
+      unsubOperacion();
+      unsubOperacion = null;
+    }
     negocioIdActual = null;
     usuarioDoc = null;
     localStorage.removeItem('sesionActiva');
@@ -256,6 +597,16 @@
     asegurarNegocio: asegurarNegocio,
     guardarDatosNegocio: guardarDatosNegocio,
     obtenerDatosNegocio: obtenerDatosNegocio,
+    guardarCatalogo: guardarCatalogo,
+    obtenerCatalogo: obtenerCatalogo,
+    sincronizarCatalogo: sincronizarCatalogo,
+    persistirCatalogo: persistirCatalogo,
+    escucharCatalogo: escucharCatalogo,
+    guardarOperacion: guardarOperacion,
+    sincronizarOperacion: sincronizarOperacion,
+    persistirOperacionDebounced: persistirOperacionDebounced,
+    persistirOperacionInmediato: persistirOperacionInmediato,
+    escucharOperacion: escucharOperacion,
     getNegocioId: getNegocioId,
     getUsuario: getUsuario,
     db: db,
