@@ -76,58 +76,53 @@ footer {
 }
 
 .login-password-wrap {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 42px !important;
-    gap: 8px !important;
-    align-items: stretch !important;
     position: relative !important;
+    display: block !important;
 }
 
 .login-password-wrap .form-control {
-    width: auto !important;
+    width: 100% !important;
     max-width: 100% !important;
-    min-width: 0 !important;
-    padding-right: 0.75rem !important;
+    margin-bottom: 0 !important;
+    padding-right: 2.75rem !important;
 }
 
 .login-password-toggle {
-    position: static !important;
-    top: auto !important;
-    right: auto !important;
+    position: absolute !important;
+    top: 50% !important;
+    right: 8px !important;
     left: auto !important;
-    transform: none !important;
-    width: 42px !important;
-    height: auto !important;
-    min-height: 31px;
+    transform: translateY(-50%) !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-height: 0 !important;
     margin: 0 !important;
-    border: 1px solid #444;
-    border-radius: 8px;
-    background: #333;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
     color: #8b9aa3;
     display: grid;
     place-items: center;
     cursor: pointer;
     padding: 0;
-    z-index: auto !important;
-    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    z-index: 2 !important;
+    transition: color 0.2s ease, background 0.2s ease;
 }
 
 .login-password-toggle:hover,
 .login-password-toggle:focus-visible {
     color: #0dcaf0;
-    background: rgba(13, 202, 240, 0.12);
-    border-color: #0dcaf0;
+    background: transparent;
     outline: none;
 }
 
 .login-password-toggle[aria-pressed="true"] {
     color: #0dcaf0;
-    background: rgba(13, 202, 240, 0.18);
-    border-color: #0dcaf0;
+    background: transparent;
 }
 
 .login-password-toggle:active {
-    transform: scale(0.96);
+    color: #0dcaf0;
 }
 
 .login-password-toggle svg {

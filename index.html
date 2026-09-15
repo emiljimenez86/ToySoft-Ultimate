@@ -63,48 +63,41 @@
       display: none;
     }
     .login-password-wrap {
-      display: grid !important;
-      grid-template-columns: minmax(0, 1fr) 42px !important;
-      gap: 8px !important;
-      align-items: stretch !important;
       position: relative !important;
+      display: block !important;
     }
     .login-password-wrap .form-control {
-      width: auto !important;
+      width: 100% !important;
       max-width: 100% !important;
-      min-width: 0 !important;
-      grid-column: 1 !important;
-      padding-right: 0.75rem !important;
+      margin-bottom: 0 !important;
+      padding-right: 2.75rem !important;
     }
     .login-password-toggle {
-      grid-column: 2 !important;
-      position: static !important;
-      top: auto !important;
-      right: auto !important;
+      position: absolute !important;
+      top: 50% !important;
+      right: 8px !important;
       left: auto !important;
-      transform: none !important;
-      width: 42px !important;
-      height: auto !important;
-      min-height: 100% !important;
+      transform: translateY(-50%) !important;
+      width: 32px !important;
+      height: 32px !important;
+      min-height: 0 !important;
       margin: 0 !important;
-      flex: none !important;
-      border: 1px solid #444;
-      border-radius: 8px;
-      background: #333;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
       color: #8b9aa3;
       display: grid !important;
       place-items: center;
       cursor: pointer;
       padding: 0;
-      z-index: auto !important;
+      z-index: 2 !important;
       -webkit-tap-highlight-color: transparent;
     }
     .login-password-toggle[aria-pressed="true"],
     .login-password-toggle:hover,
     .login-password-toggle:focus-visible {
       color: #0dcaf0;
-      border-color: #0dcaf0;
-      background: rgba(13, 202, 240, 0.12);
+      background: transparent;
       outline: none;
     }
     .login-password-toggle svg {
@@ -130,9 +123,9 @@
         <div class="mb-2">
           <input type="email" id="usuario" class="form-control form-control-sm" placeholder="Correo" autocomplete="username" required>
         </div>
-        <div class="login-password-wrap mb-2" style="display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:8px;align-items:stretch;position:relative;">
-          <input type="password" id="clave" class="form-control form-control-sm" placeholder="Contraseña" autocomplete="current-password" required style="width:auto;max-width:100%;min-width:0;">
-          <button type="button" class="login-password-toggle" id="btnVerClave" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña" style="position:static;top:auto;right:auto;left:auto;transform:none;width:42px;margin:0;">
+        <div class="login-password-wrap mb-2">
+          <input type="password" id="clave" class="form-control form-control-sm" placeholder="Contraseña" autocomplete="current-password" required>
+          <button type="button" class="login-password-toggle" id="btnVerClave" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña">
             <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
               <circle cx="12" cy="12" r="3"/>
