@@ -202,10 +202,16 @@ function claveUnicaVentaCierre(venta) {
 // Función simplificada para obtener todas las ventas del día
 function obtenerTodasLasVentas() {
     try {
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.ventasDesdeLocal === 'function') {
+            const unificadas = ToySoftFirebase.ventasDesdeLocal();
+            console.log(`📊 Total ventas encontradas: ${unificadas.length}`);
+            return unificadas;
+        }
         const historial = JSON.parse(localStorage.getItem('historialVentas') || '[]');
         const ventasActivas = JSON.parse(localStorage.getItem('ventas') || '[]');
         const domicilios = JSON.parse(localStorage.getItem('domicilios') || '[]');
-        const todasLasVentas = [...historial, ...ventasActivas, ...domicilios];
+        const pendientes = JSON.parse(localStorage.getItem('facturasPendientes') || '[]');
+        const todasLasVentas = [...historial, ...ventasActivas, ...domicilios, ...pendientes];
         const ventasValidas = [];
         const idsVistos = new Set();
 
@@ -1512,26 +1518,45 @@ function reiniciarContadoresDomRec() {
 }
 
 // Función para guardar historial de ventas
-function guardarHistorialVentas() {
+function registrarVentaUnificada(factura) {
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.guardarVenta === 'function') {
+    ToySoftFirebase.guardarVenta(factura).then(function (guardada) {
+      if (typeof historialVentas !== 'undefined' && Array.isArray(historialVentas)) {
+        const id = String(guardada.id);
+        const idx = historialVentas.findIndex(function (v) { return String(v.id) === id; });
+        if (idx >= 0) historialVentas[idx] = guardada;
+        else historialVentas.push(guardada);
+      }
+    }).catch(function (error) {
+      console.warn('Venta no se guardó en la nube', error);
+    });
+    return;
+  }
+  let historialActual = JSON.parse(localStorage.getItem('historialVentas') || '[]');
+  if (!Array.isArray(historialActual)) historialActual = [];
+  historialActual.push(factura);
+  localStorage.setItem('historialVentas', JSON.stringify(historialActual));
+  if (typeof historialVentas !== 'undefined' && Array.isArray(historialVentas)) {
+    historialVentas.push(factura);
+  }
+}
+
+function aplicarVentasEnPOS(lista) {
+  historialVentas = Array.isArray(lista) ? lista : [];
+  window.ventas = historialVentas;
+}
+
+async function cargarVentasDesdeNube() {
+  if (!window.ToySoftFirebase) return;
   try {
-    // Leer el historial actual desde localStorage
-    let historialActual = JSON.parse(localStorage.getItem('historialVentas') || '[]');
-    
-    // Asegurarse de que sea un array
-    if (!Array.isArray(historialActual)) {
-      console.error('historialVentas no es un array:', historialActual);
-      historialActual = [];
-    }
-    
-    // Guardar en localStorage
-    localStorage.setItem('historialVentas', JSON.stringify(historialActual));
-    console.log('Historial de ventas guardado:', historialActual.length, 'ventas');
-    
-    // Verificar que se guardó correctamente
-    const guardado = JSON.parse(localStorage.getItem('historialVentas') || '[]');
-    console.log('Verificación de guardado:', guardado.length, 'ventas');
+    await ToySoftFirebase.init();
+    const user = await ToySoftFirebase.esperarAuth();
+    if (!user) return;
+    const lista = await ToySoftFirebase.sincronizarVentas();
+    aplicarVentasEnPOS(lista);
+    ToySoftFirebase.escucharVentas(aplicarVentasEnPOS);
   } catch (error) {
-    console.error('Error al guardar historial de ventas:', error);
+    console.warn('No se pudieron cargar las ventas de Firebase', error);
   }
 }
 
@@ -3246,6 +3271,7 @@ function cargarDatos() {
     inicializarDatosPrueba();
     cargarCatalogoDesdeNube();
     cargarOperacionDesdeNube();
+    cargarVentasDesdeNube();
     
     // Asegurar que los elementos estén disponibles antes de mostrar productos
     setTimeout(() => {
@@ -6214,10 +6240,7 @@ function procesarVentaRapida(pedido, total, metodoPago = 'efectivo', montoRecibi
     enviadoACocina: !!(window.datosVentaRapida && window.datosVentaRapida.enviarACocina)
   };
 
-  // Guardar en historial
-  let historial = JSON.parse(localStorage.getItem('historialVentas') || '[]');
-  historial.push(venta);
-  localStorage.setItem('historialVentas', JSON.stringify(historial));
+  registrarVentaUnificada(venta);
   if (venta.nombreDomiciliario) guardarNombreDomiciliario(venta.nombreDomiciliario);
 
   // Enviar a cocina si se marcó la opción
@@ -7776,34 +7799,12 @@ function procesarPago() {
     estado: metodoPago === 'credito' ? 'pendiente' : 'pagado'
   };
 
-  // Si es crédito, guardar en una lista separada de facturas pendientes
-  if (metodoPago === 'credito') {
-    const facturasPendientes = JSON.parse(localStorage.getItem('facturasPendientes') || '[]');
-    facturasPendientes.push(factura);
-    localStorage.setItem('facturasPendientes', JSON.stringify(facturasPendientes));
-  }
-
-  // Agregar al historial de ventas
-  let historialActual = JSON.parse(localStorage.getItem('historialVentas') || '[]');
-  if (!Array.isArray(historialActual)) {
-    historialActual = [];
-  }
-  
-  // Guardar en historial de ventas (unificado)
-  historialActual.push(factura);
-  localStorage.setItem('historialVentas', JSON.stringify(historialActual));
+  registrarVentaUnificada(factura);
   if (factura.nombreDomiciliario) guardarNombreDomiciliario(factura.nombreDomiciliario);
 
   // Debug: verificar que se guardó correctamente
   console.log('🔍 DEBUG VENTA DE MESA:');
   console.log('   - Factura creada:', factura);
-  console.log('   - Historial antes:', historialActual.length - 1, 'ventas');
-  console.log('   - Historial después:', historialActual.length, 'ventas');
-  
-  // También guardar en ventas para compatibilidad (pero sin duplicar)
-  let ventasActuales = JSON.parse(localStorage.getItem('ventas')) || [];
-  ventasActuales.push(factura);
-  localStorage.setItem('ventas', JSON.stringify(ventasActuales));
 
   // ========================================
   // INTEGRACIÓN CON INVENTARIO
@@ -12437,7 +12438,9 @@ function generarBalance() {
       return;
     }
     
-    const ventas = JSON.parse(localStorage.getItem('historialVentas')) || [];
+    const ventas = (typeof obtenerTodasLasVentas === 'function')
+      ? obtenerTodasLasVentas()
+      : (JSON.parse(localStorage.getItem('historialVentas')) || []);
     // Leer gastos de ambas fuentes y combinarlos (evitar duplicados)
     const historialGastos = JSON.parse(localStorage.getItem('historialGastos')) || [];
     const gastosDirectos = JSON.parse(localStorage.getItem('gastos')) || [];

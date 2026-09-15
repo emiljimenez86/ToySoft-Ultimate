@@ -20,6 +20,9 @@ function persistirCatalogoLocal() {
 
 // Función auxiliar para obtener todas las ventas (normales + rápidas)
 function obtenerTodasLasVentas() {
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.ventasDesdeLocal === 'function') {
+        return ToySoftFirebase.ventasDesdeLocal();
+    }
     const ventas = JSON.parse(localStorage.getItem('ventas')) || [];
     const historialVentas = JSON.parse(localStorage.getItem('historialVentas')) || [];
     
@@ -334,6 +337,12 @@ async function inicializarAdministracion() {
           window.productos = datos.productos;
           if (typeof cargarCategorias === 'function') cargarCategorias();
           if (typeof cargarProductos === 'function') cargarProductos();
+        });
+        const ventasNube = await ToySoftFirebase.sincronizarVentas();
+        window.ventas = ventasNube;
+        ToySoftFirebase.escucharVentas(function (lista) {
+          window.ventas = lista;
+          if (typeof cargarVentas === 'function') cargarVentas();
         });
       }
     } catch (error) {

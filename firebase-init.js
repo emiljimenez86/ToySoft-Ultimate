@@ -519,6 +519,153 @@
     return unsubOperacion;
   }
 
+  function colVentas() {
+    if (!negocioIdActual) throw new Error('No hay negocio asociado a esta cuenta');
+    return db().collection('negocios').doc(negocioIdActual).collection('ventas');
+  }
+
+  function parseListaLocal(clave) {
+    try {
+      const arr = JSON.parse(localStorage.getItem(clave) || '[]');
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function idDeVenta(venta) {
+    if (venta && venta.id != null && venta.id !== '') return String(venta.id);
+    return String(Date.now());
+  }
+
+  function ventaLimpia(venta) {
+    const origen = venta && typeof venta === 'object' ? venta : {};
+    const id = idDeVenta(origen);
+    const texto = JSON.stringify(Object.assign({}, origen, { id: id }), function (clave, valor) {
+      return valor === undefined ? null : valor;
+    });
+    return JSON.parse(texto);
+  }
+
+  function fusionarVentasLocales() {
+    const mapa = new Map();
+    ['historialVentas', 'ventas', 'facturasPendientes', 'domicilios'].forEach(function (clave) {
+      parseListaLocal(clave).forEach(function (venta) {
+        if (!venta || typeof venta !== 'object') return;
+        const id = venta.id != null && venta.id !== ''
+          ? String(venta.id)
+          : [venta.fecha, venta.mesa, venta.total, venta.metodoPago].join('|');
+        if (!id || mapa.has(id)) return;
+        mapa.set(id, ventaLimpia(Object.assign({}, venta, { id: venta.id != null ? venta.id : id })));
+      });
+    });
+    return Array.from(mapa.values());
+  }
+
+  function escribirVentasLocal(lista) {
+    const limpia = Array.isArray(lista) ? lista : [];
+    localStorage.setItem('historialVentas', JSON.stringify(limpia));
+    localStorage.setItem('ventas', JSON.stringify(limpia));
+    const pendientes = limpia.filter(function (v) {
+      const metodo = String((v && v.metodoPago) || '').toLowerCase();
+      const estado = String((v && v.estado) || '').toLowerCase();
+      return metodo === 'credito' || metodo === 'crédito' || estado === 'pendiente';
+    });
+    localStorage.setItem('facturasPendientes', JSON.stringify(pendientes));
+    return limpia;
+  }
+
+  async function subirVentasEnLotes(lista) {
+    const col = colVentas();
+    for (let i = 0; i < lista.length; i += 400) {
+      const lote = lista.slice(i, i + 400);
+      const batch = db().batch();
+      lote.forEach(function (venta) {
+        const limpia = ventaLimpia(venta);
+        const id = idDeVenta(limpia);
+        if (!id) return;
+        batch.set(col.doc(id), Object.assign({}, limpia, {
+          actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        }), { merge: true });
+      });
+      await batch.commit();
+    }
+  }
+
+  async function guardarVenta(venta) {
+    const limpia = ventaLimpia(venta);
+    const lista = fusionarVentasLocales();
+    const id = idDeVenta(limpia);
+    limpia.id = isNaN(Number(id)) ? id : Number(id);
+    const idx = lista.findIndex(function (v) { return String(v.id) === String(limpia.id); });
+    if (idx >= 0) lista[idx] = limpia;
+    else lista.push(limpia);
+    escribirVentasLocal(lista);
+    if (estaListo()) {
+      await colVentas().doc(String(limpia.id)).set(Object.assign({}, limpia, {
+        actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+      }), { merge: true });
+    }
+    return limpia;
+  }
+
+  async function sincronizarVentas() {
+    if (!negocioIdActual) await asegurarNegocio();
+    const local = fusionarVentasLocales();
+    if (!negocioIdActual) {
+      escribirVentasLocal(local);
+      return local;
+    }
+    const snap = await colVentas().get();
+    const nube = [];
+    snap.forEach(function (doc) {
+      const data = doc.data() || {};
+      delete data.actualizadoEn;
+      nube.push(ventaLimpia(data));
+    });
+    if (nube.length === 0 && local.length) {
+      await subirVentasEnLotes(local);
+      escribirVentasLocal(local);
+      return local;
+    }
+    const mapa = new Map();
+    nube.forEach(function (v) { mapa.set(String(v.id), v); });
+    const faltan = [];
+    local.forEach(function (v) {
+      const id = String(v.id);
+      if (!mapa.has(id)) {
+        mapa.set(id, v);
+        faltan.push(v);
+      }
+    });
+    if (faltan.length) await subirVentasEnLotes(faltan);
+    const merged = Array.from(mapa.values());
+    escribirVentasLocal(merged);
+    return merged;
+  }
+
+  let unsubVentas = null;
+  function escucharVentas(callback) {
+    if (unsubVentas) {
+      unsubVentas();
+      unsubVentas = null;
+    }
+    if (!negocioIdActual) return function () {};
+    unsubVentas = colVentas().onSnapshot(function (snap) {
+      const lista = [];
+      snap.forEach(function (doc) {
+        const data = doc.data() || {};
+        delete data.actualizadoEn;
+        lista.push(ventaLimpia(data));
+      });
+      escribirVentasLocal(lista);
+      if (typeof callback === 'function') callback(lista);
+    }, function (error) {
+      console.warn('No se pudo escuchar las ventas', error);
+    });
+    return unsubVentas;
+  }
+
   async function iniciarSesion(email, password) {
     const cred = await auth().signInWithEmailAndPassword(email, password);
     await asegurarNegocio();
@@ -535,6 +682,10 @@
     if (unsubOperacion) {
       unsubOperacion();
       unsubOperacion = null;
+    }
+    if (unsubVentas) {
+      unsubVentas();
+      unsubVentas = null;
     }
     negocioIdActual = null;
     usuarioDoc = null;
@@ -607,6 +758,10 @@
     persistirOperacionDebounced: persistirOperacionDebounced,
     persistirOperacionInmediato: persistirOperacionInmediato,
     escucharOperacion: escucharOperacion,
+    guardarVenta: guardarVenta,
+    sincronizarVentas: sincronizarVentas,
+    escucharVentas: escucharVentas,
+    ventasDesdeLocal: fusionarVentasLocales,
     getNegocioId: getNegocioId,
     getUsuario: getUsuario,
     db: db,
