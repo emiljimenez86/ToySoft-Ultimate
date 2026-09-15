@@ -35,6 +35,33 @@ service cloud.firestore {
       allow update: if sameNegocio(negocioId);
       allow delete: if false;
 
+      match /catalogo/{docId} {
+        allow read, write: if sameNegocio(negocioId);
+      }
+      match /operacion/{docId} {
+        allow read, write: if sameNegocio(negocioId);
+      }
+      match /ventas/{docId} {
+        allow read, write: if sameNegocio(negocioId);
+      }
+      match /gastos/{docId} {
+        allow read, write: if sameNegocio(negocioId);
+      }
+      match /cierres/{docId} {
+        allow read, write: if sameNegocio(negocioId);
+      }
+      match /cierresOperativos/{docId} {
+        allow read, write: if sameNegocio(negocioId);
+      }
+      match /inventario/{docId} {
+        allow read, write: if sameNegocio(negocioId);
+      }
+      match /datos/{docId} {
+        allow read, write: if sameNegocio(negocioId);
+      }
+      match /config/{docId} {
+        allow read, write: if sameNegocio(negocioId);
+      }
       match /{subcol}/{docId} {
         allow read, write: if sameNegocio(negocioId);
       }

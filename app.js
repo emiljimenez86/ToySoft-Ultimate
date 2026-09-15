@@ -915,6 +915,7 @@ function reiniciarSistemaCompleto() {
         console.log(`   - Gastos del día: ${gastosFiltrados.length}`);
         console.log(`   - Mesas activas: ${JSON.parse(localStorage.getItem('mesasActivas') || '[]').length}`);
         console.log(`   - Órdenes de cocina: ${JSON.parse(localStorage.getItem('ordenesCocina') || '[]').length}`);
+        if (typeof persistirConfigCajaNube === 'function') persistirConfigCajaNube();
         
         return true;
     } catch (error) {
@@ -1364,13 +1365,21 @@ let recordatorios = [];
 let recordatoriosActivos = [];
 let notificacionesActivas = [];
 
-// Variables globales para el PIN y roles
-let PIN_ADMIN = '7894'; // PIN de administrador
-let PIN_EMPLEADO = '1234'; // PIN de empleado
-let PIN_ACCESO = PIN_ADMIN; // PIN por defecto (mantener compatibilidad)
 let accionPendiente = null;
-let usuarioActual = null; // Almacena el tipo de usuario actual
-window.usuarioActual = usuarioActual; // Hacer disponible globalmente
+let usuarioActual = null;
+window.usuarioActual = usuarioActual;
+
+function moduloPinDeAccion(accion) {
+  if (accion === 'historial-admin') return 'cierre-administrativo';
+  return accion;
+}
+
+async function pinModuloLocal(modulo, pin) {
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.pinCorrecto === 'function') {
+    return ToySoftFirebase.pinCorrecto(modulo, pin);
+  }
+  return false;
+}
 
 // Utilidad: obtener fecha local en formato ISO (YYYY-MM-DD) evitando desfase por zona horaria
 function obtenerFechaLocalISO() {
@@ -1394,6 +1403,9 @@ function guardarProductos() {
 // Función para guardar clientes en localStorage
 function guardarClientes() {
   localStorage.setItem('clientes', JSON.stringify(clientes));
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+    ToySoftFirebase.persistirDatosDebounced();
+  }
 }
 
 function recargarClientesDesdeStorage() {
@@ -1557,6 +1569,59 @@ async function cargarVentasDesdeNube() {
     ToySoftFirebase.escucharVentas(aplicarVentasEnPOS);
   } catch (error) {
     console.warn('No se pudieron cargar las ventas de Firebase', error);
+  }
+}
+
+async function cargarFinanzasDesdeNube() {
+  if (!window.ToySoftFirebase) return;
+  try {
+    await ToySoftFirebase.init();
+    const user = await ToySoftFirebase.esperarAuth();
+    if (!user) return;
+    await ToySoftFirebase.sincronizarFinanzas();
+    await ToySoftFirebase.escucharFinanzas();
+  } catch (error) {
+    console.warn('No se pudieron cargar gastos y cierres de Firebase', error);
+  }
+}
+
+function aplicarRestoEnMemoria(datos) {
+  const d = datos || {};
+  if (typeof clientes !== 'undefined') {
+    clientes = Array.isArray(d.clientes) ? d.clientes : [];
+    window.clientes = clientes;
+  }
+  if (typeof recordatorios !== 'undefined') {
+    recordatorios = Array.isArray(d.recordatorios) ? d.recordatorios : [];
+    try {
+      recordatoriosActivos = JSON.parse(localStorage.getItem('recordatoriosActivos') || '[]');
+    } catch (e) {
+      recordatoriosActivos = [];
+    }
+  }
+  if (typeof cotizaciones !== 'undefined') {
+    cotizaciones = Array.isArray(d.cotizaciones) ? d.cotizaciones : [];
+  }
+  if (typeof cargarClientes === 'function' && document.querySelector('#tablaClientes, #listaClientes, #clienteSelect')) {
+    try { cargarClientes(); } catch (e) {}
+  }
+  if (typeof cargarInterfazRecordatorios === 'function') {
+    try { cargarInterfazRecordatorios(); } catch (e) {}
+  }
+}
+
+async function cargarRestoDesdeNube() {
+  if (!window.ToySoftFirebase) return;
+  try {
+    await ToySoftFirebase.init();
+    const user = await ToySoftFirebase.esperarAuth();
+    if (!user) return;
+    const resultado = await ToySoftFirebase.sincronizarResto();
+    aplicarRestoEnMemoria(resultado && resultado.datos);
+    ToySoftFirebase.escucharDatos(aplicarRestoEnMemoria);
+    ToySoftFirebase.escucharExtras();
+  } catch (error) {
+    console.warn('No se pudieron cargar clientes, recordatorios o cotizaciones de Firebase', error);
   }
 }
 
@@ -2289,6 +2354,9 @@ function guardarRecordatorios() {
   try {
     localStorage.setItem('recordatorios', JSON.stringify(recordatorios));
     localStorage.setItem('recordatoriosActivos', JSON.stringify(recordatoriosActivos));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+      ToySoftFirebase.persistirDatosDebounced();
+    }
     console.log('✅ Recordatorios guardados:', recordatorios);
   } catch (error) {
     console.error('❌ Error al guardar recordatorios:', error);
@@ -3272,6 +3340,18 @@ function cargarDatos() {
     cargarCatalogoDesdeNube();
     cargarOperacionDesdeNube();
     cargarVentasDesdeNube();
+    cargarFinanzasDesdeNube();
+    if (typeof cargarInventarioDesdeNube === 'function') {
+      cargarInventarioDesdeNube();
+    }
+    if (typeof cargarRestoDesdeNube === 'function') {
+      cargarRestoDesdeNube();
+    }
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.sincronizarRoles === 'function') {
+      ToySoftFirebase.sincronizarRoles().catch(function (error) {
+        console.warn('No se pudieron sincronizar los PIN', error);
+      });
+    }
     
     // Asegurar que los elementos estén disponibles antes de mostrar productos
     setTimeout(() => {
@@ -8381,6 +8461,7 @@ function guardarCierreDiario() {
         historialCierres.push(cierre);
         localStorage.setItem('historialCierres', JSON.stringify(historialCierres));
         localStorage.setItem('ultimaBaseCaja', String(montoBaseCaja));
+        if (typeof guardarCierreEnNube === 'function') guardarCierreEnNube(cierre);
 
         // 8. IMPRIMIR
         try {
@@ -11241,6 +11322,9 @@ function guardarCotizacion() {
         const cotizaciones = JSON.parse(localStorage.getItem('cotizaciones')) || [];
         cotizaciones.push(cotizacion);
         localStorage.setItem('cotizaciones', JSON.stringify(cotizaciones));
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+          ToySoftFirebase.persistirDatosDebounced();
+        }
 
         // Cerrar modal y limpiar
         const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevaCotizacion'));
@@ -11326,6 +11410,9 @@ function eliminarCotizacion(id) {
         const cotizaciones = JSON.parse(localStorage.getItem('cotizaciones')) || [];
         const nuevasCotizaciones = cotizaciones.filter(c => c.id !== id);
         localStorage.setItem('cotizaciones', JSON.stringify(nuevasCotizaciones));
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+          ToySoftFirebase.persistirDatosDebounced();
+        }
         actualizarTablaCotizaciones();
     }
 }
@@ -11583,6 +11670,9 @@ function guardarCotizacion() {
         const cotizaciones = JSON.parse(localStorage.getItem('cotizaciones')) || [];
         cotizaciones.push(cotizacion);
         localStorage.setItem('cotizaciones', JSON.stringify(cotizaciones));
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+          ToySoftFirebase.persistirDatosDebounced();
+        }
 
         // Cerrar modal y limpiar
         const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevaCotizacion'));
@@ -11668,6 +11758,9 @@ function eliminarCotizacion(id) {
         const cotizaciones = JSON.parse(localStorage.getItem('cotizaciones')) || [];
         const nuevasCotizaciones = cotizaciones.filter(c => c.id !== id);
         localStorage.setItem('cotizaciones', JSON.stringify(nuevasCotizaciones));
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+          ToySoftFirebase.persistirDatosDebounced();
+        }
         actualizarTablaCotizaciones();
     }
 }
@@ -11902,6 +11995,9 @@ function guardarCotizacion() {
     const cotizaciones = JSON.parse(localStorage.getItem('cotizaciones')) || [];
     cotizaciones.push(cotizacion);
     localStorage.setItem('cotizaciones', JSON.stringify(cotizaciones));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+      ToySoftFirebase.persistirDatosDebounced();
+    }
 
     // Cerrar modal y limpiar
     const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevaCotizacion'));
@@ -11995,6 +12091,9 @@ function eliminarCotizacion(id) {
     const cotizaciones = JSON.parse(localStorage.getItem('cotizaciones')) || [];
     const nuevasCotizaciones = cotizaciones.filter(c => c.id !== id);
     localStorage.setItem('cotizaciones', JSON.stringify(nuevasCotizaciones));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+      ToySoftFirebase.persistirDatosDebounced();
+    }
     actualizarTablaCotizaciones();
   }
 }
@@ -12381,6 +12480,9 @@ guardarCotizacion = function() {
       cotizaciones.push(cotizacion);
     }
     localStorage.setItem('cotizaciones', JSON.stringify(cotizaciones));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+      ToySoftFirebase.persistirDatosDebounced();
+    }
 
     // Cerrar modal y limpiar
     const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevaCotizacion'));
@@ -13357,6 +13459,9 @@ function guardarNuevoCliente() {
         const clientes = JSON.parse(localStorage.getItem('clientes')) || [];
         clientes.push(cliente);
         localStorage.setItem('clientes', JSON.stringify(clientes));
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+          ToySoftFirebase.persistirDatosDebounced();
+        }
 
         // Actualizar select de clientes y seleccionar el nuevo
         if (typeof cargarClientesCotizacion === 'function') {
@@ -13544,89 +13649,54 @@ function mostrarModalPin(accion) {
   accionPendiente = accion;
   document.getElementById('pinAcceso').value = '';
   document.getElementById('mensajeErrorPin').style.display = 'none';
-  
-  // Actualizar el título del modal según la acción
-  const tituloModal = document.getElementById('modalPinAccesoLabel');
-  if (tituloModal) {
-    if (accion === 'cierre-administrativo') {
-      tituloModal.textContent = 'Acceso Restringido - Cierre Administrativo';
-    } else if (accion === 'balance') {
-      tituloModal.textContent = 'Acceso Restringido - Balance';
-    } else if (accion === 'inventario') {
-      tituloModal.textContent = 'Acceso Restringido - Inventario';
-    } else if (accion === 'historial-admin') {
-      tituloModal.textContent = 'Acceso Restringido - Historial Administrativo';
-    } else {
-      tituloModal.textContent = 'Acceso Restringido';
-    }
-  }
 
-  // abrirModalEstatico ya hace .show()
+  const titulos = {
+    'cierre-administrativo': 'Acceso restringido — Cierre administrativo',
+    balance: 'Acceso restringido — Balance',
+    inventario: 'Acceso restringido — Inventario',
+    historial: 'Acceso restringido — Historial',
+    gastos: 'Acceso restringido — Gastos',
+    'historial-admin': 'Acceso restringido — Cierres administrativos'
+  };
+  const tituloModal = document.getElementById('modalPinAccesoLabel');
+  if (tituloModal) tituloModal.textContent = titulos[accion] || 'Acceso restringido';
+
   abrirModalEstatico('modalPinAcceso');
 }
 
-// Función para verificar el PIN y determinar el rol
-function verificarPinAcceso() {
+async function verificarPinAcceso() {
   const pinIngresado = document.getElementById('pinAcceso').value;
   const mensajeError = document.getElementById('mensajeErrorPin');
-  
-  // Determinar el tipo de usuario basado en el PIN
-  if (pinIngresado === PIN_ADMIN) {
-    usuarioActual = 'admin';
-    window.usuarioActual = 'admin'; // Actualizar variable global
-    console.log('🔐 Acceso de Administrador autorizado');
-  } else if (pinIngresado === PIN_EMPLEADO) {
-    usuarioActual = 'empleado';
-    window.usuarioActual = 'empleado'; // Actualizar variable global
-    console.log('🔐 Acceso de Empleado autorizado');
-  } else {
+  const modulo = moduloPinDeAccion(accionPendiente);
+  const ok = await pinModuloLocal(modulo, pinIngresado);
+  if (!ok) {
     mensajeError.style.display = 'block';
     document.getElementById('pinAcceso').value = '';
     return;
   }
-  
-  // Cerrar modal de PIN
+
   const modal = bootstrap.Modal.getInstance(document.getElementById('modalPinAcceso'));
-  modal.hide();
-  
-  // Verificar permisos según el rol
+  if (modal) modal.hide();
+
   if (accionPendiente === 'balance') {
-    if (usuarioActual === 'admin') {
-      console.log('🔐 Acceso autorizado al Balance');
-      mostrarModalBalance();
-    } else {
-      alert('❌ Solo los administradores pueden acceder al Balance');
-    }
+    mostrarModalBalance();
   } else if (accionPendiente === 'inventario') {
-    console.log('🔐 Acceso autorizado al Inventario');
     window.location.href = 'inventario.html';
   } else if (accionPendiente === 'cierre-administrativo') {
-    if (usuarioActual === 'admin') {
-      console.log('🔐 Acceso autorizado al Cierre Administrativo');
-      mostrarModalCierreDiario();
-    } else {
-      alert('❌ Solo los administradores pueden realizar cierres administrativos');
-    }
+    mostrarModalCierreDiario();
   } else if (accionPendiente === 'historial') {
-    console.log('🔐 Acceso autorizado al Historial');
-    // Guardar el rol en localStorage para que esté disponible en historial.html
-    localStorage.setItem('usuarioActual', usuarioActual);
+    localStorage.setItem('usuarioActual', 'historial');
     window.location.href = 'historial.html';
+  } else if (accionPendiente === 'gastos') {
+    window.location.href = 'gastos.html';
   } else if (accionPendiente === 'historial-admin') {
-    if (usuarioActual === 'admin') {
-      console.log('🔐 Acceso autorizado al Historial Administrativo');
-      // Cambiar a la pestaña de cierres administrativos
-      const tabCierresAdmin = document.getElementById('cierres-admin-tab');
-      if (tabCierresAdmin) {
-        const tab = new bootstrap.Tab(tabCierresAdmin);
-        tab.show();
-      }
-    } else {
-      alert('❌ Solo los administradores pueden ver los cierres administrativos');
+    const tabCierresAdmin = document.getElementById('cierres-admin-tab');
+    if (tabCierresAdmin) {
+      const tab = new bootstrap.Tab(tabCierresAdmin);
+      tab.show();
     }
   }
-  
-  // Limpiar acción pendiente
+
   accionPendiente = null;
 }
 
@@ -13772,6 +13842,9 @@ guardarNuevoCliente = function() {
         const clientes = JSON.parse(localStorage.getItem('clientes')) || [];
         clientes.push(cliente);
         localStorage.setItem('clientes', JSON.stringify(clientes));
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+          ToySoftFirebase.persistirDatosDebounced();
+        }
 
         // Actualizar select de clientes y seleccionar el nuevo
         cargarClientesCotizacion();

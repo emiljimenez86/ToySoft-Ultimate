@@ -1,4 +1,4 @@
-const CACHE_NAME = 'toysoft-pos-v8';
+const CACHE_NAME = 'toysoft-pos-v13';
 const urlsToCache = [
     './',
     './index.html',
@@ -6,11 +6,15 @@ const urlsToCache = [
     './admon.html',
     './cocina.html',
     './historial.html',
+    './inventario.html',
+    './recordatorios.html',
     './app.js',
     './admon.js',
     './firebase-init.js',
     './firebase-config.js',
     './gastos-modelo.js',
+    './inventario.js',
+    './cotizaciones.js',
     './seguridad.js',
     './install.js',
     './styles.css',

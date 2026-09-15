@@ -199,8 +199,8 @@
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=8"></script>
-  <script src="firebase-init.js?v=8"></script>
+  <script src="firebase-config.js?v=13"></script>
+  <script src="firebase-init.js?v=13"></script>
   <script>
     // VERSIÓN SÚPER SIMPLE - Solo lo esencial
     
@@ -247,7 +247,9 @@
 
     // Función para obtener cierres administrativos
     function obtenerCierresAdmin() {
-        const cierres = JSON.parse(localStorage.getItem('historialCierres')) || [];
+        const cierres = (window.ToySoftFirebase && typeof ToySoftFirebase.cierresDesdeLocal === 'function')
+            ? ToySoftFirebase.cierresDesdeLocal()
+            : (JSON.parse(localStorage.getItem('historialCierres')) || []);
         
         // Ordenar por fecha - más reciente primero
         return cierres.sort((a, b) => {
@@ -259,7 +261,9 @@
 
     // Función para obtener cierres operativos
     function obtenerCierresOperativo() {
-        const cierres = JSON.parse(localStorage.getItem('historialCierresOperativos')) || [];
+        const cierres = (window.ToySoftFirebase && typeof ToySoftFirebase.cierresOperativosDesdeLocal === 'function')
+            ? ToySoftFirebase.cierresOperativosDesdeLocal()
+            : (JSON.parse(localStorage.getItem('historialCierresOperativos')) || []);
         // Ordenar por fecha: más recientes arriba (descendente)
         return cierres.slice().sort((a, b) => {
             const fechaA = new Date(a.fecha);
@@ -884,12 +888,14 @@
     }
 
     // Función para reimprimir cierre administrativo
-    function reimprimirCierreAdmin(fechaCierre) {
-        // Solicitar PIN de administrador
-        const pin = prompt('Ingresa el PIN de administrador para acceder al cierre administrativo:');
-        
-        if (pin !== '7894') {
-            alert('PIN incorrecto. Solo los administradores pueden acceder a esta información.');
+    async function reimprimirCierreAdmin(fechaCierre) {
+        const pin = prompt('Ingresa el PIN de cierre administrativo para reimprimir:');
+        let ok = false;
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.pinCorrecto === 'function') {
+            ok = await ToySoftFirebase.pinCorrecto('cierre-administrativo', pin);
+        }
+        if (!ok) {
+            alert('PIN incorrecto. Usa el PIN de cierre administrativo.');
             return;
         }
         
@@ -1147,8 +1153,20 @@
                 const user = await ToySoftFirebase.esperarAuth();
                 if (user) {
                     await ToySoftFirebase.sincronizarVentas();
+                    await ToySoftFirebase.sincronizarFinanzas();
+                    if (typeof ToySoftFirebase.sincronizarRoles === 'function') {
+                        await ToySoftFirebase.sincronizarRoles();
+                    }
                     ToySoftFirebase.escucharVentas(function () {
                         mostrarVentas(obtenerVentas());
+                    });
+                    ToySoftFirebase.escucharFinanzas({
+                        cierres: function () {
+                            mostrarCierresAdmin(obtenerCierresAdmin());
+                        },
+                        cierresOperativos: function () {
+                            mostrarCierresOperativo(obtenerCierresOperativo());
+                        }
                     });
                 }
             } catch (error) {
@@ -1170,25 +1188,8 @@
 
     // Función para verificar el rol del usuario y mostrar/ocultar pestañas
     function verificarRolUsuario() {
-      // Obtener el tipo de usuario desde localStorage o window.usuarioActual
-      const rolUsuario = localStorage.getItem('usuarioActual') || window.usuarioActual;
-      console.log('🔍 Verificando rol:', rolUsuario);
-      
-      if (rolUsuario === 'admin') {
-        // Mostrar pestaña de cierres administrativos para administradores
-        const tabCierresAdmin = document.getElementById('tab-cierres-admin');
-        if (tabCierresAdmin) {
-          tabCierresAdmin.style.display = 'block';
-          console.log('✅ Mostrando pestaña de cierres administrativos para administrador');
-        }
-      } else {
-        // Ocultar pestaña de cierres administrativos para empleados
-        const tabCierresAdmin = document.getElementById('tab-cierres-admin');
-        if (tabCierresAdmin) {
-          tabCierresAdmin.style.display = 'none';
-          console.log('❌ Ocultando pestaña de cierres administrativos para empleado');
-        }
-      }
+      const tabCierresAdmin = document.getElementById('tab-cierres-admin');
+      if (tabCierresAdmin) tabCierresAdmin.style.display = 'block';
     }
 
     // Función para verificar rol con delay (para asegurar que window.usuarioActual esté disponible)

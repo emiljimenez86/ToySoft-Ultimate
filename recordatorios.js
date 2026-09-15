@@ -5,8 +5,15 @@ let recordatoriosFiltrados = [];
 let recordatorioEditando = null;
 
 // Inicialización cuando se carga la página
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('🚀 Inicializando sistema de recordatorios...');
+    if (typeof verificarAcceso === 'function') {
+        const ok = await verificarAcceso();
+        if (ok === false) return;
+    }
+    if (typeof cargarRestoDesdeNube === 'function') {
+        await cargarRestoDesdeNube();
+    }
     
     // Cargar recordatorios desde app.js
     if (typeof cargarRecordatorios === 'function') {

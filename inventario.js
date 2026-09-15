@@ -70,6 +70,10 @@ function cargarInventario() {
 function guardarInventario() {
     try {
         localStorage.setItem('inventario', JSON.stringify(inventario));
+        window._inventarioHash = JSON.stringify(inventario);
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirInventarioDebounced === 'function') {
+            ToySoftFirebase.persistirInventarioDebounced();
+        }
     } catch (error) {
         console.error('Error al guardar el inventario:', error);
         alert('Error al guardar el inventario');
@@ -760,7 +764,7 @@ function actualizarInventarioDesdeVenta(itemsVenta) {
             return { success: false, message: 'No hay inventario configurado' };
         }
         
-        let inventario = JSON.parse(inventarioGuardado);
+        inventario = JSON.parse(inventarioGuardado);
         const productosNoEncontrados = [];
         const productosActualizados = [];
         
@@ -886,8 +890,7 @@ function actualizarInventarioDesdeVenta(itemsVenta) {
             }
         });
         
-        // Guardar inventario actualizado
-        localStorage.setItem('inventario', JSON.stringify(inventario));
+        guardarInventario();
         
         // Mostrar notificaciones si es necesario
         if (productosNoEncontrados.length > 0) {
@@ -1036,12 +1039,12 @@ function sincronizarProductosPOS() {
             return;
         }
         
-        let inventario = JSON.parse(inventarioGuardado);
+        let inventarioLocal = JSON.parse(inventarioGuardado);
         const productosNuevos = [];
         
         // Verificar productos del POS que no están en inventario
         productosPOS.forEach(productoPOS => {
-            const existeEnInventario = inventario.some(p => 
+            const existeEnInventario = inventarioLocal.some(p => 
                 p.nombre.toLowerCase() === productoPOS.nombre.toLowerCase()
             );
             
@@ -1064,8 +1067,8 @@ function sincronizarProductosPOS() {
         
         // Agregar productos nuevos al inventario
         if (productosNuevos.length > 0) {
-            inventario.push(...productosNuevos);
-            localStorage.setItem('inventario', JSON.stringify(inventario));
+            inventario = inventarioLocal.concat(productosNuevos);
+            guardarInventario();
             console.log(`${productosNuevos.length} productos nuevos agregados al inventario`);
         }
         
@@ -2035,8 +2038,7 @@ function imprimirTirillaInventario() {
 }
 
 // Cargar inventario al iniciar (solo si estamos en la página de inventario)
-document.addEventListener('DOMContentLoaded', function() {
-    // Cargar datos en memoria siempre (para que estén disponibles en POS)
+document.addEventListener('DOMContentLoaded', async function() {
     const inventarioGuardado = localStorage.getItem('inventario');
     if (inventarioGuardado) {
         try {
@@ -2045,10 +2047,41 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error al parsear inventario:', error);
         }
     }
-    
-    // Solo inicializar la UI si estamos en la página de inventario
+
     const tablaInventario = document.getElementById('tablaInventario');
     if (tablaInventario) {
+        if (typeof verificarAcceso === 'function') {
+            const ok = await verificarAcceso();
+            if (ok === false) return;
+        }
+        await cargarInventarioDesdeNube();
         cargarInventario();
     }
-}); 
+});
+
+function aplicarInventarioEnMemoria(lista) {
+    const items = Array.isArray(lista) ? lista : [];
+    const hash = JSON.stringify(items);
+    if (hash === window._inventarioHash) return;
+    window._inventarioHash = hash;
+    inventario = items;
+    if (document.getElementById('tablaInventario')) {
+        if (typeof mostrarInventario === 'function') mostrarInventario();
+        if (typeof cargarCategorias === 'function') cargarCategorias();
+        if (typeof cargarProductosPOS === 'function') cargarProductosPOS();
+    }
+}
+
+async function cargarInventarioDesdeNube() {
+    if (!window.ToySoftFirebase) return;
+    try {
+        await ToySoftFirebase.init();
+        const user = await ToySoftFirebase.esperarAuth();
+        if (!user) return;
+        const lista = await ToySoftFirebase.sincronizarInventario();
+        aplicarInventarioEnMemoria(lista);
+        ToySoftFirebase.escucharInventario(aplicarInventarioEnMemoria);
+    } catch (error) {
+        console.warn('No se pudo cargar el inventario de Firebase', error);
+    }
+} 

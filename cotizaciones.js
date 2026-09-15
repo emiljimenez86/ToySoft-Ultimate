@@ -19,6 +19,9 @@ function cargarCotizaciones() {
 function guardarCotizaciones() {
   try {
     localStorage.setItem('cotizaciones', JSON.stringify(cotizaciones));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+      ToySoftFirebase.persistirDatosDebounced();
+    }
   } catch (error) {
     console.error('Error al guardar cotizaciones:', error);
   }

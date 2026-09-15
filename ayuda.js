@@ -429,7 +429,7 @@ const ayudaContextual = {
                             <li><strong>Datos del Negocio:</strong> Información empresarial</li>
                             <li><strong>Horarios:</strong> Configurar horarios de cierre</li>
                             <li><strong>Backup y Restauración:</strong> Exportar/Importar datos</li>
-                            <li><strong>Seguridad:</strong> Cambiar PIN de acceso</li>
+                            <li><strong>Seguridad:</strong> Cambiar el PIN de cada módulo (Inventario, Historial, Gastos, Cierre, Balance y esta pantalla)</li>
                         </ul>
                         
                         <h5 class="text-success">💾 Backup y Restauración</h5>

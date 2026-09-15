@@ -183,7 +183,10 @@ function importarDatos(event) {
 
                 // Guardar en localStorage y Firestore
                 persistirCatalogoLocal();
-                localStorage.setItem('clientes', JSON.stringify(window.clientes));
+                localStorage.setItem('clientes', JSON.stringify(window.clientes || []));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+        ToySoftFirebase.persistirDatosDebounced();
+    }
                 localStorage.setItem('ventas', JSON.stringify(window.ventas));
 
                 // Recargar la interfaz
@@ -227,7 +230,10 @@ function mostrarBackupsAutomaticos() {
             window.ventas = backup.ventas;
 
             persistirCatalogoLocal();
-            localStorage.setItem('clientes', JSON.stringify(window.clientes));
+            localStorage.setItem('clientes', JSON.stringify(window.clientes || []));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+        ToySoftFirebase.persistirDatosDebounced();
+    }
             localStorage.setItem('ventas', JSON.stringify(window.ventas));
 
             cargarCategorias();
@@ -244,16 +250,22 @@ function mostrarBackupsAutomaticos() {
 const PIN_ADMINISTRACION = '0011';
 
 // Función para verificar PIN de administración
-function verificarPinAdministracion() {
+async function verificarPinAdministracion() {
     const pinInput = document.getElementById('pinAdministracion');
     const pinError = document.getElementById('pinError');
     const pinIngresado = pinInput.value.trim();
     
-    // Limpiar mensaje de error anterior
     pinError.style.display = 'none';
     pinInput.classList.remove('is-invalid');
+
+    let correcto = false;
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.esPinAdministracion === 'function') {
+        correcto = await ToySoftFirebase.esPinAdministracion(pinIngresado);
+    } else {
+        correcto = pinIngresado === PIN_ADMINISTRACION;
+    }
     
-    if (pinIngresado === PIN_ADMINISTRACION) {
+    if (correcto) {
         // PIN correcto - NO guardar acceso, siempre pedirá PIN al entrar
         
         // Ocultar modal y mostrar contenido
@@ -344,6 +356,26 @@ async function inicializarAdministracion() {
           window.ventas = lista;
           if (typeof cargarVentas === 'function') cargarVentas();
         });
+        await ToySoftFirebase.sincronizarFinanzas();
+        ToySoftFirebase.escucharFinanzas({
+          gastos: function () {
+            if (typeof cargarGastos === 'function') cargarGastos();
+          }
+        });
+        const resto = await ToySoftFirebase.sincronizarResto();
+        if (resto && resto.datos) {
+          window.clientes = resto.datos.clientes;
+        }
+        ToySoftFirebase.escucharDatos(function (datos) {
+          window.clientes = datos.clientes;
+          if (typeof cargarClientes === 'function') cargarClientes();
+        });
+        ToySoftFirebase.escucharExtras(function () {
+          if (typeof cargarLogo === 'function') cargarLogo();
+          if (typeof cargarConfiguracionEmailJS === 'function') cargarConfiguracionEmailJS();
+        });
+        cargarConfigHorarioOperacion();
+        if (typeof cargarPinesEnFormulario === 'function') cargarPinesEnFormulario();
       }
     } catch (error) {
       console.warn('No se pudo cargar el catálogo de Firebase', error);
@@ -364,6 +396,7 @@ async function inicializarAdministracion() {
   
   await cargarDatosNegocio();
   cargarConfigHorarioOperacion();
+  if (typeof cargarPinesEnFormulario === 'function') cargarPinesEnFormulario();
   
   // Iniciar backup automático
   iniciarBackupAutomatico();
@@ -390,7 +423,58 @@ function guardarConfigHorarioOperacion() {
   }
   localStorage.setItem('operarDespuesMedianoche', activo ? 'true' : 'false');
   localStorage.setItem('horaFinDiaLaboral', String(hora));
+  if (typeof persistirConfigCajaNube === 'function') persistirConfigCajaNube();
   alert(activo ? 'Configuración guardada. El día laboral terminará a las ' + hora + ':00.' : 'Configuración guardada. El día cambiará a las 12:00 (medianoche).');
+}
+
+function cargarPinesEnFormulario() {
+  const cont = document.getElementById('listaPinesModulos');
+  if (!cont) return;
+  const mods = (window.ToySoftFirebase && typeof ToySoftFirebase.listarModulosPin === 'function')
+    ? ToySoftFirebase.listarModulosPin()
+    : [];
+  if (!mods.length) {
+    cont.innerHTML = '<p class="text-warning mb-0">No se pudieron cargar los módulos de PIN.</p>';
+    return;
+  }
+  cont.innerHTML = mods.map(function (m) {
+    return '<div class="row g-2 align-items-end mb-3">' +
+      '<div class="col-12 col-md-6">' +
+        '<label class="form-label mb-1" for="pinModulo-' + m.id + '">' + m.etiqueta + '</label>' +
+        '<input type="password" id="pinModulo-' + m.id + '" class="form-control" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="Nuevo PIN (4 dígitos)">' +
+      '</div>' +
+      '<div class="col-12 col-md-3">' +
+        '<button type="button" class="btn btn-warning w-100" onclick="guardarPinModulo(\'' + m.id + '\')">' +
+          '<i class="fas fa-save me-1"></i>Guardar' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function pinValidoCuatroDigitos(valor) {
+  return /^\d{4}$/.test(String(valor || '').trim());
+}
+
+async function guardarPinModulo(moduloId) {
+  const input = document.getElementById('pinModulo-' + moduloId);
+  const pin = input ? String(input.value || '').trim() : '';
+  if (!pinValidoCuatroDigitos(pin)) {
+    alert('El PIN debe tener 4 dígitos.');
+    return;
+  }
+  if (!window.ToySoftFirebase || typeof ToySoftFirebase.persistirPinModulo !== 'function') {
+    alert('No hay conexión con Firebase para guardar el PIN.');
+    return;
+  }
+  try {
+    await ToySoftFirebase.persistirPinModulo(moduloId, pin);
+    if (input) input.value = '';
+    alert('PIN actualizado. Ya vale en este y en los demás dispositivos al recargar.');
+  } catch (error) {
+    console.error(error);
+    alert('No se pudo guardar el PIN: ' + (error.message || error));
+  }
 }
 
 // Funciones para configuración de Pantalla de Cocina
@@ -542,6 +626,13 @@ function abrirPantallaCocina() {
 document.addEventListener('DOMContentLoaded', async function() {
     const ok = await verificarAcceso();
     if (ok === false) return;
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.sincronizarRoles === 'function') {
+        try {
+            await ToySoftFirebase.sincronizarRoles();
+        } catch (error) {
+            console.warn('No se pudieron sincronizar los PIN', error);
+        }
+    }
     verificarAccesoAdministracion();
     
     // Cargar configuraciones
@@ -819,7 +910,10 @@ function agregarCliente() {
     };
 
     window.clientes.push(nuevoCliente);
-    localStorage.setItem('clientes', JSON.stringify(window.clientes));
+    localStorage.setItem('clientes', JSON.stringify(window.clientes || []));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+        ToySoftFirebase.persistirDatosDebounced();
+    }
     cargarClientes();
 
     // Limpiar campos
@@ -941,7 +1035,10 @@ function eliminarCliente() {
 
     if (confirmacion) {
         window.clientes = window.clientes.filter(c => !clientesAEliminar.includes(c.id));
-        localStorage.setItem('clientes', JSON.stringify(window.clientes));
+        localStorage.setItem('clientes', JSON.stringify(window.clientes || []));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+        ToySoftFirebase.persistirDatosDebounced();
+    }
         cargarClientes();
     }
 }
@@ -981,7 +1078,10 @@ function modificarCliente(id) {
     cliente.direccion = nuevaDireccion;
     cliente.correo = nuevoCorreo;
 
-    localStorage.setItem('clientes', JSON.stringify(window.clientes));
+    localStorage.setItem('clientes', JSON.stringify(window.clientes || []));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirDatosDebounced === 'function') {
+        ToySoftFirebase.persistirDatosDebounced();
+    }
     cargarClientes();
 }
 
@@ -1415,6 +1515,7 @@ function guardarCierreDiario() {
 
         // Crear objeto de cierre
         const cierreDiario = {
+            id: Date.now(),
             fecha: hoy.toISOString(),
             nombreCierre,
             nombreRecibe,
@@ -1436,6 +1537,7 @@ function guardarCierreDiario() {
         const historialCierres = JSON.parse(localStorage.getItem('historialCierres')) || [];
         historialCierres.push(cierreDiario);
         localStorage.setItem('historialCierres', JSON.stringify(historialCierres));
+        if (typeof guardarCierreEnNube === 'function') guardarCierreEnNube(cierreDiario);
 
         // Mostrar confirmación
         const confirmacion = confirm(
@@ -1457,6 +1559,7 @@ function guardarCierreDiario() {
             
             // Registrar hora de cierre para futuras consultas
             localStorage.setItem('ultimaHoraCierre', new Date().toISOString());
+            if (typeof persistirConfigCajaNube === 'function') persistirConfigCajaNube();
 
             // Reiniciar contadores (clave correcta: contadorDomicilios, no contadorDelivery)
             localStorage.setItem('contadorDomicilios', '0');
@@ -1801,6 +1904,11 @@ function guardarLogo() {
 
   // Guardar el logo en localStorage
   localStorage.setItem('logoNegocio', logoActual.src);
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirExtras === 'function') {
+    ToySoftFirebase.persistirExtras().catch(function (error) {
+      console.warn('Logo no se guardó en la nube', error);
+    });
+  }
   
   // Asegurar que el logo se muestre correctamente
   logoActual.style.display = 'block';
@@ -1812,6 +1920,11 @@ function guardarLogo() {
 function eliminarLogo() {
   if (confirm('¿Está seguro de eliminar el logo?')) {
     localStorage.removeItem('logoNegocio');
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirExtras === 'function') {
+      ToySoftFirebase.persistirExtras().catch(function (error) {
+        console.warn('Logo no se eliminó en la nube', error);
+      });
+    }
     const logoActual = document.getElementById('logoActual');
     const noLogo = document.getElementById('noLogo');
     
@@ -2009,6 +2122,11 @@ function guardarConfiguracionEmailJS() {
         };
 
         localStorage.setItem('configuracionEmailJS', JSON.stringify(configuracion));
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirExtras === 'function') {
+            ToySoftFirebase.persistirExtras().catch(function (error) {
+                console.warn('Configuración de email no se guardó en la nube', error);
+            });
+        }
         alert('✅ Configuración de EmailJS guardada correctamente');
         
         actualizarEstadoEmailJS('✅ Configuración guardada', 'success');

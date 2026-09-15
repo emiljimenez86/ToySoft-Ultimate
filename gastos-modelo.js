@@ -79,6 +79,9 @@ function montoGastoAfectaBalance(gasto) {
 }
 
 function obtenerGastosCombinados() {
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.gastosDesdeLocal === 'function') {
+        return ToySoftFirebase.gastosDesdeLocal();
+    }
     const historial = JSON.parse(localStorage.getItem('historialGastos') || '[]') || [];
     const operativos = JSON.parse(localStorage.getItem('gastos') || '[]') || [];
     const todos = Array.isArray(historial) ? [...historial] : [];
@@ -105,6 +108,11 @@ function guardarGastoEnStorage(gastoActualizado) {
 
     localStorage.setItem('gastos', JSON.stringify(listaGastos));
     localStorage.setItem('historialGastos', JSON.stringify(historialGastos));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.guardarGasto === 'function') {
+        ToySoftFirebase.guardarGasto(gastoActualizado).catch(function (error) {
+            console.warn('Gasto no se guardó en la nube', error);
+        });
+    }
     return listaGastos;
 }
 
@@ -115,6 +123,11 @@ function eliminarGastoDeStorage(id) {
     historialGastos = historialGastos.filter(g => String(g.id) !== String(id));
     localStorage.setItem('gastos', JSON.stringify(listaGastos));
     localStorage.setItem('historialGastos', JSON.stringify(historialGastos));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.eliminarGastoNube === 'function') {
+        ToySoftFirebase.eliminarGastoNube(id).catch(function (error) {
+            console.warn('Gasto no se eliminó en la nube', error);
+        });
+    }
     return listaGastos;
 }
 
@@ -232,4 +245,28 @@ function descripcionGastoParaCierre(gasto) {
         } catch (e) { /* ignore */ }
     }
     return `${desc}${proveedor} · ${etiqueta}`;
+}
+
+function persistirConfigCajaNube() {
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirConfigCaja === 'function') {
+        ToySoftFirebase.persistirConfigCaja().catch(function (error) {
+            console.warn('Config de caja no se guardó en la nube', error);
+        });
+    }
+}
+
+function guardarCierreEnNube(cierre) {
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.guardarCierre === 'function') {
+        ToySoftFirebase.guardarCierre(cierre).catch(function (error) {
+            console.warn('Cierre no se guardó en la nube', error);
+        });
+    }
+}
+
+function guardarCierreOperativoEnNube(cierre) {
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.guardarCierreOperativo === 'function') {
+        ToySoftFirebase.guardarCierreOperativo(cierre).catch(function (error) {
+            console.warn('Cierre operativo no se guardó en la nube', error);
+        });
+    }
 }
