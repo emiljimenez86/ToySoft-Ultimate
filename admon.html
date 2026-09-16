@@ -28,7 +28,6 @@
     <meta name="theme-color" content="#1a1a1a">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 </head>
 <body>
     <!-- Modal de PIN para Administración -->
@@ -66,6 +65,29 @@
                         <div class="d-grid">
                             <button type="submit" class="btn btn-info btn-lg">
                                 <i class="fas fa-unlock me-2"></i>Ingresar
+                            </button>
+                        </div>
+                        <div class="text-center mt-3">
+                            <button type="button" class="btn btn-link btn-sm text-info p-0" onclick="mostrarRecuperarPinAdministracion()">
+                                Olvidé el PIN
+                            </button>
+                        </div>
+                    </form>
+                    <form id="formRecuperarPinAdministracion" style="display: none;" onsubmit="event.preventDefault(); restablecerPinAdministracionDesdeCuenta();">
+                        <p class="small text-white-50 mb-2">Confirma la contraseña de la cuenta para volver el PIN de Administración a <strong class="text-white">0011</strong>.</p>
+                        <p class="small text-info mb-3" id="correoRecuperarPin"></p>
+                        <div class="mb-3">
+                            <label for="claveRecuperarPin" class="form-label">Contraseña de la cuenta</label>
+                            <input type="password" class="form-control bg-dark text-white border-light" id="claveRecuperarPin" autocomplete="current-password" required>
+                            <div class="invalid-feedback" id="recuperarPinError" style="display: none;"></div>
+                        </div>
+                        <div id="recuperarPinOk" class="alert alert-success py-2 px-3 small" style="display: none;"></div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-info" id="btnRestablecerPin">
+                                <i class="fas fa-key me-2"></i>Restablecer PIN a 0011
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="mostrarFormularioPinAdministracion()">
+                                Volver al PIN
                             </button>
                         </div>
                     </form>
@@ -114,16 +136,6 @@
                         <i class="fas fa-save me-1"></i>Guardar configuración
                     </button>
                 </div>
-            </div>
-        </div>
-
-        <div class="card bg-dark text-white mb-4">
-            <div class="card-header">
-                <h2 class="mb-0 fs-3 fs-md-2"><i class="fas fa-key me-2"></i>PIN por módulo</h2>
-            </div>
-            <div class="card-body">
-                <p class="text-muted small mb-3">Cada área tiene su propio PIN, independiente de las demás. Cámbialo cuando quieras: se guarda cifrado en la nube para este negocio y aplica en todos los dispositivos. Hasta que los cambies, los de fábrica son 0011 (esta pantalla), 1234 (Inventario, Historial y Gastos) y 7894 (Cierre administrativo y Balance).</p>
-                <div id="listaPinesModulos"></div>
             </div>
         </div>
 
@@ -463,7 +475,7 @@
                 <h2 class="mb-0 fs-3 fs-md-2"><i class="fas fa-tv me-2"></i>Pantalla de Cocina</h2>
             </div>
             <div class="card-body">
-                <p class="text-muted small mb-3">Configura la pantalla de cocina que se mostrará en el televisor. Los pedidos se mostrarán automáticamente cuando se envíen a cocina.</p>
+                <p class="text-muted small mb-3">Por defecto está desactivada. Actívala solo si vas a usar una pantalla de cocina. Los pedidos se mostrarán ahí cuando se envíen a cocina.</p>
                 
                 <div class="form-check form-switch mb-3">
                     <input class="form-check-input" type="checkbox" id="pantallaCocinaActivada">
@@ -498,106 +510,73 @@
             </div>
         </div>
 
-        <!-- Configuración de EmailJS -->
+        <div class="card bg-dark text-white mb-4">
+            <div class="card-header">
+                <h2 class="mb-0 fs-3 fs-md-2"><i class="fas fa-th-large me-2"></i>Botones del POS</h2>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">Por defecto se muestran en el POS. Desactívalos si el cliente no los va a usar.</p>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="posMostrarGastos" checked>
+                    <label class="form-check-label" for="posMostrarGastos">Gastos Diarios</label>
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="posMostrarInventario" checked>
+                    <label class="form-check-label" for="posMostrarInventario">Inventario</label>
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="posMostrarCierreAdmin" checked>
+                    <label class="form-check-label" for="posMostrarCierreAdmin">Cierre Administrativo</label>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="posMostrarBalance" checked>
+                    <label class="form-check-label" for="posMostrarBalance">Balance</label>
+                </div>
+                <button type="button" class="btn btn-info" onclick="guardarConfigBotonesPOS()">
+                    <i class="fas fa-save me-1"></i>Guardar botones del POS
+                </button>
+            </div>
+        </div>
+
         <div class="mt-5 mb-4">
             <div class="card bg-dark text-white">
                 <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-envelope me-2"></i>Configuración de Envío de Cierres por Email
-                    </h5>
+                    <h2 class="mb-0 fs-3 fs-md-2"><i class="fas fa-users me-2"></i>Equipo del negocio</h2>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>Configuración EmailJS:</strong> Configura el email donde recibirás automáticamente los cierres operativos y administrativos.
-                    </div>
-                    
-                    <form id="formEmailJS">
-                        <div class="mb-3">
-                            <label for="emailDestino" class="form-label">
-                                <i class="fas fa-at me-1"></i>Email de Destino
-                            </label>
-                            <input type="email" class="form-control bg-dark text-white border-light" 
-                                   id="emailDestino" placeholder="ejemplo@correo.com" required>
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Email donde recibirás los cierres automáticamente
-                            </small>
+                    <p class="text-muted small mb-3">Crea aquí las cuentas de mesero. Ellos entran en <strong class="text-warning">ultimate.toysoft.co/mesero</strong> con el correo y la contraseña que les asignes. El nombre sale en el ticket de cocina.</p>
+                    <form class="row g-2 align-items-end mb-4" onsubmit="event.preventDefault(); crearMeseroDesdeAdmin();">
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1" for="nombreMeseroNuevo">Nombre</label>
+                            <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="nombreMeseroNuevo" placeholder="Nombre" required>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="nombreDestinatario" class="form-label">
-                                <i class="fas fa-user me-1"></i>Nombre del Destinatario
-                            </label>
-                            <input type="text" class="form-control bg-dark text-white border-light" 
-                                   id="nombreDestinatario" placeholder="Nombre completo">
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Nombre que aparecerá en el saludo del email
-                            </small>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1" for="correoMeseroNuevo">Correo</label>
+                            <input type="email" class="form-control form-control-sm bg-dark text-white border-secondary" id="correoMeseroNuevo" placeholder="Correo" required>
                         </div>
-
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="enviarCierresOperativos" checked>
-                                <label class="form-check-label" for="enviarCierresOperativos">
-                                    <i class="fas fa-user-clock me-1"></i>Enviar Cierres Operativos
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="enviarCierresAdministrativos" checked>
-                                <label class="form-check-label" for="enviarCierresAdministrativos">
-                                    <i class="fas fa-calculator me-1"></i>Enviar Cierres Administrativos
-                                </label>
-                            </div>
+                        <div class="col-md-3">
+                            <label class="form-label small mb-1" for="claveMeseroNuevo">Contraseña</label>
+                            <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="claveMeseroNuevo" placeholder="Mínimo 6 caracteres" minlength="6" required>
                         </div>
-
-                        <div class="mb-3">
-                            <label for="asuntoPersonalizado" class="form-label">
-                                <i class="fas fa-tag me-1"></i>Asunto Personalizado (Opcional)
-                            </label>
-                            <input type="text" class="form-control bg-dark text-white border-light" 
-                                   id="asuntoPersonalizado" placeholder="Cierre de Caja - {fecha}">
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Usa {fecha} para incluir la fecha automáticamente
-                            </small>
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-success" onclick="guardarConfiguracionEmailJS()">
-                                <i class="fas fa-save me-1"></i>Guardar Configuración
-                            </button>
-                            <button type="button" class="btn btn-info" onclick="probarEnvioEmail()">
-                                <i class="fas fa-paper-plane me-1"></i>Probar Envío
-                            </button>
+                        <div class="col-12 col-md-auto">
+                            <button type="submit" class="btn btn-info btn-sm w-100" id="btnCrearMesero">Agregar</button>
                         </div>
                     </form>
+                    <span id="codigoEquipoVisible" class="d-none">--------</span>
+                    <p class="small text-white-50 mb-2">Equipo de este negocio</p>
+                    <ul id="listaUsuariosEquipo" class="list-unstyled small mb-0"></ul>
+                </div>
+            </div>
+        </div>
 
-                    <hr class="my-4">
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6><i class="fas fa-history me-1"></i>Historial de Emails Enviados</h6>
-                            <div id="historialEmails" class="bg-secondary p-3 rounded" style="max-height: 200px; overflow-y: auto;">
-                                <small class="text-muted">No hay emails enviados aún</small>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <h6><i class="fas fa-cog me-1"></i>Estado de EmailJS</h6>
-                            <div id="estadoEmailJS" class="bg-secondary p-3 rounded">
-                                <div class="d-flex align-items-center">
-                                    <span id="estadoIcono" class="me-2">⏳</span>
-                                    <span id="estadoTexto">Verificando configuración...</span>
-                                </div>
-                            </div>
-                            <div class="mt-2">
-                                <button class="btn btn-sm btn-outline-warning" onclick="limpiarHistorialEmails()">
-                                    <i class="fas fa-trash me-1"></i>Limpiar Historial
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+        <div class="mt-5 mb-4">
+            <div class="card bg-dark text-white">
+                <div class="card-header">
+                    <h2 class="mb-0 fs-3 fs-md-2"><i class="fas fa-key me-2"></i>PIN por módulo</h2>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Cada área tiene su propio PIN, independiente de las demás. Cámbialo cuando quieras: se guarda cifrado en la nube para este negocio y aplica en todos los dispositivos. Hasta que los cambies, los de fábrica son 0011 (esta pantalla) y 0000 (Inventario, Historial, Gastos, Cierre administrativo y Balance).</p>
+                    <div id="listaPinesModulos"></div>
                 </div>
             </div>
         </div>
@@ -952,11 +931,11 @@
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
-    <script src="firebase-config.js?v=13"></script>
-    <script src="firebase-init.js?v=13"></script>
-    <script src="seguridad.js?v=13"></script>
+    <script src="firebase-config.js?v=25"></script>
+    <script src="firebase-init.js?v=25"></script>
+    <script src="seguridad.js?v=25"></script>
     <script src="ayuda.js"></script>
     <script src="gastos-modelo.js"></script>
-    <script src="admon.js?v=13"></script>
+    <script src="admon.js?v=25"></script>
 </body>
 </html> 

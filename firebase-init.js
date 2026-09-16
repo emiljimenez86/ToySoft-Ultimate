@@ -16,7 +16,19 @@
   let usuarioAuth = null;
   let negocioIdActual = null;
   let usuarioDoc = null;
+  let codigoEquipoPendiente = '';
+  let nombreMeseroPendiente = '';
   const esperandoAuth = [];
+  const STORAGE_NEGOCIO_ID = 'toysoftNegocioId';
+  const ALFABETO_CODIGO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const CLAVES_CACHE_NEGOCIO = [
+    'datosNegocio', 'nombreNegocio', 'categorias', 'productos', 'mesasActivas',
+    'ordenesCocina', 'historialCocina', 'pedidosCocinaListos', 'contadorDomicilios',
+    'contadorRecoger', 'ultimaFechaContadores', 'nombresDomiciliarios',
+    'historialVentas', 'ventas', 'facturasPendientes', 'historialGastos', 'gastos',
+    'historialCierres', 'historialCierresOperativos', 'inventario', 'clientes',
+    'recordatorios', 'recordatoriosActivos', 'cotizaciones', 'logoNegocio'
+  ];
 
   function configValida(cfg) {
     return !!(cfg && cfg.apiKey && cfg.projectId && cfg.appId);
@@ -90,16 +102,296 @@
     if (limpio.nombre) localStorage.setItem('nombreNegocio', limpio.nombre);
   }
 
-  async function asegurarNegocio() {
+  function getRol() {
+    if (!usuarioDoc) return '';
+    return usuarioDoc.rol || 'admin';
+  }
+
+  function cuentaActiva() {
+    if (!usuarioDoc) return false;
+    return usuarioDoc.activo !== false;
+  }
+
+  function esAdminNegocio() {
+    return cuentaActiva() && getRol() === 'admin';
+  }
+
+  function esMesero() {
+    return cuentaActiva() && getRol() === 'mesero';
+  }
+
+  function nombreMeseroActual() {
+    const u = usuarioDoc || {};
+    return String(u.nombre || '').trim();
+  }
+
+  async function guardarNombreUsuario(nombre) {
+    const user = auth().currentUser;
+    if (!user) throw new Error('No hay sesión');
+    const limpio = String(nombre || '').trim();
+    if (!limpio) throw new Error('Escribe el nombre del mesero.');
+    await db().collection('usuarios').doc(user.uid).set({ nombre: limpio }, { merge: true });
+    if (!usuarioDoc) usuarioDoc = {};
+    usuarioDoc.nombre = limpio;
+    try {
+      await user.updateProfile({ displayName: limpio });
+    } catch (e) {}
+    return limpio;
+  }
+
+  function normalizarCodigoEquipo(valor) {
+    return String(valor || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  }
+
+  function marcarCodigoPendiente(valor) {
+    codigoEquipoPendiente = normalizarCodigoEquipo(valor);
+    return codigoEquipoPendiente;
+  }
+
+  function generarCodigoEquipo() {
+    let codigo = '';
+    for (let i = 0; i < 8; i++) {
+      codigo += ALFABETO_CODIGO.charAt(Math.floor(Math.random() * ALFABETO_CODIGO.length));
+    }
+    return codigo;
+  }
+
+  function refCodigoEquipo(codigo) {
+    return db().collection('codigosEquipo').doc(codigo);
+  }
+
+  function aislarCacheSiCambioNegocio(negocioId) {
+    if (!negocioId) return;
+    const anterior = localStorage.getItem(STORAGE_NEGOCIO_ID) || '';
+    if (anterior && anterior !== negocioId) {
+      CLAVES_CACHE_NEGOCIO.forEach(function (clave) {
+        localStorage.removeItem(clave);
+      });
+    }
+    localStorage.setItem(STORAGE_NEGOCIO_ID, negocioId);
+  }
+
+  async function buscarNegocioPorCodigo(codigo) {
+    const limpio = normalizarCodigoEquipo(codigo);
+    if (limpio.length < 6) throw new Error('El código de equipo no es válido.');
+    const snap = await refCodigoEquipo(limpio).get();
+    if (!snap.exists) throw new Error('Ese código no existe. Pídelo de nuevo en Administración.');
+    const negocioId = snap.data().negocioId;
+    if (!negocioId) throw new Error('Ese código ya no está activo.');
+    return { codigo: limpio, negocioId: negocioId };
+  }
+
+  async function unirseANegocioConCodigo(user, codigo) {
+    const hallado = await buscarNegocioPorCodigo(codigo);
+    const nombre = String((nombreMeseroPendiente || user.displayName || '')).trim();
+    const userRef = db().collection('usuarios').doc(user.uid);
+    usuarioDoc = {
+      email: user.email || '',
+      rol: 'mesero',
+      negocioId: hallado.negocioId,
+      nombre: nombre,
+      codigoUsado: hallado.codigo,
+      creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    await userRef.set(usuarioDoc);
+    negocioIdActual = hallado.negocioId;
+    if (nombre) {
+      try { await user.updateProfile({ displayName: nombre }); } catch (e) {}
+    }
+    return usuarioDoc;
+  }
+
+  async function asegurarCodigoEquipo() {
+    if (!negocioIdActual) await asegurarNegocio();
+    if (!negocioIdActual) throw new Error('No hay negocio asociado a esta cuenta');
+    const negRef = db().collection('negocios').doc(negocioIdActual);
+    const negSnap = await negRef.get();
+    const actual = negSnap.exists ? normalizarCodigoEquipo(negSnap.data().codigoEquipo) : '';
+    if (actual) {
+      const lookup = await refCodigoEquipo(actual).get();
+      if (lookup.exists && lookup.data().negocioId === negocioIdActual) return actual;
+    }
+    let codigo = '';
+    for (let i = 0; i < 8; i++) {
+      codigo = generarCodigoEquipo();
+      const existe = await refCodigoEquipo(codigo).get();
+      if (!existe.exists) break;
+    }
+    await refCodigoEquipo(codigo).set({
+      negocioId: negocioIdActual,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await negRef.set({ codigoEquipo: codigo }, { merge: true });
+    return codigo;
+  }
+
+  async function obtenerCodigoEquipo() {
+    return asegurarCodigoEquipo();
+  }
+
+  async function regenerarCodigoEquipo() {
+    if (!esAdminNegocio()) throw new Error('Solo el dueño puede cambiar el código de equipo.');
+    if (!negocioIdActual) await asegurarNegocio();
+    const negRef = db().collection('negocios').doc(negocioIdActual);
+    const negSnap = await negRef.get();
+    const anterior = negSnap.exists ? normalizarCodigoEquipo(negSnap.data().codigoEquipo) : '';
+    let codigo = '';
+    for (let i = 0; i < 8; i++) {
+      codigo = generarCodigoEquipo();
+      if (codigo === anterior) continue;
+      const existe = await refCodigoEquipo(codigo).get();
+      if (!existe.exists) break;
+    }
+    const batch = db().batch();
+    if (anterior) batch.delete(refCodigoEquipo(anterior));
+    batch.set(refCodigoEquipo(codigo), {
+      negocioId: negocioIdActual,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    batch.set(negRef, { codigoEquipo: codigo }, { merge: true });
+    await batch.commit();
+    return codigo;
+  }
+
+  async function listarUsuariosNegocio(incluirInactivos) {
+    if (!negocioIdActual) await asegurarNegocio();
+    if (!negocioIdActual) return [];
+    const snap = await db().collection('usuarios').where('negocioId', '==', negocioIdActual).get();
+    return snap.docs.map(function (doc) {
+      const data = doc.data() || {};
+      return {
+        uid: doc.id,
+        email: data.email || '',
+        rol: data.rol || 'admin',
+        nombre: data.nombre || '',
+        activo: data.activo !== false
+      };
+    }).filter(function (u) {
+      return incluirInactivos || u.activo;
+    });
+  }
+
+  function authSecundaria() {
+    const cfg = obtenerConfig();
+    const nombreApp = 'toysoftAltaMesero';
+    let appSec;
+    try {
+      appSec = firebase.app(nombreApp);
+    } catch (e) {
+      appSec = firebase.initializeApp(cfg, nombreApp);
+    }
+    return appSec.auth();
+  }
+
+  async function crearCuentaMesero(nombre, email, password) {
+    if (!esAdminNegocio()) throw new Error('Solo el administrador puede crear meseros.');
+    if (!negocioIdActual) await asegurarNegocio();
+    const nombreLimpio = String(nombre || '').trim();
+    const correo = String(email || '').trim().toLowerCase();
+    const clave = String(password || '');
+    if (!nombreLimpio) throw new Error('Escribe el nombre del mesero.');
+    if (!correo) throw new Error('Escribe el correo del mesero.');
+    if (clave.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+
+    const actuales = await listarUsuariosNegocio(true);
+    const mismo = actuales.filter(function (u) {
+      return String(u.email || '').toLowerCase() === correo;
+    })[0];
+    if (mismo && mismo.rol === 'admin') {
+      throw new Error('Ese correo es del administrador.');
+    }
+    if (mismo && mismo.activo) {
+      throw new Error('Ese mesero ya está en el equipo.');
+    }
+
+    const authSec = authSecundaria();
+    let uid = mismo ? mismo.uid : '';
+    try {
+      try {
+        const cred = await authSec.createUserWithEmailAndPassword(correo, clave);
+        uid = cred.user.uid;
+        try { await cred.user.updateProfile({ displayName: nombreLimpio }); } catch (e) {}
+      } catch (error) {
+        if (!error || error.code !== 'auth/email-already-in-use') throw error;
+        try {
+          const cred = await authSec.signInWithEmailAndPassword(correo, clave);
+          uid = cred.user.uid;
+          try { await cred.user.updateProfile({ displayName: nombreLimpio }); } catch (e) {}
+        } catch (e2) {
+          throw new Error('Ese correo ya tiene una cuenta. Usa otro correo o la contraseña anterior.');
+        }
+      }
+    } finally {
+      try { await authSec.signOut(); } catch (e) {}
+    }
+
+    if (!uid) throw new Error('No se pudo crear la cuenta del mesero.');
+
+    try {
+      await db().collection('usuarios').doc(uid).set({
+        email: correo,
+        rol: 'mesero',
+        negocioId: negocioIdActual,
+        nombre: nombreLimpio,
+        activo: true,
+        creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      if (error && /permission/i.test(String(error.message || ''))) {
+        throw new Error('Ese correo ya pertenece a otra cuenta. Usa uno distinto.');
+      }
+      throw error;
+    }
+    return { uid: uid, email: correo, nombre: nombreLimpio, rol: 'mesero' };
+  }
+
+  async function eliminarMesero(uid) {
+    if (!esAdminNegocio()) throw new Error('Solo el administrador puede eliminar meseros.');
+    const id = String(uid || '').trim();
+    if (!id) throw new Error('Falta el mesero a eliminar.');
+    if (auth().currentUser && auth().currentUser.uid === id) {
+      throw new Error('No puedes eliminar tu propia cuenta.');
+    }
+    const ref = db().collection('usuarios').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+    if (data.negocioId !== negocioIdActual) throw new Error('Ese usuario no es de este negocio.');
+    if (data.rol !== 'mesero') throw new Error('Solo se pueden eliminar meseros.');
+    await ref.set({
+      activo: false,
+      eliminadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  }
+
+  async function asegurarNegocio(opciones) {
     const user = auth().currentUser;
     if (!user) return null;
+    const soloUnirse = !!(opciones && opciones.soloUnirse);
 
     const userRef = db().collection('usuarios').doc(user.uid);
     const userSnap = await userRef.get();
 
     if (userSnap.exists) {
       usuarioDoc = userSnap.data();
+      if (usuarioDoc.activo === false) {
+        usuarioDoc = null;
+        negocioIdActual = null;
+        localStorage.removeItem('sesionActiva');
+        try { await auth().signOut(); } catch (e) {}
+        throw new Error('Esta cuenta fue eliminada por el administrador.');
+      }
       negocioIdActual = usuarioDoc.negocioId;
+      if (esAdminNegocio()) {
+        asegurarCodigoEquipo().catch(function (e) {
+          console.warn('No se pudo asegurar el código de equipo', e);
+        });
+      }
+    } else if (codigoEquipoPendiente) {
+      await unirseANegocioConCodigo(user, codigoEquipoPendiente);
+      codigoEquipoPendiente = '';
+    } else if (soloUnirse) {
+      throw new Error('Esta cuenta no está en el equipo. Pide al administrador que te cree en Administración.');
     } else {
       const local = JSON.parse(localStorage.getItem('datosNegocio') || '{}') || {};
       const negocioRef = db().collection('negocios').doc();
@@ -124,7 +416,14 @@
       batch.set(userRef, usuarioDoc);
       batch.set(negocioRef, negocio);
       await batch.commit();
+      try {
+        await asegurarCodigoEquipo();
+      } catch (e) {
+        console.warn('No se pudo crear el código de equipo', e);
+      }
     }
+
+    aislarCacheSiCambioNegocio(negocioIdActual);
 
     if (negocioIdActual) {
       const negSnap = await db().collection('negocios').doc(negocioIdActual).get();
@@ -169,15 +468,17 @@
     const mapa = {
       'auth/invalid-email': 'El correo no es válido.',
       'auth/user-disabled': 'Esta cuenta está deshabilitada.',
-      'auth/user-not-found': 'Esa cuenta no existe. Créala en Authentication de Firebase.',
+      'auth/user-not-found': 'Esa cuenta no existe. Pide al administrador que te cree en Administración.',
       'auth/wrong-password': 'Contraseña incorrecta.',
-      'auth/invalid-credential': 'Correo o contraseña incorrectos. Las cuentas se crean en Firebase Authentication.',
+      'auth/invalid-credential': 'Correo o contraseña incorrectos.',
       'auth/email-already-in-use': 'Ese correo ya tiene una cuenta. Inicia sesión.',
       'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
       'auth/network-request-failed': 'Sin conexión. Revisa internet e inténtalo de nuevo.',
       'auth/too-many-requests': 'Demasiados intentos. Espera un momento.',
       'auth/operation-not-allowed': 'Activa Email/Password en Authentication de Firebase.',
-      'auth/invalid-api-key': 'La apiKey de Firebase no es válida. Revisa la configuración.'
+      'auth/invalid-api-key': 'La apiKey de Firebase no es válida. Revisa la configuración.',
+      'auth/requires-recent-login': 'Por seguridad, confirma la contraseña de la cuenta.',
+      'auth/missing-password': 'Escribe la contraseña de la cuenta.'
     };
     if (mapa[code]) return mapa[code];
     if (error && error.message && /permission/i.test(error.message)) {
@@ -272,6 +573,7 @@
       return nube;
     }
     if (local.categorias.length || local.productos.length) {
+      if (esMesero()) return local;
       await guardarCatalogo(local);
       return local;
     }
@@ -331,8 +633,41 @@
     }).filter(function (par) { return par && par[1] !== undefined; });
   }
 
+  const FLAGS_BOTONES_POS = ['posMostrarGastos', 'posMostrarInventario', 'posMostrarCierreAdmin', 'posMostrarBalance'];
+  const POS_BOTONES_DEFAULTS_VERSION = 2;
+
+  function versionBotonesPOS(datos) {
+    if (arguments.length > 0) {
+      return Number((datos && datos.posBotonesDefaultsVersion) || 0);
+    }
+    return parseInt(localStorage.getItem('posBotonesDefaultsVersion') || '0', 10) || 0;
+  }
+
+  function flagsBotonesPOSDesdeStorage() {
+    const version = versionBotonesPOS();
+    const out = { posBotonesDefaultsVersion: POS_BOTONES_DEFAULTS_VERSION };
+    FLAGS_BOTONES_POS.forEach(function (clave) {
+      out[clave] = version < POS_BOTONES_DEFAULTS_VERSION
+        ? true
+        : localStorage.getItem(clave) !== 'false';
+    });
+    return out;
+  }
+
+  function flagsBotonesPOSDesdeDatos(datos) {
+    const origen = datos || {};
+    const version = versionBotonesPOS(origen);
+    const out = { posBotonesDefaultsVersion: POS_BOTONES_DEFAULTS_VERSION };
+    FLAGS_BOTONES_POS.forEach(function (clave) {
+      out[clave] = version < POS_BOTONES_DEFAULTS_VERSION
+        ? true
+        : origen[clave] !== false;
+    });
+    return out;
+  }
+
   function snapshotOperacionLocal() {
-    return {
+    return Object.assign({
       mesasActivas: parseJsonLocal('mesasActivas', []),
       ordenesCocina: parseJsonLocal('ordenesCocina', []),
       historialCocina: parseJsonLocal('historialCocina', []),
@@ -341,15 +676,15 @@
       contadorRecoger: parseInt(localStorage.getItem('contadorRecoger') || '0', 10) || 0,
       ultimaFechaContadores: localStorage.getItem('ultimaFechaContadores') || '',
       nombresDomiciliarios: parseJsonLocal('nombresDomiciliarios', []),
-      pantallaCocinaActivada: localStorage.getItem('pantallaCocinaActivada') !== 'false',
+      pantallaCocinaActivada: localStorage.getItem('pantallaCocinaActivada') === 'true',
       cocinaSonidoActivado: localStorage.getItem('cocinaSonidoActivado') !== 'false',
       cocinaIntervaloActualizacion: localStorage.getItem('cocinaIntervaloActualizacion') || '30'
-    };
+    }, flagsBotonesPOSDesdeStorage());
   }
 
   function operacionLimpia(datos) {
     const origen = datos || {};
-    const texto = JSON.stringify({
+    const texto = JSON.stringify(Object.assign({
       mesasActivas: entradasAObjetos(origen.mesasActivas),
       ordenesCocina: entradasAObjetos(origen.ordenesCocina),
       historialCocina: Array.isArray(origen.historialCocina) ? origen.historialCocina : [],
@@ -358,17 +693,17 @@
       contadorRecoger: parseInt(origen.contadorRecoger, 10) || 0,
       ultimaFechaContadores: origen.ultimaFechaContadores || '',
       nombresDomiciliarios: Array.isArray(origen.nombresDomiciliarios) ? origen.nombresDomiciliarios : [],
-      pantallaCocinaActivada: origen.pantallaCocinaActivada !== false,
+      pantallaCocinaActivada: origen.pantallaCocinaActivada === true,
       cocinaSonidoActivado: origen.cocinaSonidoActivado !== false,
       cocinaIntervaloActualizacion: String(origen.cocinaIntervaloActualizacion || '30')
-    }, function (clave, valor) {
+    }, flagsBotonesPOSDesdeDatos(origen)), function (clave, valor) {
       return valor === undefined ? null : valor;
     });
     return JSON.parse(texto);
   }
 
   function operacionParaLocal(nube) {
-    return {
+    return Object.assign({
       mesasActivas: objetosAEntradas(nube.mesasActivas),
       ordenesCocina: objetosAEntradas(nube.ordenesCocina),
       historialCocina: Array.isArray(nube.historialCocina) ? nube.historialCocina : [],
@@ -377,10 +712,10 @@
       contadorRecoger: parseInt(nube.contadorRecoger, 10) || 0,
       ultimaFechaContadores: nube.ultimaFechaContadores || '',
       nombresDomiciliarios: Array.isArray(nube.nombresDomiciliarios) ? nube.nombresDomiciliarios : [],
-      pantallaCocinaActivada: nube.pantallaCocinaActivada !== false,
+      pantallaCocinaActivada: nube.pantallaCocinaActivada === true,
       cocinaSonidoActivado: nube.cocinaSonidoActivado !== false,
       cocinaIntervaloActualizacion: String(nube.cocinaIntervaloActualizacion || '30')
-    };
+    }, flagsBotonesPOSDesdeDatos(nube));
   }
 
   function escribirOperacionLocal(datos) {
@@ -398,6 +733,10 @@
     localStorage.setItem('pantallaCocinaActivada', local.pantallaCocinaActivada ? 'true' : 'false');
     localStorage.setItem('cocinaSonidoActivado', local.cocinaSonidoActivado ? 'true' : 'false');
     localStorage.setItem('cocinaIntervaloActualizacion', local.cocinaIntervaloActualizacion);
+    FLAGS_BOTONES_POS.forEach(function (clave) {
+      localStorage.setItem(clave, local[clave] ? 'true' : 'false');
+    });
+    localStorage.setItem('posBotonesDefaultsVersion', String(local.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION));
     return local;
   }
 
@@ -421,20 +760,28 @@
     if (!negocioIdActual) await asegurarNegocio();
     const limpio = operacionLimpia(datos || snapshotOperacionLocal());
     escribirOperacionLocal(limpio);
-    await refOperacion().set({
+    const payload = {
       mesasActivas: limpio.mesasActivas,
       ordenesCocina: limpio.ordenesCocina,
       historialCocina: limpio.historialCocina,
       pedidosCocinaListos: limpio.pedidosCocinaListos,
-      contadorDomicilios: limpio.contadorDomicilios,
-      contadorRecoger: limpio.contadorRecoger,
-      ultimaFechaContadores: limpio.ultimaFechaContadores,
-      nombresDomiciliarios: limpio.nombresDomiciliarios,
-      pantallaCocinaActivada: limpio.pantallaCocinaActivada,
-      cocinaSonidoActivado: limpio.cocinaSonidoActivado,
-      cocinaIntervaloActualizacion: limpio.cocinaIntervaloActualizacion,
       actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    };
+    if (!esMesero()) {
+      payload.contadorDomicilios = limpio.contadorDomicilios;
+      payload.contadorRecoger = limpio.contadorRecoger;
+      payload.ultimaFechaContadores = limpio.ultimaFechaContadores;
+      payload.nombresDomiciliarios = limpio.nombresDomiciliarios;
+      payload.pantallaCocinaActivada = limpio.pantallaCocinaActivada;
+      payload.cocinaSonidoActivado = limpio.cocinaSonidoActivado;
+      payload.cocinaIntervaloActualizacion = limpio.cocinaIntervaloActualizacion;
+      payload.posMostrarGastos = limpio.posMostrarGastos;
+      payload.posMostrarInventario = limpio.posMostrarInventario;
+      payload.posMostrarCierreAdmin = limpio.posMostrarCierreAdmin;
+      payload.posMostrarBalance = limpio.posMostrarBalance;
+      payload.posBotonesDefaultsVersion = limpio.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION;
+    }
+    await refOperacion().set(payload, { merge: true });
     return operacionParaLocal(limpio);
   }
 
@@ -478,8 +825,17 @@
         nombresDomiciliarios: nube.nombresDomiciliarios,
         pantallaCocinaActivada: nube.pantallaCocinaActivada,
         cocinaSonidoActivado: nube.cocinaSonidoActivado,
-        cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion
+        cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion,
+        posMostrarGastos: nube.posMostrarGastos,
+        posMostrarInventario: nube.posMostrarInventario,
+        posMostrarCierreAdmin: nube.posMostrarCierreAdmin,
+        posMostrarBalance: nube.posMostrarBalance,
+        posBotonesDefaultsVersion: nube.posBotonesDefaultsVersion
       });
+      const dataSnap = snap.data() || {};
+      if (Number(dataSnap.posBotonesDefaultsVersion) !== POS_BOTONES_DEFAULTS_VERSION) {
+        await persistirOperacionInmediato();
+      }
       return nube;
     }
     if (operacionTieneDatos(local) || local.cocinaIntervaloActualizacion) {
@@ -510,7 +866,12 @@
         nombresDomiciliarios: nube.nombresDomiciliarios,
         pantallaCocinaActivada: nube.pantallaCocinaActivada,
         cocinaSonidoActivado: nube.cocinaSonidoActivado,
-        cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion
+        cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion,
+        posMostrarGastos: nube.posMostrarGastos,
+        posMostrarInventario: nube.posMostrarInventario,
+        posMostrarCierreAdmin: nube.posMostrarCierreAdmin,
+        posMostrarBalance: nube.posMostrarBalance,
+        posBotonesDefaultsVersion: nube.posBotonesDefaultsVersion
       });
       if (typeof callback === 'function') callback(nube);
     }, function (error) {
@@ -1184,13 +1545,15 @@
     return { datos: datos, extras: extras };
   }
 
+  const PIN_DEFAULTS_VERSION = 2;
+  const PIN_VIEJOS_FABRICA = ['1234', '7894'];
   const PIN_MODULOS = [
-    { id: 'administracion', etiqueta: 'Administración', clave: 'pinAdministracionHash', defecto: '0011', legado: null },
-    { id: 'inventario', etiqueta: 'Inventario', clave: 'pinInventarioHash', defecto: '1234', legado: 'pinEmpleadoHash' },
-    { id: 'historial', etiqueta: 'Historial', clave: 'pinHistorialHash', defecto: '1234', legado: 'pinEmpleadoHash' },
-    { id: 'gastos', etiqueta: 'Gastos', clave: 'pinGastosHash', defecto: '1234', legado: 'pinEmpleadoHash' },
-    { id: 'cierre-administrativo', etiqueta: 'Cierre administrativo', clave: 'pinCierreHash', defecto: '7894', legado: 'pinAdminHash' },
-    { id: 'balance', etiqueta: 'Balance', clave: 'pinBalanceHash', defecto: '7894', legado: 'pinAdminHash' }
+    { id: 'administracion', etiqueta: 'Administración', clave: 'pinAdministracionHash', defecto: '0011' },
+    { id: 'inventario', etiqueta: 'Inventario', clave: 'pinInventarioHash', defecto: '0000' },
+    { id: 'historial', etiqueta: 'Historial', clave: 'pinHistorialHash', defecto: '0000' },
+    { id: 'gastos', etiqueta: 'Gastos', clave: 'pinGastosHash', defecto: '0000' },
+    { id: 'cierre-administrativo', etiqueta: 'Cierre administrativo', clave: 'pinCierreHash', defecto: '0000' },
+    { id: 'balance', etiqueta: 'Balance', clave: 'pinBalanceHash', defecto: '0000' }
   ];
 
   function refRoles() {
@@ -1215,15 +1578,16 @@
     const out = {};
     try {
       const bruto = JSON.parse(localStorage.getItem('pinesModulos') || '{}');
-      if (bruto && typeof bruto === 'object') Object.assign(out, bruto);
+      if (bruto && typeof bruto === 'object') {
+        PIN_MODULOS.forEach(function (mod) {
+          if (bruto[mod.id]) out[mod.id] = bruto[mod.id];
+        });
+        if (bruto.pinDefaultsVersion) out.pinDefaultsVersion = bruto.pinDefaultsVersion;
+      }
     } catch (e) {}
     PIN_MODULOS.forEach(function (mod) {
       const hash = localStorage.getItem(mod.clave);
-      if (hash) out[mod.id] = hash;
-      if (!out[mod.id] && mod.legado) {
-        const viejo = localStorage.getItem(mod.legado);
-        if (viejo) out[mod.id] = viejo;
-      }
+      if (hash && !out[mod.id]) out[mod.id] = hash;
     });
     return out;
   }
@@ -1235,21 +1599,19 @@
       if (datos && datos[mod.clave]) mezclado[mod.id] = datos[mod.clave];
       if (datos && datos[mod.id]) mezclado[mod.id] = datos[mod.id];
     });
-    if (datos && datos.pinAdminHash) {
-      if (!mezclado.balance) mezclado.balance = datos.pinAdminHash;
-      if (!mezclado['cierre-administrativo']) mezclado['cierre-administrativo'] = datos.pinAdminHash;
-    }
-    if (datos && datos.pinEmpleadoHash) {
-      if (!mezclado.inventario) mezclado.inventario = datos.pinEmpleadoHash;
-      if (!mezclado.historial) mezclado.historial = datos.pinEmpleadoHash;
-      if (!mezclado.gastos) mezclado.gastos = datos.pinEmpleadoHash;
-    }
     if (datos && datos.pinAdministracionHash) mezclado.administracion = datos.pinAdministracionHash;
-    localStorage.setItem('pinesModulos', JSON.stringify(mezclado));
+    if (datos && datos.pinDefaultsVersion) mezclado.pinDefaultsVersion = datos.pinDefaultsVersion;
+    const guardar = {
+      pinDefaultsVersion: mezclado.pinDefaultsVersion || PIN_DEFAULTS_VERSION
+    };
     PIN_MODULOS.forEach(function (mod) {
-      if (mezclado[mod.id]) localStorage.setItem(mod.clave, mezclado[mod.id]);
+      if (mezclado[mod.id]) {
+        guardar[mod.id] = mezclado[mod.id];
+        localStorage.setItem(mod.clave, mezclado[mod.id]);
+      }
     });
-    return mezclado;
+    localStorage.setItem('pinesModulos', JSON.stringify(guardar));
+    return guardar;
   }
 
   async function hashesPorDefecto() {
@@ -1261,25 +1623,45 @@
     return out;
   }
 
-  async function hashesEfectivos() {
-    const local = leerPinesLocal();
+  async function hashesViejosFabricaSet() {
+    const set = {};
+    for (let i = 0; i < PIN_VIEJOS_FABRICA.length; i++) {
+      set[await hashPin(PIN_VIEJOS_FABRICA[i])] = true;
+    }
+    return set;
+  }
+
+  async function aplicarPinDefaultsActuales(hashes) {
+    const actuales = hashes || {};
+    const version = Number(actuales.pinDefaultsVersion) || 0;
     const defs = await hashesPorDefecto();
     const out = {};
     PIN_MODULOS.forEach(function (mod) {
-      out[mod.id] = local[mod.id] || defs[mod.id];
+      out[mod.id] = actuales[mod.id] || defs[mod.id];
     });
+    if (version < PIN_DEFAULTS_VERSION) {
+      const viejos = await hashesViejosFabricaSet();
+      PIN_MODULOS.forEach(function (mod) {
+        if (mod.id === 'administracion') return;
+        if (!actuales[mod.id] || viejos[actuales[mod.id]]) {
+          out[mod.id] = defs[mod.id];
+        }
+      });
+    }
+    out.pinDefaultsVersion = PIN_DEFAULTS_VERSION;
     return out;
   }
 
+  async function hashesEfectivos() {
+    return aplicarPinDefaultsActuales(leerPinesLocal());
+  }
+
   async function persistirRoles(hashes) {
+    if (esMesero()) return hashes || {};
     if (!negocioIdActual) await asegurarNegocio();
     const actuales = await hashesEfectivos();
     const payload = Object.assign({}, actuales, hashes || {});
-    const limpio = {};
-    PIN_MODULOS.forEach(function (mod) {
-      if (payload[mod.id]) limpio[mod.id] = payload[mod.id];
-      else if (payload[mod.clave]) limpio[mod.id] = payload[mod.clave];
-    });
+    const limpio = await aplicarPinDefaultsActuales(payload);
     escribirRolesLocal(limpio);
     if (!estaListo() || !negocioIdActual) return limpio;
     await refRoles().set(Object.assign({}, limpio, {
@@ -1295,19 +1677,45 @@
     return persistirRoles(par);
   }
 
+  function pinDefectoModulo(moduloId) {
+    const mod = PIN_MODULOS.filter(function (m) { return m.id === moduloId; })[0];
+    return mod ? mod.defecto : '';
+  }
+
+  async function restablecerPinAdministracion(password) {
+    const user = auth().currentUser;
+    if (!user || !user.email) {
+      throw new Error('No hay una cuenta iniciada. Vuelve al inicio de sesión.');
+    }
+    const clave = String(password || '');
+    if (!clave) {
+      const err = new Error('Escribe la contraseña de la cuenta.');
+      err.code = 'auth/missing-password';
+      throw err;
+    }
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, clave);
+    await user.reauthenticateWithCredential(cred);
+    const pin = pinDefectoModulo('administracion') || '0011';
+    await persistirPinModulo('administracion', pin);
+    return pin;
+  }
+
   async function sincronizarRoles() {
+    if (esMesero()) return {};
     if (!negocioIdActual) await asegurarNegocio();
-    const local = leerPinesLocal();
     if (!negocioIdActual) return hashesEfectivos();
     const snap = await refRoles().get();
     if (snap.exists) {
       const data = snap.data() || {};
       delete data.actualizadoEn;
-      escribirRolesLocal(data);
+      const migrado = await aplicarPinDefaultsActuales(data);
+      escribirRolesLocal(migrado);
+      if (Number(data.pinDefaultsVersion) !== PIN_DEFAULTS_VERSION) {
+        await persistirRoles(migrado);
+      }
       return leerPinesLocal();
     }
-    const iniciales = Object.keys(local).length ? local : await hashesPorDefecto();
-    await persistirRoles(iniciales);
+    await persistirRoles(await hashesEfectivos());
     return leerPinesLocal();
   }
 
@@ -1335,16 +1743,66 @@
     });
   }
 
-  async function iniciarSesion(email, password) {
-    const cred = await auth().signInWithEmailAndPassword(email, password);
-    await asegurarNegocio();
-    localStorage.setItem('sesionActiva', 'true');
+  async function iniciarSesion(email, password, codigoEquipo, opciones) {
+    const codigo = marcarCodigoPendiente(codigoEquipo);
     try {
-      await sincronizarRoles();
-    } catch (e) {
-      console.warn('No se pudieron sincronizar los PIN', e);
+      const cred = await auth().signInWithEmailAndPassword(email, password);
+      try {
+        await asegurarNegocio(opciones);
+      } catch (error) {
+        try { await auth().signOut(); } catch (e) {}
+        throw error;
+      }
+      localStorage.setItem('sesionActiva', 'true');
+      try {
+        await sincronizarRoles();
+      } catch (e) {
+        console.warn('No se pudieron sincronizar los PIN', e);
+      }
+      return cred.user;
+    } finally {
+      codigoEquipoPendiente = '';
     }
-    return cred.user;
+  }
+
+  async function unirseAlNegocio(email, password, codigoEquipo, nombre) {
+    const codigo = marcarCodigoPendiente(codigoEquipo);
+    nombreMeseroPendiente = String(nombre || '').trim();
+    if (!codigo) throw new Error('Escribe el código de equipo que te dio Administración.');
+    if (!nombreMeseroPendiente) throw new Error('Escribe tu nombre. Sale en el ticket de cocina.');
+    try {
+      const cred = await auth().createUserWithEmailAndPassword(email, password);
+      try {
+        await asegurarNegocio();
+        if (nombreMeseroPendiente && !nombreMeseroActual()) {
+          await guardarNombreUsuario(nombreMeseroPendiente);
+        }
+      } catch (error) {
+        try {
+          if (auth().currentUser) await auth().currentUser.delete();
+        } catch (e) {}
+        throw error;
+      }
+      localStorage.setItem('sesionActiva', 'true');
+      try {
+        await sincronizarRoles();
+      } catch (e) {
+        console.warn('No se pudieron sincronizar los PIN', e);
+      }
+      return cred.user;
+    } catch (error) {
+      if (error && error.code === 'auth/email-already-in-use') {
+        const user = await iniciarSesion(email, password, codigo);
+        if (nombreMeseroPendiente && !nombreMeseroActual()) {
+          try { await guardarNombreUsuario(nombreMeseroPendiente); } catch (e) {}
+        }
+        return user;
+      }
+      throw error;
+    } finally {
+      codigoEquipoPendiente = '';
+      nombreMeseroPendiente = '';
+    }
   }
 
   async function cerrarSesion() {
@@ -1369,6 +1827,8 @@
     if (unsubExtras) { unsubExtras(); unsubExtras = null; }
     negocioIdActual = null;
     usuarioDoc = null;
+    codigoEquipoPendiente = '';
+    nombreMeseroPendiente = '';
     localStorage.removeItem('sesionActiva');
     if (appIniciada) {
       await auth().signOut();
@@ -1409,6 +1869,9 @@
           await asegurarNegocio();
         } catch (e) {
           console.error('No se pudo asegurar el negocio', e);
+          if (e && /eliminada/i.test(String(e.message || ''))) {
+            try { await auth().signOut(); } catch (x) {}
+          }
         }
       }
       return true;
@@ -1424,8 +1887,19 @@
     init: init,
     esperarAuth: esperarAuth,
     iniciarSesion: iniciarSesion,
+    unirseAlNegocio: unirseAlNegocio,
     cerrarSesion: cerrarSesion,
     asegurarNegocio: asegurarNegocio,
+    obtenerCodigoEquipo: obtenerCodigoEquipo,
+    regenerarCodigoEquipo: regenerarCodigoEquipo,
+    listarUsuariosNegocio: listarUsuariosNegocio,
+    crearCuentaMesero: crearCuentaMesero,
+    eliminarMesero: eliminarMesero,
+    getRol: getRol,
+    esAdminNegocio: esAdminNegocio,
+    esMesero: esMesero,
+    nombreMeseroActual: nombreMeseroActual,
+    guardarNombreUsuario: guardarNombreUsuario,
     guardarDatosNegocio: guardarDatosNegocio,
     obtenerDatosNegocio: obtenerDatosNegocio,
     guardarCatalogo: guardarCatalogo,
@@ -1468,6 +1942,8 @@
     hashPin: hashPin,
     pinCorrecto: pinCorrecto,
     persistirPinModulo: persistirPinModulo,
+    restablecerPinAdministracion: restablecerPinAdministracion,
+    pinDefectoModulo: pinDefectoModulo,
     listarModulosPin: listarModulosPin,
     rolDesdePin: rolDesdePin,
     esPinAdministracion: esPinAdministracion,

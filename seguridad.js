@@ -17,7 +17,37 @@ function mostrarLoginMensaje(texto, tipo) {
 function loginFormularioValores() {
     const email = (document.getElementById('usuario') && document.getElementById('usuario').value || '').trim();
     const clave = (document.getElementById('clave') && document.getElementById('clave').value) || '';
-    return { email: email, clave: clave };
+    const codigo = (document.getElementById('codigoEquipo') && document.getElementById('codigoEquipo').value || '').trim();
+    const nombre = (document.getElementById('nombreMeseroLogin') && document.getElementById('nombreMeseroLogin').value || '').trim();
+    return { email: email, clave: clave, codigo: codigo, nombre: nombre };
+}
+
+function paginaEsMesero() {
+    const ruta = (window.location.pathname || '').toLowerCase();
+    return ruta.indexOf('mesero') !== -1;
+}
+
+function destinoMesero() {
+    return 'mesero.html';
+}
+
+function aplicarMenuPorRol() {
+    const esMesero = window.ToySoftFirebase && typeof ToySoftFirebase.esMesero === 'function' && ToySoftFirebase.esMesero();
+    const btnAdmon = document.getElementById('btnInicioAdmon');
+    const btnPOS = document.getElementById('btnInicioPOS');
+    const btnMesero = document.getElementById('btnInicioMesero');
+    if (btnAdmon) btnAdmon.style.display = esMesero ? 'none' : '';
+    if (btnPOS) btnPOS.style.display = esMesero ? 'none' : '';
+    if (btnMesero && esMesero) btnMesero.href = destinoMesero();
+}
+
+function irSegunRol() {
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.esMesero === 'function' && ToySoftFirebase.esMesero()) {
+        if (!paginaEsMesero()) window.location.href = destinoMesero();
+        return true;
+    }
+    aplicarMenuPorRol();
+    return false;
 }
 
 function alternarVerClave(evento) {
@@ -63,6 +93,14 @@ function verificarCierreDiario() {
     return !!cierreHoy;
 }
 
+function redirigirMeseroSiNoCorresponde() {
+    if (!window.ToySoftFirebase || typeof ToySoftFirebase.esMesero !== 'function') return false;
+    if (!ToySoftFirebase.esMesero()) return false;
+    if (paginaEsMesero()) return false;
+    window.location.href = destinoMesero();
+    return true;
+}
+
 async function verificarAcceso() {
     const haySesion = await verificarSesion();
     if (!haySesion) {
@@ -71,11 +109,17 @@ async function verificarAcceso() {
         return false;
     }
     localStorage.setItem('sesionActiva', 'true');
+    if (redirigirMeseroSiNoCorresponde()) return false;
     return true;
 }
 
+function paginaEsAdministracion() {
+    const ruta = (window.location.pathname || '').toLowerCase();
+    return ruta.indexOf('admon.html') !== -1;
+}
+
 async function iniciarSesion() {
-    const { email, clave } = loginFormularioValores();
+    const { email, clave, codigo } = loginFormularioValores();
     mostrarLoginMensaje('');
 
     if (!window.ToySoftFirebase || !ToySoftFirebase.estaConfigurado()) {
@@ -90,10 +134,44 @@ async function iniciarSesion() {
 
     try {
         await ToySoftFirebase.init();
-        await ToySoftFirebase.iniciarSesion(email, clave);
+        await ToySoftFirebase.iniciarSesion(email, clave, codigo);
+        if (irSegunRol()) return;
         mostrarApp();
     } catch (error) {
         console.log('Login fallido', error);
+        mostrarLoginMensaje(ToySoftFirebase.mensajeErrorAuth(error));
+    }
+}
+
+async function unirseAlNegocio() {
+    const { email, clave, codigo, nombre } = loginFormularioValores();
+    mostrarLoginMensaje('');
+
+    if (!window.ToySoftFirebase || !ToySoftFirebase.estaConfigurado()) {
+        mostrarLoginMensaje('No hay conexión con Firebase. Recarga la página.');
+        return;
+    }
+
+    if (!email || !clave) {
+        mostrarLoginMensaje('Escribe el correo y la contraseña.');
+        return;
+    }
+    if (!nombre) {
+        mostrarLoginMensaje('Pide al administrador que cree tu cuenta en Administración.');
+        return;
+    }
+    if (!codigo) {
+        mostrarLoginMensaje('Pide al administrador que cree tu cuenta en Administración.');
+        return;
+    }
+
+    try {
+        await ToySoftFirebase.init();
+        await ToySoftFirebase.unirseAlNegocio(email, clave, codigo, nombre);
+        if (irSegunRol()) return;
+        mostrarApp();
+    } catch (error) {
+        console.log('Unión al negocio fallida', error);
         mostrarLoginMensaje(ToySoftFirebase.mensajeErrorAuth(error));
     }
 }
@@ -111,6 +189,7 @@ function mostrarApp() {
         setTimeout(() => {
             loginSection.style.display = 'none';
             appSection.style.display = 'block';
+            aplicarMenuPorRol();
             setTimeout(() => {
                 appSection.style.opacity = '1';
                 inicializarSistemaRecordatorios();
@@ -130,7 +209,7 @@ async function cerrarSesion() {
         }
     }
     localStorage.removeItem('sesionActiva');
-    window.location.href = 'index.html';
+    window.location.href = paginaEsMesero() ? destinoMesero() : 'index.html';
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -169,6 +248,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             if (user) {
                 localStorage.setItem('sesionActiva', 'true');
+                if (irSegunRol()) return;
+                aplicarMenuPorRol();
                 loginSection.style.display = 'none';
                 appSection.style.display = 'block';
                 appSection.style.opacity = '1';
@@ -246,3 +327,13 @@ function actualizarBadgeRecordatorios() {
         console.error('❌ Error al actualizar badge de recordatorios:', error);
     }
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    if (paginaEsMesero()) return;
+    if (!window.ToySoftFirebase || typeof ToySoftFirebase.init !== 'function') return;
+    ToySoftFirebase.init().then(function () {
+        return ToySoftFirebase.esperarAuth();
+    }).then(function (user) {
+        if (user) redirigirMeseroSiNoCorresponde();
+    }).catch(function () {});
+});

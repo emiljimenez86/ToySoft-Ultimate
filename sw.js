@@ -1,9 +1,11 @@
-const CACHE_NAME = 'toysoft-pos-v13';
+const CACHE_NAME = 'toysoft-pos-v26';
 const urlsToCache = [
     './',
     './index.html',
     './POS.html',
     './admon.html',
+    './mesero.html',
+    './mesero.js',
     './cocina.html',
     './historial.html',
     './inventario.html',
@@ -19,6 +21,7 @@ const urlsToCache = [
     './install.js',
     './styles.css',
     './manifest.json',
+    './manifest-mesero.json',
     './image/logo-ToySoft.png',
     'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
     'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js',

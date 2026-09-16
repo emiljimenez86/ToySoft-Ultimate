@@ -199,8 +199,9 @@
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=13"></script>
-  <script src="firebase-init.js?v=13"></script>
+  <script src="firebase-config.js?v=25"></script>
+  <script src="firebase-init.js?v=25"></script>
+  <script src="seguridad.js?v=25"></script>
   <script>
     // VERSIÓN SÚPER SIMPLE - Solo lo esencial
     
@@ -764,6 +765,7 @@
                     <h2 style="margin: 0; font-size: 24px; font-weight: bold;">COCINA</h2>
                     <div class="mb-1" style="font-size: 20px; font-weight: bold;">Mesa: ${orden.mesa || 'N/A'}</div>
                     <div class="mb-1" style="font-size: 18px; font-weight: bold;">Ronda: ${rondaOrden}</div>
+                    ${orden.nombreMesero ? `<div class="mb-1" style="font-size: 16px; font-weight: bold;">Mesero: ${orden.nombreMesero}</div>` : ''}
                     <div class="mb-1">${new Date(orden.fecha).toLocaleString()}</div>
                 </div>
                 

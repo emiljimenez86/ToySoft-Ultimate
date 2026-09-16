@@ -1,5 +1,6 @@
 {
-    "name": "ToySoft Ultimate Version - Sistema POS",
+  "id": "./index.html",
+  "name": "ToySoft Ultimate Version - Sistema POS",
   "short_name": "Ultimate Version",
   "description": "Sistema de Punto de Venta Ultimate Version para Restaurantes",
   "start_url": "./index.html",
@@ -23,8 +24,8 @@
   ],
   "shortcuts": [
     {
-      "name": "Punto de Venta",
-      "url": "./POS.html",
+      "name": "Mesero",
+      "url": "./mesero.html",
       "icons": [{ "src": "./image/logo-ToySoft.png", "sizes": "192x192" }]
     },
     {

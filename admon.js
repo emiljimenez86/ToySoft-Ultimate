@@ -308,7 +308,10 @@ function verificarAccesoAdministracion() {
         keyboard: false
     });
     modal.show();
-    
+    if (typeof mostrarFormularioPinAdministracion === 'function') {
+        mostrarFormularioPinAdministracion();
+    }
+
     // Enfocar el input de PIN y agregar listener para Enter
     setTimeout(() => {
         const pinInput = document.getElementById('pinAdministracion');
@@ -326,6 +329,120 @@ function verificarAccesoAdministracion() {
     }, 500);
     
     return false;
+}
+
+function correoCuentaActual() {
+    try {
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.auth === 'function') {
+            const user = ToySoftFirebase.auth().currentUser;
+            if (user && user.email) return user.email;
+        }
+        if (typeof firebase !== 'undefined' && firebase.auth) {
+            const user = firebase.auth().currentUser;
+            if (user && user.email) return user.email;
+        }
+    } catch (e) {}
+    return '';
+}
+
+function mostrarRecuperarPinAdministracion() {
+    const formPin = document.getElementById('formPinAdministracion');
+    const formRecuperar = document.getElementById('formRecuperarPinAdministracion');
+    const correoEl = document.getElementById('correoRecuperarPin');
+    const clave = document.getElementById('claveRecuperarPin');
+    const errorEl = document.getElementById('recuperarPinError');
+    const okEl = document.getElementById('recuperarPinOk');
+    if (formPin) formPin.style.display = 'none';
+    if (formRecuperar) formRecuperar.style.display = 'block';
+    if (errorEl) {
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+    }
+    if (okEl) {
+        okEl.style.display = 'none';
+        okEl.textContent = '';
+    }
+    if (clave) {
+        clave.value = '';
+        clave.classList.remove('is-invalid');
+    }
+    if (correoEl) {
+        const correo = correoCuentaActual();
+        correoEl.textContent = correo ? ('Cuenta: ' + correo) : 'No hay una cuenta iniciada.';
+    }
+    setTimeout(function () {
+        if (clave) clave.focus();
+    }, 200);
+}
+
+function mostrarFormularioPinAdministracion() {
+    const formPin = document.getElementById('formPinAdministracion');
+    const formRecuperar = document.getElementById('formRecuperarPinAdministracion');
+    const pinInput = document.getElementById('pinAdministracion');
+    if (formRecuperar) formRecuperar.style.display = 'none';
+    if (formPin) formPin.style.display = 'block';
+    if (pinInput) {
+        pinInput.value = '';
+        pinInput.classList.remove('is-invalid');
+        pinInput.focus();
+    }
+}
+
+async function restablecerPinAdministracionDesdeCuenta() {
+    const clave = document.getElementById('claveRecuperarPin');
+    const errorEl = document.getElementById('recuperarPinError');
+    const okEl = document.getElementById('recuperarPinOk');
+    const boton = document.getElementById('btnRestablecerPin');
+    const password = clave ? String(clave.value || '') : '';
+    if (errorEl) {
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+    }
+    if (okEl) {
+        okEl.style.display = 'none';
+        okEl.textContent = '';
+    }
+    if (clave) clave.classList.remove('is-invalid');
+    if (!window.ToySoftFirebase || typeof ToySoftFirebase.restablecerPinAdministracion !== 'function') {
+        if (errorEl) {
+            errorEl.textContent = 'No hay conexión con Firebase para restablecer el PIN.';
+            errorEl.style.display = 'block';
+        }
+        return;
+    }
+    if (boton) boton.disabled = true;
+    try {
+        const pin = await ToySoftFirebase.restablecerPinAdministracion(password);
+        if (okEl) {
+            okEl.textContent = 'Listo. El PIN de Administración volvió a ser ' + pin + '. Ya puedes entrar con ese número.';
+            okEl.style.display = 'block';
+        }
+        if (clave) clave.value = '';
+        setTimeout(function () {
+            mostrarFormularioPinAdministracion();
+            const pinInput = document.getElementById('pinAdministracion');
+            const pinError = document.getElementById('pinError');
+            if (pinError) pinError.style.display = 'none';
+            if (pinInput) {
+                pinInput.value = '';
+                pinInput.placeholder = pin;
+                pinInput.focus();
+            }
+        }, 1600);
+    } catch (error) {
+        console.error(error);
+        if (clave) clave.classList.add('is-invalid');
+        if (errorEl) {
+            errorEl.textContent = ToySoftFirebase.mensajeErrorAuth(error);
+            errorEl.style.display = 'block';
+        }
+        if (clave) {
+            clave.value = '';
+            clave.focus();
+        }
+    } finally {
+        if (boton) boton.disabled = false;
+    }
 }
 
 // Función de inicialización consolidada
@@ -372,7 +489,6 @@ async function inicializarAdministracion() {
         });
         ToySoftFirebase.escucharExtras(function () {
           if (typeof cargarLogo === 'function') cargarLogo();
-          if (typeof cargarConfiguracionEmailJS === 'function') cargarConfiguracionEmailJS();
         });
         cargarConfigHorarioOperacion();
         if (typeof cargarPinesEnFormulario === 'function') cargarPinesEnFormulario();
@@ -397,6 +513,8 @@ async function inicializarAdministracion() {
   await cargarDatosNegocio();
   cargarConfigHorarioOperacion();
   if (typeof cargarPinesEnFormulario === 'function') cargarPinesEnFormulario();
+  if (typeof cargarConfigBotonesPOS === 'function') cargarConfigBotonesPOS();
+  if (typeof cargarEquipoNegocio === 'function') await cargarEquipoNegocio();
   
   // Iniciar backup automático
   iniciarBackupAutomatico();
@@ -477,9 +595,103 @@ async function guardarPinModulo(moduloId) {
   }
 }
 
+function cargarConfigBotonesPOS() {
+  const claves = ['posMostrarGastos', 'posMostrarInventario', 'posMostrarCierreAdmin', 'posMostrarBalance'];
+  const version = parseInt(localStorage.getItem('posBotonesDefaultsVersion') || '0', 10) || 0;
+  claves.forEach(function (id) {
+    const chk = document.getElementById(id);
+    if (!chk) return;
+    chk.checked = version < 2 ? true : localStorage.getItem(id) !== 'false';
+  });
+}
+
+function guardarConfigBotonesPOS() {
+  ['posMostrarGastos', 'posMostrarInventario', 'posMostrarCierreAdmin', 'posMostrarBalance'].forEach(function (id) {
+    const chk = document.getElementById(id);
+    const activo = !!(chk && chk.checked);
+    localStorage.setItem(id, activo ? 'true' : 'false');
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: id,
+      newValue: activo ? 'true' : 'false'
+    }));
+  });
+  localStorage.setItem('posBotonesDefaultsVersion', '2');
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
+    ToySoftFirebase.persistirOperacionInmediato();
+  }
+  alert('Botones del POS guardados.');
+}
+
+function textoSeguroEquipo(valor) {
+  return String(valor || '').replace(/[&<>"']/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+  });
+}
+
+async function cargarEquipoNegocio() {
+  const listaEl = document.getElementById('listaUsuariosEquipo');
+  if (!listaEl || !window.ToySoftFirebase) return;
+  try {
+    if (typeof ToySoftFirebase.obtenerCodigoEquipo === 'function') {
+      ToySoftFirebase.obtenerCodigoEquipo().catch(function () {});
+    }
+    const usuarios = await ToySoftFirebase.listarUsuariosNegocio();
+    if (!usuarios.length) {
+      listaEl.innerHTML = '<li class="text-white-50">Todavía no hay cuentas listadas.</li>';
+      return;
+    }
+    listaEl.innerHTML = usuarios.map(function (u) {
+      const rol = u.rol === 'mesero' ? 'Mesero' : 'Administrador';
+      const nombre = u.nombre ? textoSeguroEquipo(u.nombre) + ' · ' : '';
+      const email = textoSeguroEquipo(u.email || u.uid);
+      const uidAttr = textoSeguroEquipo(u.uid);
+      const borrar = u.rol === 'mesero'
+        ? '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" data-uid="' + uidAttr + '" onclick="eliminarMeseroEquipo(this.getAttribute(\'data-uid\'))">Eliminar</button>'
+        : '';
+      return '<li class="mb-2 d-flex flex-wrap align-items-center justify-content-between gap-2"><span><span class="text-white">' + nombre + email + '</span> <span class="text-info">· ' + rol + '</span></span>' + borrar + '</li>';
+    }).join('');
+  } catch (error) {
+    listaEl.innerHTML = '<li class="text-warning">' + textoSeguroEquipo((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message) + '</li>';
+  }
+}
+
+async function crearMeseroDesdeAdmin() {
+  const nombre = (document.getElementById('nombreMeseroNuevo') && document.getElementById('nombreMeseroNuevo').value || '').trim();
+  const correo = (document.getElementById('correoMeseroNuevo') && document.getElementById('correoMeseroNuevo').value || '').trim();
+  const clave = (document.getElementById('claveMeseroNuevo') && document.getElementById('claveMeseroNuevo').value || '');
+  const boton = document.getElementById('btnCrearMesero');
+  if (!window.ToySoftFirebase || typeof ToySoftFirebase.crearCuentaMesero !== 'function') {
+    alert('No hay conexión con Firebase.');
+    return;
+  }
+  if (boton) boton.disabled = true;
+  try {
+    await ToySoftFirebase.crearCuentaMesero(nombre, correo, clave);
+    if (document.getElementById('nombreMeseroNuevo')) document.getElementById('nombreMeseroNuevo').value = '';
+    if (document.getElementById('correoMeseroNuevo')) document.getElementById('correoMeseroNuevo').value = '';
+    if (document.getElementById('claveMeseroNuevo')) document.getElementById('claveMeseroNuevo').value = '';
+    await cargarEquipoNegocio();
+    alert('Mesero creado. Entrará en Mesero con ese correo y contraseña.');
+  } catch (error) {
+    alert((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message);
+  } finally {
+    if (boton) boton.disabled = false;
+  }
+}
+
+async function eliminarMeseroEquipo(uid) {
+  if (!confirm('¿Eliminar este mesero? Ya no podrá entrar.')) return;
+  try {
+    await ToySoftFirebase.eliminarMesero(uid);
+    await cargarEquipoNegocio();
+  } catch (error) {
+    alert((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message);
+  }
+}
+
 // Funciones para configuración de Pantalla de Cocina
 function cargarConfigPantallaCocina() {
-  const activada = localStorage.getItem('pantallaCocinaActivada') !== 'false'; // Por defecto activada
+  const activada = localStorage.getItem('pantallaCocinaActivada') === 'true'; // Por defecto desactivada
   const sonido = localStorage.getItem('cocinaSonidoActivado') !== 'false'; // Por defecto activado
   
   // Obtener intervalo, si no existe o es 2 (valor antiguo), usar 30 por defecto
@@ -638,6 +850,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Cargar configuraciones
     cargarConfigHorarioOperacion();
     cargarConfigPantallaCocina();
+    if (typeof cargarConfigBotonesPOS === 'function') cargarConfigBotonesPOS();
+    if (typeof cargarEquipoNegocio === 'function') cargarEquipoNegocio();
 });
 
 // Funciones para Categorías
@@ -2057,6 +2271,9 @@ async function verificarAcceso() {
             return false;
         }
         localStorage.setItem('sesionActiva', 'true');
+        if (typeof redirigirMeseroSiNoCorresponde === 'function' && redirigirMeseroSiNoCorresponde()) {
+            return false;
+        }
         console.log('Sesión Firebase verificada');
         return true;
     }
@@ -2141,6 +2358,7 @@ function guardarConfiguracionEmailJS() {
 // Función para cargar configuración de EmailJS
 function cargarConfiguracionEmailJS() {
     try {
+        if (!document.getElementById('emailDestino')) return;
         const configuracion = JSON.parse(localStorage.getItem('configuracionEmailJS'));
         if (configuracion) {
             document.getElementById('emailDestino').value = configuracion.emailDestino || '';
@@ -2386,14 +2604,6 @@ function actualizarEstadoEmailJS(mensaje, tipo = 'info') {
     }
 }
 
-// Inicializar EmailJS cuando se carga la página
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(() => {
-        inicializarEmailJS();
-        cargarConfiguracionEmailJS();
-        actualizarHistorialEmails();
-    }, 1000);
-});
 
 // ===== HERRAMIENTAS DEL SISTEMA =====
 

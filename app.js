@@ -1995,6 +1995,22 @@ function detectarSegundaPantalla() {
   }
 }
 
+function actualizarVisibilidadBotonesPOS() {
+  const botones = [
+    { id: 'btnGastosPOS', clave: 'posMostrarGastos' },
+    { id: 'btnInventarioPOS', clave: 'posMostrarInventario' },
+    { id: 'btnCierreAdminPOS', clave: 'posMostrarCierreAdmin' },
+    { id: 'btnBalancePOS', clave: 'posMostrarBalance' }
+  ];
+  const version = parseInt(localStorage.getItem('posBotonesDefaultsVersion') || '0', 10) || 0;
+  botones.forEach(function (btn) {
+    const el = document.getElementById(btn.id);
+    if (!el) return;
+    const visible = version < 2 ? true : localStorage.getItem(btn.clave) !== 'false';
+    el.style.display = visible ? 'inline-block' : 'none';
+  });
+}
+
 // Función para verificar y mostrar/ocultar botón de cocina según configuración
 function actualizarVisibilidadBotónCocina() {
   const btnCocina = document.getElementById('btnCocinaPOS');
@@ -2013,8 +2029,10 @@ function actualizarVisibilidadBotónCocina() {
 
 // Función para inicializar sistema de cocina
 function inicializarSistemaCocina() {
-  // Actualizar visibilidad del botón
   actualizarVisibilidadBotónCocina();
+  if (typeof actualizarVisibilidadBotonesPOS === 'function') {
+    actualizarVisibilidadBotonesPOS();
+  }
   
   // Verificar si la pantalla de cocina está activada
   const cocinaActivada = localStorage.getItem('pantallaCocinaActivada') === 'true';
@@ -2078,6 +2096,9 @@ function inicializarSistemaCocina() {
       if (localStorage.getItem('pantallaCocinaActivada') === 'true') {
         inicializarSistemaCocina();
       }
+    }
+    if (e.key && e.key.indexOf('posMostrar') === 0 && typeof actualizarVisibilidadBotonesPOS === 'function') {
+      actualizarVisibilidadBotonesPOS();
     }
   });
   
@@ -2880,11 +2901,35 @@ function hashOperacionLocal(datos) {
       contadorRecoger: datos && datos.contadorRecoger,
       nombresDomiciliarios: datos && datos.nombresDomiciliarios,
       pantallaCocinaActivada: datos && datos.pantallaCocinaActivada,
-      cocinaIntervaloActualizacion: datos && datos.cocinaIntervaloActualizacion
+      cocinaIntervaloActualizacion: datos && datos.cocinaIntervaloActualizacion,
+      posMostrarGastos: datos && datos.posMostrarGastos,
+      posMostrarInventario: datos && datos.posMostrarInventario,
+      posMostrarCierreAdmin: datos && datos.posMostrarCierreAdmin,
+      posMostrarBalance: datos && datos.posMostrarBalance
     });
   } catch (e) {
     return String(Date.now());
   }
+}
+
+function imprimirPedidosNuevosDeMesero(lista) {
+  const actuales = Array.isArray(lista) ? lista : [];
+  if (!window._idsCocinaMeseroVistos) {
+    window._idsCocinaMeseroVistos = new Set(actuales.map(function (orden) { return String(orden && orden.id); }));
+    return;
+  }
+  actuales.forEach(function (orden) {
+    const id = String(orden && orden.id || '');
+    if (!id || window._idsCocinaMeseroVistos.has(id)) return;
+    window._idsCocinaMeseroVistos.add(id);
+    if (orden.origen !== 'mesero') return;
+    if (typeof imprimirTicketCocina !== 'function') return;
+    imprimirTicketCocina(orden.mesa, orden.items || [], {
+      ronda: orden.ronda,
+      pedido: orden,
+      nombreMesero: orden.nombreMesero
+    });
+  });
 }
 
 function aplicarOperacionEnPOS(datos) {
@@ -2909,6 +2954,9 @@ function aplicarOperacionEnPOS(datos) {
   }
 
   historialCocina = Array.isArray(datos.historialCocina) ? datos.historialCocina : [];
+  if (typeof imprimirPedidosNuevosDeMesero === 'function') {
+    imprimirPedidosNuevosDeMesero(historialCocina);
+  }
   contadorDomicilios = parseInt(datos.contadorDomicilios, 10) || 0;
   contadorRecoger = parseInt(datos.contadorRecoger, 10) || 0;
   if (datos.ultimaFechaContadores) ultimaFechaContadores = datos.ultimaFechaContadores;
@@ -2921,6 +2969,7 @@ function aplicarOperacionEnPOS(datos) {
   if (typeof actualizarBadgeCocina === 'function') actualizarBadgeCocina();
   if (typeof actualizarDatalistDomiciliarios === 'function') actualizarDatalistDomiciliarios();
   if (typeof actualizarVisibilidadBotónCocina === 'function') actualizarVisibilidadBotónCocina();
+  if (typeof actualizarVisibilidadBotonesPOS === 'function') actualizarVisibilidadBotonesPOS();
 }
 
 async function cargarOperacionDesdeNube() {
@@ -6911,6 +6960,12 @@ function imprimirTicketCocina(mesa, productos, opciones = {}) {
   const totalItems = (productos || []).reduce((s, p) => s + (parseInt(p.cantidad, 10) || 0), 0);
   const fechaTicket = new Date().toLocaleString();
   const rondaTicket = rondaDeProductos(productos, opciones.ronda);
+  const nombreMeseroTicket = String(
+    opciones.nombreMesero
+    || (pedidoCompleto && pedidoCompleto.nombreMesero)
+    || ((productos || []).find(function (item) { return item && item.nombreMesero; }) || {}).nombreMesero
+    || ''
+  ).trim();
 
   let contenido = '';
   if (esVentaRapida) {
@@ -6922,6 +6977,7 @@ function imprimirTicketCocina(mesa, productos, opciones = {}) {
         <div class="vr-meta">
           <div>${fechaTicket}</div>
           <div>Items: ${totalItems}</div>
+          ${nombreMeseroTicket ? `<div>Mesero: ${nombreMeseroTicket}</div>` : ''}
         </div>
 
         ${infoCliente}
@@ -6949,6 +7005,7 @@ function imprimirTicketCocina(mesa, productos, opciones = {}) {
         <h2 style="margin: 0; font-size: 28px; font-weight: bold;">COCINA</h2>
         <div class="mb-1" style="font-size: 22px; font-weight: bold;">Mesa: ${mesa}</div>
         <div class="mb-1" style="font-size: 20px; font-weight: bold;">Ronda: ${rondaTicket}</div>
+        ${nombreMeseroTicket ? `<div class="mb-1" style="font-size: 18px; font-weight: bold;">Mesero: ${nombreMeseroTicket}</div>` : ''}
         <div class="mb-1">${fechaTicket}</div>
       </div>
       
