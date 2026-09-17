@@ -271,61 +271,112 @@
     });
   }
 
-  function authSecundaria() {
+  function normalizarCorreo(valor) {
+    return String(valor || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
+  }
+
+  function normalizarClave(valor) {
+    return String(valor || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+  }
+
+  function errorDesdeIdentityToolkit(data) {
+    const msg = String((data && data.error && (data.error.message || data.error.status)) || '');
+    const err = new Error(msg || 'Error de autenticación');
+    if (/EMAIL_EXISTS/i.test(msg)) err.code = 'auth/email-already-in-use';
+    else if (/EMAIL_NOT_FOUND/i.test(msg)) err.code = 'auth/user-not-found';
+    else if (/INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS|INVALID_AUTH/i.test(msg)) err.code = 'auth/invalid-credential';
+    else if (/WEAK_PASSWORD/i.test(msg)) err.code = 'auth/weak-password';
+    else if (/INVALID_EMAIL/i.test(msg)) err.code = 'auth/invalid-email';
+    else if (/TOO_MANY_ATTEMPTS/i.test(msg)) err.code = 'auth/too-many-requests';
+    else if (/USER_DISABLED/i.test(msg)) err.code = 'auth/user-disabled';
+    else if (/OPERATION_NOT_ALLOWED/i.test(msg)) err.code = 'auth/operation-not-allowed';
+    return err;
+  }
+
+  async function llamarIdentityToolkit(ruta, cuerpo) {
     const cfg = obtenerConfig();
-    const nombreApp = 'toysoftAltaMesero';
-    let appSec;
+    if (!cfg || !cfg.apiKey) throw new Error('Falta la configuración de Firebase.');
+    const res = await fetch('https://identitytoolkit.googleapis.com/v1/' + ruta + '?key=' + encodeURIComponent(cfg.apiKey), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpo)
+    });
+    const data = await res.json();
+    if (data && data.error) throw errorDesdeIdentityToolkit(data);
+    return data;
+  }
+
+  async function crearORecuperarAuthMesero(correo, clave, nombre) {
     try {
-      appSec = firebase.app(nombreApp);
-    } catch (e) {
-      appSec = firebase.initializeApp(cfg, nombreApp);
+      const creado = await llamarIdentityToolkit('accounts:signUp', {
+        email: correo,
+        password: clave,
+        displayName: nombre || '',
+        returnSecureToken: true
+      });
+      if (!creado || !creado.localId) throw new Error('No se pudo crear la cuenta del mesero.');
+      return creado.localId;
+    } catch (error) {
+      if (!error || error.code !== 'auth/email-already-in-use') throw error;
+      try {
+        const entra = await llamarIdentityToolkit('accounts:signInWithPassword', {
+          email: correo,
+          password: clave,
+          returnSecureToken: true
+        });
+        if (!entra || !entra.localId) {
+          throw new Error('Ese correo ya tiene una cuenta. Usa otro correo o la contraseña anterior.');
+        }
+        if (nombre && entra.idToken) {
+          try {
+            await llamarIdentityToolkit('accounts:update', {
+              idToken: entra.idToken,
+              displayName: nombre,
+              returnSecureToken: false
+            });
+          } catch (e) {}
+        }
+        return entra.localId;
+      } catch (e2) {
+        if (e2 && (e2.code === 'auth/invalid-credential' || e2.code === 'auth/wrong-password' || e2.code === 'auth/user-not-found')) {
+          throw new Error('Ese correo ya tiene una cuenta. Usa otro correo o la contraseña anterior.');
+        }
+        throw e2;
+      }
     }
-    return appSec.auth();
   }
 
   async function crearCuentaMesero(nombre, email, password) {
     if (!esAdminNegocio()) throw new Error('Solo el administrador puede crear meseros.');
     if (!negocioIdActual) await asegurarNegocio();
     const nombreLimpio = String(nombre || '').trim();
-    const correo = String(email || '').trim().toLowerCase();
-    const clave = String(password || '');
+    const correo = normalizarCorreo(email);
+    const clave = normalizarClave(password);
     if (!nombreLimpio) throw new Error('Escribe el nombre del mesero.');
     if (!correo) throw new Error('Escribe el correo del mesero.');
     if (clave.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+    if (!auth().currentUser) throw new Error('Se perdió la sesión del administrador. Vuelve a entrar.');
 
     const actuales = await listarUsuariosNegocio(true);
     const mismo = actuales.filter(function (u) {
-      return String(u.email || '').toLowerCase() === correo;
+      return normalizarCorreo(u.email) === correo;
     })[0];
     if (mismo && mismo.rol === 'admin') {
       throw new Error('Ese correo es del administrador.');
     }
-    if (mismo && mismo.activo) {
-      throw new Error('Ese mesero ya está en el equipo.');
-    }
 
-    const authSec = authSecundaria();
-    let uid = mismo ? mismo.uid : '';
-    try {
-      try {
-        const cred = await authSec.createUserWithEmailAndPassword(correo, clave);
-        uid = cred.user.uid;
-        try { await cred.user.updateProfile({ displayName: nombreLimpio }); } catch (e) {}
-      } catch (error) {
-        if (!error || error.code !== 'auth/email-already-in-use') throw error;
-        try {
-          const cred = await authSec.signInWithEmailAndPassword(correo, clave);
-          uid = cred.user.uid;
-          try { await cred.user.updateProfile({ displayName: nombreLimpio }); } catch (e) {}
-        } catch (e2) {
-          throw new Error('Ese correo ya tiene una cuenta. Usa otro correo o la contraseña anterior.');
-        }
-      }
-    } finally {
-      try { await authSec.signOut(); } catch (e) {}
-    }
-
+    const uid = await crearORecuperarAuthMesero(correo, clave, nombreLimpio);
     if (!uid) throw new Error('No se pudo crear la cuenta del mesero.');
+    if (!auth().currentUser) throw new Error('Se perdió la sesión del administrador. Vuelve a entrar e intenta de nuevo.');
+
+    if (mismo && mismo.uid && mismo.uid !== uid) {
+      try {
+        await db().collection('usuarios').doc(mismo.uid).set({
+          activo: false,
+          eliminadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (e) {}
+    }
 
     try {
       await db().collection('usuarios').doc(uid).set({
@@ -362,6 +413,53 @@
       activo: false,
       eliminadoEn: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
+  }
+
+  function esErrorClaveAuth(error) {
+    const codigo = error && error.code;
+    return codigo === 'auth/wrong-password'
+      || codigo === 'auth/invalid-credential'
+      || codigo === 'auth/invalid-login-credentials';
+  }
+
+  async function actualizarMesero(uid, nombre, password) {
+    if (!esAdminNegocio()) throw new Error('Solo el administrador puede modificar meseros.');
+    const id = String(uid || '').trim();
+    const nombreLimpio = String(nombre || '').trim();
+    const clave = normalizarClave(password);
+    if (!id) throw new Error('Falta el mesero a modificar.');
+    if (!nombreLimpio) throw new Error('Escribe el nombre del mesero.');
+    if (clave && clave.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+
+    const ref = db().collection('usuarios').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) throw new Error('Ese mesero no existe.');
+    const data = snap.data() || {};
+    if (data.negocioId !== negocioIdActual) throw new Error('Ese usuario no es de este negocio.');
+    if (data.rol !== 'mesero') throw new Error('Solo se pueden modificar meseros.');
+
+    await ref.set({
+      nombre: nombreLimpio,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    if (!clave) return { uid: id, nombre: nombreLimpio };
+
+    const correo = normalizarCorreo(data.email);
+    if (!correo) return { uid: id, nombre: nombreLimpio };
+    try {
+      await llamarIdentityToolkit('accounts:signInWithPassword', {
+        email: correo,
+        password: clave,
+        returnSecureToken: true
+      });
+    } catch (error) {
+      if (esErrorClaveAuth(error)) {
+        throw new Error('El nombre se actualizó. Para una contraseña nueva elimina el mesero y créalo otra vez con otro correo.');
+      }
+      throw error;
+    }
+    return { uid: id, nombre: nombreLimpio };
   }
 
   async function asegurarNegocio(opciones) {
@@ -471,6 +569,8 @@
       'auth/user-not-found': 'Esa cuenta no existe. Pide al administrador que te cree en Administración.',
       'auth/wrong-password': 'Contraseña incorrecta.',
       'auth/invalid-credential': 'Correo o contraseña incorrectos.',
+      'auth/invalid-login-credentials': 'Correo o contraseña incorrectos.',
+      'auth/unauthorized-domain': 'Este dominio no está autorizado en Firebase Authentication.',
       'auth/email-already-in-use': 'Ese correo ya tiene una cuenta. Inicia sesión.',
       'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
       'auth/network-request-failed': 'Sin conexión. Revisa internet e inténtalo de nuevo.',
@@ -765,11 +865,11 @@
       ordenesCocina: limpio.ordenesCocina,
       historialCocina: limpio.historialCocina,
       pedidosCocinaListos: limpio.pedidosCocinaListos,
+      contadorDomicilios: limpio.contadorDomicilios,
+      contadorRecoger: limpio.contadorRecoger,
       actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
     };
     if (!esMesero()) {
-      payload.contadorDomicilios = limpio.contadorDomicilios;
-      payload.contadorRecoger = limpio.contadorRecoger;
       payload.ultimaFechaContadores = limpio.ultimaFechaContadores;
       payload.nombresDomiciliarios = limpio.nombresDomiciliarios;
       payload.pantallaCocinaActivada = limpio.pantallaCocinaActivada;
@@ -1745,8 +1845,10 @@
 
   async function iniciarSesion(email, password, codigoEquipo, opciones) {
     const codigo = marcarCodigoPendiente(codigoEquipo);
+    const correo = normalizarCorreo(email);
+    const clave = normalizarClave(password);
     try {
-      const cred = await auth().signInWithEmailAndPassword(email, password);
+      const cred = await auth().signInWithEmailAndPassword(correo, clave);
       try {
         await asegurarNegocio(opciones);
       } catch (error) {
@@ -1771,7 +1873,7 @@
     if (!codigo) throw new Error('Escribe el código de equipo que te dio Administración.');
     if (!nombreMeseroPendiente) throw new Error('Escribe tu nombre. Sale en el ticket de cocina.');
     try {
-      const cred = await auth().createUserWithEmailAndPassword(email, password);
+      const cred = await auth().createUserWithEmailAndPassword(normalizarCorreo(email), normalizarClave(password));
       try {
         await asegurarNegocio();
         if (nombreMeseroPendiente && !nombreMeseroActual()) {
@@ -1894,6 +1996,7 @@
     regenerarCodigoEquipo: regenerarCodigoEquipo,
     listarUsuariosNegocio: listarUsuariosNegocio,
     crearCuentaMesero: crearCuentaMesero,
+    actualizarMesero: actualizarMesero,
     eliminarMesero: eliminarMesero,
     getRol: getRol,
     esAdminNegocio: esAdminNegocio,

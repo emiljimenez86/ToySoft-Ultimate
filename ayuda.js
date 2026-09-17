@@ -383,74 +383,88 @@ const ayudaContextual = {
         titulo: 'Administración',
         contenido: `
             <div class="help-content">
-                <h4><i class="fas fa-cog text-warning"></i> Administración - Configuración del Sistema</h4>
-                
+                <h4><i class="fas fa-cog text-warning"></i> Administración</h4>
+                <div class="alert alert-info">
+                    Aquí configuras el negocio, el menú, el equipo de meseros y los PIN. Los cambios de productos, cocina y botones del POS se ven en todos los equipos de este restaurante.
+                </div>
+
                 <div class="row">
                     <div class="col-md-6">
-                        <h5 class="text-info">👥 Gestión de Clientes</h5>
+                        <h5 class="text-info"><i class="fas fa-lock me-1"></i> Entrar y recuperar PIN</h5>
                         <ul>
-                            <li><strong>Agregar Cliente:</strong> Datos completos del cliente</li>
-                            <li><strong>Buscar:</strong> Por nombre, documento o teléfono</li>
-                            <li><strong>Modificar:</strong> Actualizar información</li>
-                            <li><strong>Eliminar:</strong> Quitar clientes seleccionados</li>
-                        </ul>
-                        
-                        <h5 class="text-success">📦 Gestión de Productos</h5>
-                        <ul>
-                            <li><strong>Agregar Producto:</strong> Nombre, precio, categoría</li>
-                            <li><strong>Modificaciones:</strong> Marca la casilla y escribe una opción por línea (sin cebolla, extra queso…). En el POS salen como casillas</li>
-                            <li><strong>Salsas:</strong> Lista aparte (Ají, Mayonesa…). En venta van como “Salsas: …”, no se mezclan con las modificaciones</li>
-                            <li><strong>Nombre y precio editables:</strong> Producto comodín: el cajero escribe nombre y precio al vender. En la lista aparece “Editable en venta”</li>
-                            <li><strong>Nomenclatura:</strong> Usar MAYÚSCULAS para mejor visibilidad</li>
-                            <li><strong>Categorías:</strong> Organizar productos</li>
-                            <li><strong>Precios:</strong> Modificar costos</li>
+                            <li>Esta pantalla pide el <strong>PIN de Administración</strong> (4 dígitos).</li>
+                            <li><strong>Olvidé el PIN:</strong> escribe la contraseña de la cuenta. Si es correcta, aparece el PIN para entrar.</li>
+                            <li>El PIN no se muestra hasta confirmar la contraseña.</li>
                         </ul>
 
-                        <h5 class="text-primary">🏷️ Gestión de Categorías</h5>
+                        <h5 class="text-warning"><i class="fas fa-clock me-1"></i> Horario de operación</h5>
                         <ul>
-                            <li><strong>Agregar Categoría:</strong> Crear nuevas categorías</li>
-                            <li><strong>Modificar:</strong> Cambiar nombre de categorías</li>
-                            <li><strong>Eliminar:</strong> Quitar categorías no usadas</li>
-                            <li><strong>Organizar:</strong> Clasificar productos por tipo</li>
+                            <li>Si cierras después de medianoche, actívalo para que el día de ventas no cambie a las 12:00.</li>
+                            <li>Indica la hora de fin del día laboral (ej. 4 = 4:00 a.m.) y guarda.</li>
+                        </ul>
+
+                        <h5 class="text-info">👥 Clientes</h5>
+                        <ul>
+                            <li>Agrega documento, nombre, teléfono, dirección y correo.</li>
+                            <li>Busca en la lista, edita con el lápiz o elimina los seleccionados.</li>
+                        </ul>
+
+                        <h5 class="text-primary">🏷️ Categorías</h5>
+                        <ul>
+                            <li>Crea las categorías del menú (ej. COMIDAS, BEBIDAS).</li>
+                            <li>Edítalas o elimina las que ya no uses. Cada producto debe tener una.</li>
+                        </ul>
+
+                        <h5 class="text-success">📦 Productos</h5>
+                        <ul>
+                            <li><strong>Nombre y precio:</strong> escribe el precio en números, sin puntos (ej. 12800). El costo es opcional, para utilidad.</li>
+                            <li><strong>Imagen:</strong> pega la URL. El botón de ayuda explica cómo copiarla en el celular.</li>
+                            <li><strong>Modificaciones:</strong> una por línea (sin cebolla, extra queso). En venta salen como casillas.</li>
+                            <li><strong>Salsas:</strong> lista aparte (Ají, Mayonesa). No se mezclan con las modificaciones.</li>
+                            <li><strong>Nombre y precio editables:</strong> el cajero los cambia al vender (producto comodín).</li>
+                            <li>Usa <strong>MAYÚSCULAS</strong> para que se lean bien en el POS y en cocina.</li>
                         </ul>
                     </div>
-                    
+
                     <div class="col-md-6">
-                        <h5 class="text-warning">📊 Reportes y Estadísticas</h5>
+                        <h5 class="text-warning"><i class="fas fa-users me-1"></i> Equipo del negocio</h5>
                         <ul>
-                            <li><strong>Ventas:</strong> Por período y método de pago</li>
-                            <li><strong>Productos:</strong> Más y menos vendidos</li>
-                            <li><strong>Clientes:</strong> Frecuencia de compra</li>
-                            <li><strong>Exportar:</strong> Datos a Excel</li>
+                            <li><strong>Copiar enlace:</strong> envía ese link al mesero. Ya no hay botón de Mesero en el inicio del POS.</li>
+                            <li><strong>Agregar:</strong> nombre, correo y contraseña (mínimo 6 caracteres). El nombre sale en el ticket de cocina.</li>
+                            <li>El mesero entra con ese correo y contraseña. Puede mesa, domicilio, recoger e imprimir ticket de cocina. No cobra.</li>
+                            <li><strong>Lápiz:</strong> cambia nombre o contraseña. El correo no se cambia.</li>
+                            <li><strong>Basura:</strong> quita al mesero de este negocio. Queda en verde un momento al agregarlo o editarlo.</li>
+                            <li>Cada correo queda ligado a <strong>este</strong> restaurante. No ve datos de otro negocio.</li>
                         </ul>
-                        
-                        <h5 class="text-primary">⚙️ Configuración</h5>
+
+                        <h5 class="text-info"><i class="fas fa-tv me-1"></i> Cocina y botones del POS</h5>
                         <ul>
-                            <li><strong>Datos del Negocio:</strong> Información empresarial</li>
-                            <li><strong>Horarios:</strong> Configurar horarios de cierre</li>
-                            <li><strong>Backup y Restauración:</strong> Exportar/Importar datos</li>
-                            <li><strong>Seguridad:</strong> Cambiar el PIN de cada módulo (Inventario, Historial, Gastos, Cierre, Balance y esta pantalla)</li>
+                            <li><strong>Pantalla de cocina:</strong> actívala solo si vas a usarla. Puedes poner sonido y abrirla ya.</li>
+                            <li><strong>Botones del POS:</strong> oculta Gastos, Inventario, Cierre administrativo o Balance si el cajero no los necesita.</li>
                         </ul>
-                        
-                        <h5 class="text-success">💾 Backup y Restauración</h5>
+
+                        <h5 class="text-primary"><i class="fas fa-store me-1"></i> Datos, logo y backup</h5>
                         <ul>
-                            <li><strong>Exportar Datos:</strong> Descargar respaldo completo</li>
-                            <li><strong>Importar Datos:</strong> Restaurar desde archivo</li>
-                            <li><strong>Frecuencia:</strong> Hacer backup regularmente</li>
-                            <li><strong>Seguridad:</strong> Guardar en lugar seguro</li>
+                            <li><strong>Datos del negocio:</strong> nombre, NIT, dirección, correo y teléfono. Salen en tickets y facturas.</li>
+                            <li><strong>Logo:</strong> JPG, PNG o GIF, máximo 500 KB. Se usa en impresión.</li>
+                            <li><strong>Exportar / Importar:</strong> respaldo en archivo. Importar reemplaza datos: úsalo con cuidado.</li>
+                        </ul>
+
+                        <h5 class="text-success"><i class="fas fa-key me-1"></i> PIN por módulo</h5>
+                        <ul>
+                            <li>Cada área tiene su PIN: Administración, Inventario, Historial, Gastos, Cierre y Balance.</li>
+                            <li>Se guarda cifrado en la nube y aplica en todos los equipos de este negocio.</li>
+                            <li>De fábrica: <strong>0011</strong> esta pantalla y <strong>0000</strong> los demás, hasta que los cambies.</li>
                         </ul>
                     </div>
                 </div>
-                
+
                 <div class="alert alert-warning mt-3">
-                    <strong>⚠️ Importante:</strong>
+                    <strong>Importante:</strong>
                     <ul class="mb-0 mt-2">
-                        <li>Los cambios en productos afectan inmediatamente al POS</li>
-                        <li>Las categorías ayudan a organizar mejor los productos</li>
-                        <li><strong>💾 Backup:</strong> Haz respaldos regulares de tus datos</li>
-                        <li><strong>🔄 Restauración:</strong> Puedes restaurar datos desde archivos de backup</li>
-                        <li>Los reportes se pueden exportar para análisis externos</li>
-                        <li><strong>📝 Nomenclatura:</strong> Los productos deben estar en MAYÚSCULAS para mejor visibilidad en el POS</li>
+                        <li>Los productos nuevos o editados se ven de inmediato en caja y en mesero.</li>
+                        <li>No uses <em>Reiniciar sistema</em> salvo que quieras borrar todo. Limpia datos temporales solo si la app se traba.</li>
+                        <li>Haz un backup de vez en cuando y guárdalo en un lugar seguro.</li>
                     </ul>
                 </div>
             </div>
@@ -957,6 +971,32 @@ const ayudaContextual = {
                 </div>
             </div>
         `
+    },
+
+    'mesero.html': {
+        titulo: 'Mesero',
+        contenido: `
+            <div class="help-content">
+                <h4><i class="fas fa-concierge-bell text-info"></i> App de Mesero</h4>
+                <div class="alert alert-info">
+                    Entra con el correo y la contraseña que te dio Administración. El pedido llega a caja y a cocina. Aquí no se cobra ni se toca inventario.
+                </div>
+                <h5 class="text-warning">Mesas, domicilio y recoger</h5>
+                <ul>
+                    <li><strong>Abrir mesa:</strong> escribe el número y tócala para tomar el pedido.</li>
+                    <li><strong>Domicilio:</strong> pide nombre, teléfono y dirección.</li>
+                    <li><strong>Recoger:</strong> pide nombre, teléfono y hora (opcional).</li>
+                </ul>
+                <h5 class="text-success">Enviar e imprimir</h5>
+                <ul>
+                    <li><strong>Enviar a cocina:</strong> manda los productos nuevos. Aparecen en caja y en la pantalla de cocina, con tu nombre.</li>
+                    <li><strong>Imprimir ticket:</strong> abre el ticket de cocina. Si no salió al enviar, usa este botón.</li>
+                </ul>
+                <div class="alert alert-warning mb-0">
+                    El cobro lo hace caja en el Punto de Venta.
+                </div>
+            </div>
+        `
     }
 };
 
@@ -994,7 +1034,9 @@ function mostrarAyudaContextual() {
     } else if (contexto.pagina === 'POS.html' && contexto.modulo === 'balance') {
         ayuda = ayudaContextual['balance'];
     } else {
-        ayuda = ayudaContextual[contexto.pagina] || ayudaContextual['index.html'];
+        ayuda = ayudaContextual[contexto.pagina]
+            || ayudaContextual[contexto.pagina + '.html']
+            || ayudaContextual['index.html'];
     }
 
     if (!ayuda) ayuda = ayudaContextual['index.html'];

@@ -123,7 +123,7 @@ async function installPWA() {
         return;
     }
     try {
-        const registration = await navigator.serviceWorker.register('./sw.js?v=26');
+        const registration = await navigator.serviceWorker.register('./sw.js?v=30');
         console.log('ServiceWorker registrado:', registration);
 
         await navigator.serviceWorker.ready;
@@ -168,7 +168,7 @@ function showInstallInstructions() {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('./sw.js?v=26');
+            const registration = await navigator.serviceWorker.register('./sw.js?v=30');
             console.log('ServiceWorker registrado:', registration);
         } catch (error) {
             console.error('Error al registrar ServiceWorker:', error);

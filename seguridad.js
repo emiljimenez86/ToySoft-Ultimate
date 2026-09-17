@@ -35,10 +35,8 @@ function aplicarMenuPorRol() {
     const esMesero = window.ToySoftFirebase && typeof ToySoftFirebase.esMesero === 'function' && ToySoftFirebase.esMesero();
     const btnAdmon = document.getElementById('btnInicioAdmon');
     const btnPOS = document.getElementById('btnInicioPOS');
-    const btnMesero = document.getElementById('btnInicioMesero');
     if (btnAdmon) btnAdmon.style.display = esMesero ? 'none' : '';
     if (btnPOS) btnPOS.style.display = esMesero ? 'none' : '';
-    if (btnMesero && esMesero) btnMesero.href = destinoMesero();
 }
 
 function irSegunRol() {

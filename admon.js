@@ -352,6 +352,20 @@ function mostrarRecuperarPinAdministracion() {
     const clave = document.getElementById('claveRecuperarPin');
     const errorEl = document.getElementById('recuperarPinError');
     const okEl = document.getElementById('recuperarPinOk');
+    const titulo = document.getElementById('tituloPinAdministracion');
+    const pinVisible = document.getElementById('pinRecuperarVisible');
+    const cajaPin = document.getElementById('cajaPinRecuperado');
+    const cajaClave = document.getElementById('cajaClaveRecuperarPin');
+    const boton = document.getElementById('btnRestablecerPin');
+    if (titulo) titulo.textContent = 'Recuperar PIN de Administración';
+    if (pinVisible) pinVisible.textContent = '';
+    if (cajaPin) cajaPin.style.display = 'none';
+    if (cajaClave) cajaClave.style.display = '';
+    if (boton) {
+        boton.style.display = '';
+        boton.disabled = false;
+        boton.innerHTML = '<i class="fas fa-key me-2"></i>Mostrar PIN';
+    }
     if (formPin) formPin.style.display = 'none';
     if (formRecuperar) formRecuperar.style.display = 'block';
     if (errorEl) {
@@ -379,6 +393,8 @@ function mostrarFormularioPinAdministracion() {
     const formPin = document.getElementById('formPinAdministracion');
     const formRecuperar = document.getElementById('formRecuperarPinAdministracion');
     const pinInput = document.getElementById('pinAdministracion');
+    const titulo = document.getElementById('tituloPinAdministracion');
+    if (titulo) titulo.textContent = 'Ingrese el PIN de Administración';
     if (formRecuperar) formRecuperar.style.display = 'none';
     if (formPin) formPin.style.display = 'block';
     if (pinInput) {
@@ -413,22 +429,18 @@ async function restablecerPinAdministracionDesdeCuenta() {
     if (boton) boton.disabled = true;
     try {
         const pin = await ToySoftFirebase.restablecerPinAdministracion(password);
+        const pinVisible = document.getElementById('pinRecuperarVisible');
+        const cajaPin = document.getElementById('cajaPinRecuperado');
+        const cajaClave = document.getElementById('cajaClaveRecuperarPin');
+        if (pinVisible) pinVisible.textContent = pin;
+        if (cajaPin) cajaPin.style.display = '';
+        if (cajaClave) cajaClave.style.display = 'none';
+        if (boton) boton.style.display = 'none';
         if (okEl) {
-            okEl.textContent = 'Listo. El PIN de Administración volvió a ser ' + pin + '. Ya puedes entrar con ese número.';
+            okEl.textContent = 'PIN restablecido. Anótalo y úsalo para entrar.';
             okEl.style.display = 'block';
         }
         if (clave) clave.value = '';
-        setTimeout(function () {
-            mostrarFormularioPinAdministracion();
-            const pinInput = document.getElementById('pinAdministracion');
-            const pinError = document.getElementById('pinError');
-            if (pinError) pinError.style.display = 'none';
-            if (pinInput) {
-                pinInput.value = '';
-                pinInput.placeholder = pin;
-                pinInput.focus();
-            }
-        }, 1600);
     } catch (error) {
         console.error(error);
         if (clave) clave.classList.add('is-invalid');
@@ -628,6 +640,113 @@ function textoSeguroEquipo(valor) {
   });
 }
 
+let usuariosEquipoCache = [];
+let meseroEquipoRecienteUid = '';
+
+function enlaceMeseroParaEnviar() {
+  const host = String((window.location && window.location.hostname) || '');
+  if (/toysoft\.co$/i.test(host)) {
+    return window.location.origin + '/mesero';
+  }
+  try {
+    return new URL('mesero.html', window.location.href).href;
+  } catch (e) {
+    return 'https://ultimate.toysoft.co/mesero';
+  }
+}
+
+function copiarEnlaceMesero() {
+  const enlace = enlaceMeseroParaEnviar();
+  const visible = document.getElementById('enlaceMeseroVisible');
+  if (visible) visible.textContent = enlace.replace(/^https?:\/\//, '');
+  const ok = function () {
+    mostrarMensajeEquipoMesero('Enlace copiado. Envíalo al mesero y listo.', 'ok');
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(enlace).then(ok).catch(function () {
+      window.prompt('Copia este enlace:', enlace);
+    });
+    return;
+  }
+  window.prompt('Copia este enlace:', enlace);
+}
+
+function mostrarMensajeEquipoMesero(texto, tipo) {
+  const el = document.getElementById('mensajeEquipoMesero');
+  if (!el) {
+    if (texto) alert(texto);
+    return;
+  }
+  if (!texto) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  el.style.display = 'block';
+  el.textContent = texto;
+  el.className = 'alert py-2 px-3 small mb-3 ' + (tipo === 'ok' ? 'alert-success' : 'alert-danger');
+}
+
+function uidMeseroEditando() {
+  return (document.getElementById('meseroEditandoUid') && document.getElementById('meseroEditandoUid').value || '').trim();
+}
+
+function cancelarEdicionMesero() {
+  const uidEl = document.getElementById('meseroEditandoUid');
+  const nombre = document.getElementById('nombreMeseroNuevo');
+  const correo = document.getElementById('correoMeseroNuevo');
+  const clave = document.getElementById('claveMeseroNuevo');
+  const boton = document.getElementById('btnCrearMesero');
+  const cancelar = document.getElementById('btnCancelarMesero');
+  if (uidEl) uidEl.value = '';
+  if (nombre) nombre.value = '';
+  if (correo) {
+    correo.value = '';
+    correo.readOnly = false;
+  }
+  if (clave) {
+    clave.value = '';
+    clave.required = true;
+    clave.placeholder = 'Mínimo 6 caracteres';
+  }
+  if (boton) boton.innerHTML = 'Agregar';
+  if (cancelar) cancelar.style.display = 'none';
+}
+
+function editarMeseroEquipo(uid) {
+  const mesero = usuariosEquipoCache.filter(function (u) {
+    return u.rol === 'mesero' && String(u.uid) === String(uid);
+  })[0];
+  if (!mesero) {
+    mostrarMensajeEquipoMesero('No se encontró el mesero a editar.', 'error');
+    return;
+  }
+  const uidEl = document.getElementById('meseroEditandoUid');
+  const nombre = document.getElementById('nombreMeseroNuevo');
+  const correo = document.getElementById('correoMeseroNuevo');
+  const clave = document.getElementById('claveMeseroNuevo');
+  const boton = document.getElementById('btnCrearMesero');
+  const cancelar = document.getElementById('btnCancelarMesero');
+  if (uidEl) uidEl.value = mesero.uid;
+  if (nombre) nombre.value = mesero.nombre || '';
+  if (correo) {
+    correo.value = mesero.email || '';
+    correo.readOnly = true;
+  }
+  if (clave) {
+    clave.value = '';
+    clave.required = false;
+    clave.placeholder = 'Dejar vacío para no cambiar';
+  }
+  if (boton) boton.innerHTML = '<i class="fas fa-save me-1"></i>Actualizar';
+  if (cancelar) cancelar.style.display = '';
+  mostrarMensajeEquipoMesero('', '');
+  if (nombre) {
+    nombre.focus();
+    nombre.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
 async function cargarEquipoNegocio() {
   const listaEl = document.getElementById('listaUsuariosEquipo');
   if (!listaEl || !window.ToySoftFirebase) return;
@@ -635,57 +754,105 @@ async function cargarEquipoNegocio() {
     if (typeof ToySoftFirebase.obtenerCodigoEquipo === 'function') {
       ToySoftFirebase.obtenerCodigoEquipo().catch(function () {});
     }
+    const visible = document.getElementById('enlaceMeseroVisible');
+    if (visible) visible.textContent = enlaceMeseroParaEnviar().replace(/^https?:\/\//, '');
     const usuarios = await ToySoftFirebase.listarUsuariosNegocio();
+    usuarios.sort(function (a, b) {
+      if (a.rol === 'mesero' && b.rol !== 'mesero') return -1;
+      if (a.rol !== 'mesero' && b.rol === 'mesero') return 1;
+      return String(a.nombre || a.email || '').localeCompare(String(b.nombre || b.email || ''), 'es');
+    });
+    usuariosEquipoCache = usuarios.slice();
     if (!usuarios.length) {
-      listaEl.innerHTML = '<li class="text-white-50">Todavía no hay cuentas listadas.</li>';
+      listaEl.innerHTML = '<p class="text-white-50 small mb-0">Todavía no hay cuentas listadas.</p>';
       return;
     }
     listaEl.innerHTML = usuarios.map(function (u) {
-      const rol = u.rol === 'mesero' ? 'Mesero' : 'Administrador';
-      const nombre = u.nombre ? textoSeguroEquipo(u.nombre) + ' · ' : '';
+      const esMesero = u.rol === 'mesero';
+      const rol = esMesero ? 'Mesero' : 'Administrador';
+      const nombre = textoSeguroEquipo(u.nombre || 'Sin nombre');
       const email = textoSeguroEquipo(u.email || u.uid);
       const uidAttr = textoSeguroEquipo(u.uid);
-      const borrar = u.rol === 'mesero'
-        ? '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" data-uid="' + uidAttr + '" onclick="eliminarMeseroEquipo(this.getAttribute(\'data-uid\'))">Eliminar</button>'
+      const reciente = esMesero && meseroEquipoRecienteUid && String(u.uid) === String(meseroEquipoRecienteUid);
+      const acciones = esMesero
+        ? '<div class="d-flex gap-2">' +
+          '<button type="button" class="btn btn-sm btn-outline-info" title="Editar" data-uid="' + uidAttr + '" onclick="editarMeseroEquipo(this.getAttribute(\'data-uid\'))">' +
+          '<i class="fas fa-pen"></i></button>' +
+          '<button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar" data-uid="' + uidAttr + '" onclick="eliminarMeseroEquipo(this.getAttribute(\'data-uid\'))">' +
+          '<i class="fas fa-trash"></i></button></div>'
         : '';
-      return '<li class="mb-2 d-flex flex-wrap align-items-center justify-content-between gap-2"><span><span class="text-white">' + nombre + email + '</span> <span class="text-info">· ' + rol + '</span></span>' + borrar + '</li>';
+      const badgeAgregado = reciente ? '<span class="badge bg-success ms-1">Agregado</span>' : '';
+      return '<div class="equipo-item' + (reciente ? ' recien-agregado' : '') + '">' +
+        '<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">' +
+        '<div class="flex-grow-1">' +
+        '<h6 class="mb-1">' + nombre + badgeAgregado + '</h6>' +
+        '<small class="text-white-50 d-block">' + email + '</small>' +
+        '<span class="badge bg-info text-dark mt-1">' + rol + '</span></div>' +
+        acciones + '</div></div>';
     }).join('');
   } catch (error) {
-    listaEl.innerHTML = '<li class="text-warning">' + textoSeguroEquipo((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message) + '</li>';
+    listaEl.innerHTML = '<p class="text-warning small mb-0">' + textoSeguroEquipo((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message) + '</p>';
   }
 }
 
-async function crearMeseroDesdeAdmin() {
+async function guardarMeseroDesdeAdmin() {
   const nombre = (document.getElementById('nombreMeseroNuevo') && document.getElementById('nombreMeseroNuevo').value || '').trim();
   const correo = (document.getElementById('correoMeseroNuevo') && document.getElementById('correoMeseroNuevo').value || '').trim();
   const clave = (document.getElementById('claveMeseroNuevo') && document.getElementById('claveMeseroNuevo').value || '');
+  const uid = uidMeseroEditando();
   const boton = document.getElementById('btnCrearMesero');
-  if (!window.ToySoftFirebase || typeof ToySoftFirebase.crearCuentaMesero !== 'function') {
-    alert('No hay conexión con Firebase.');
+  if (!window.ToySoftFirebase) {
+    mostrarMensajeEquipoMesero('No hay conexión con Firebase.', 'error');
     return;
   }
   if (boton) boton.disabled = true;
   try {
-    await ToySoftFirebase.crearCuentaMesero(nombre, correo, clave);
-    if (document.getElementById('nombreMeseroNuevo')) document.getElementById('nombreMeseroNuevo').value = '';
-    if (document.getElementById('correoMeseroNuevo')) document.getElementById('correoMeseroNuevo').value = '';
-    if (document.getElementById('claveMeseroNuevo')) document.getElementById('claveMeseroNuevo').value = '';
+    if (uid) {
+      if (typeof ToySoftFirebase.actualizarMesero !== 'function') {
+        mostrarMensajeEquipoMesero('No se puede modificar el mesero en esta versión.', 'error');
+        return;
+      }
+      await ToySoftFirebase.actualizarMesero(uid, nombre, clave);
+      meseroEquipoRecienteUid = uid;
+      cancelarEdicionMesero();
+      await cargarEquipoNegocio();
+      mostrarMensajeEquipoMesero('Mesero actualizado.', 'ok');
+      return;
+    }
+    if (typeof ToySoftFirebase.crearCuentaMesero !== 'function') {
+      mostrarMensajeEquipoMesero('No hay conexión con Firebase.', 'error');
+      return;
+    }
+    const creado = await ToySoftFirebase.crearCuentaMesero(nombre, correo, clave);
+    meseroEquipoRecienteUid = creado && creado.uid ? creado.uid : '';
+    cancelarEdicionMesero();
     await cargarEquipoNegocio();
-    alert('Mesero creado. Entrará en Mesero con ese correo y contraseña.');
+    mostrarMensajeEquipoMesero((nombre || 'Mesero') + ' quedó agregado. Envíale el enlace de mesero.', 'ok');
   } catch (error) {
-    alert((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message);
+    mostrarMensajeEquipoMesero((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message, 'error');
+    if (uid) {
+      meseroEquipoRecienteUid = uid;
+      await cargarEquipoNegocio();
+    }
   } finally {
     if (boton) boton.disabled = false;
   }
+}
+
+async function crearMeseroDesdeAdmin() {
+  return guardarMeseroDesdeAdmin();
 }
 
 async function eliminarMeseroEquipo(uid) {
   if (!confirm('¿Eliminar este mesero? Ya no podrá entrar.')) return;
   try {
     await ToySoftFirebase.eliminarMesero(uid);
+    if (uidMeseroEditando() === String(uid)) cancelarEdicionMesero();
+    if (String(meseroEquipoRecienteUid) === String(uid)) meseroEquipoRecienteUid = '';
     await cargarEquipoNegocio();
+    mostrarMensajeEquipoMesero('Mesero eliminado.', 'ok');
   } catch (error) {
-    alert((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message);
+    mostrarMensajeEquipoMesero((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message, 'error');
   }
 }
 

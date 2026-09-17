@@ -35,7 +35,7 @@
     if ('caches' in window) {
       caches.keys().then(function (keys) {
         keys.forEach(function (key) {
-          if (key !== 'toysoft-pos-v26') caches.delete(key);
+          if (key !== 'toysoft-pos-v30') caches.delete(key);
         });
       });
     }
@@ -195,9 +195,6 @@
         <div class="nav-buttons d-flex flex-column gap-2 align-items-center text-center mx-auto" style="max-width: 350px;">
           <a href="POS.html" id="btnInicioPOS" class="btn btn-info btn-md w-100">
             <i class="fas fa-cash-register me-1"></i> Punto de Venta
-          </a>
-          <a href="mesero.html" id="btnInicioMesero" class="btn btn-outline-warning btn-md w-100">
-            <i class="fas fa-concierge-bell me-1"></i> Mesero
           </a>
           <a href="admon.html" id="btnInicioAdmon" class="btn btn-outline-info btn-md w-100">
             <i class="fas fa-cog me-1"></i> Administración
@@ -904,14 +901,14 @@
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js?v=25"></script>
-  <script src="firebase-init.js?v=25"></script>
+  <script src="firebase-init.js?v=28"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-  <script src="seguridad.js?v=25"></script>
-  <script src="install.js?v=26"></script>
+  <script src="seguridad.js?v=26"></script>
+  <script src="install.js?v=27"></script>
     <script src="ayuda.js"></script>
     <script src="gastos-modelo.js"></script>
     <script src="inventario.js?v=25"></script>
