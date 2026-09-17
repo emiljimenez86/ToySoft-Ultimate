@@ -180,8 +180,8 @@ function crearPedidoMesero(tipo, extra) {
   if (extra.telefono) pedido.telefono = extra.telefono;
   if (extra.direccion) pedido.direccion = extra.direccion;
   if (extra.horaRecoger) pedido.horaRecoger = extra.horaRecoger;
-  const nombre = nombreMeseroSesion();
-  if (nombre) pedido.nombreMesero = nombre;
+  if (extra.clienteId) pedido.clienteId = extra.clienteId;
+  anotarMeseroEnPedido(pedido);
   return pedido;
 }
 
@@ -385,6 +385,134 @@ function crearMesaMesero() {
   abrirMesaMesero(numero);
 }
 
+function leerClientesMesero() {
+  try {
+    const lista = JSON.parse(localStorage.getItem('clientes') || '[]');
+    return Array.isArray(lista) ? lista : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function nombreClienteMesero(cliente) {
+  if (!cliente) return 'Sin nombre';
+  const partes = [cliente.nombre, cliente.apellido].filter(function (parte) {
+    const valor = String(parte || '').trim();
+    return valor && valor.toLowerCase() !== 'no proporcionado';
+  });
+  return partes.join(' ').trim() || String(cliente.nombre || '').trim() || 'Sin nombre';
+}
+
+function normalizarTextoClienteMesero(texto) {
+  return String(texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function normalizarTelefonoMesero(texto) {
+  return String(texto || '').replace(/\D/g, '');
+}
+
+function clienteCoincideMesero(cliente, busqueda) {
+  const query = normalizarTextoClienteMesero(busqueda);
+  if (!query) return false;
+  const texto = normalizarTextoClienteMesero([
+    cliente.nombre, cliente.apellido, cliente.telefono, cliente.documento, cliente.direccion
+  ].filter(Boolean).join(' '));
+  const palabras = query.split(/\s+/).filter(Boolean);
+  const coincideTexto = palabras.every(function (palabra) { return texto.indexOf(palabra) !== -1; });
+  const telQuery = normalizarTelefonoMesero(busqueda);
+  const telCliente = normalizarTelefonoMesero(cliente.telefono || cliente.documento);
+  return coincideTexto || (telQuery.length >= 4 && telCliente.indexOf(telQuery) !== -1);
+}
+
+function filtrarClientesMesero(busqueda) {
+  const fuente = leerClientesMesero();
+  const query = String(busqueda || '').trim();
+  if (query) return fuente.filter(function (cliente) { return clienteCoincideMesero(cliente, query); });
+  return fuente.slice(-12).reverse();
+}
+
+function direccionClienteMesero(cliente) {
+  const dir = String((cliente && cliente.direccion) || '').trim();
+  return (!dir || dir.toLowerCase() === 'no proporcionado') ? '' : dir;
+}
+
+function buscarClientesMesero() {
+  const input = document.getElementById('buscarClienteMesero');
+  const lista = document.getElementById('listaClientesMesero');
+  if (!lista) return;
+  const query = input ? input.value : '';
+  const filtrados = filtrarClientesMesero(query);
+  if (!filtrados.length) {
+    lista.innerHTML = query
+      ? '<div class="list-group-item bg-dark text-muted border-secondary small">No se encontró. Escríbelo abajo.</div>'
+      : '<div class="list-group-item bg-dark text-muted border-secondary small">No hay clientes guardados todavía.</div>';
+    return;
+  }
+  const max = 12;
+  lista.innerHTML = filtrados.slice(0, max).map(function (cliente) {
+    const dir = direccionClienteMesero(cliente);
+    const tel = cliente.telefono || '';
+    return '<button type="button" class="list-group-item list-group-item-action bg-dark text-white border-secondary py-2" onclick="seleccionarClienteMesero(\'' +
+      String(cliente.id).replace(/'/g, '') + '\')">' +
+      '<div class="fw-semibold">' + escaparHtml(nombreClienteMesero(cliente)) + '</div>' +
+      '<small class="text-white-50">' + escaparHtml(tel) + (dir ? ' · ' + escaparHtml(dir) : '') + '</small></button>';
+  }).join('');
+}
+
+function seleccionarClienteMesero(clienteId) {
+  const cliente = leerClientesMesero().find(function (c) { return String(c.id) === String(clienteId); });
+  if (!cliente) return;
+  const idEl = document.getElementById('clienteIdExternoMesero');
+  const nombreEl = document.getElementById('clienteExternoMesero');
+  const telEl = document.getElementById('telefonoExternoMesero');
+  const dirEl = document.getElementById('direccionExternoMesero');
+  const buscaEl = document.getElementById('buscarClienteMesero');
+  if (idEl) idEl.value = String(cliente.id);
+  if (nombreEl) nombreEl.value = nombreClienteMesero(cliente);
+  if (telEl) telEl.value = cliente.telefono || '';
+  if (dirEl) dirEl.value = direccionClienteMesero(cliente);
+  if (buscaEl) buscaEl.value = '';
+  const lista = document.getElementById('listaClientesMesero');
+  if (lista) {
+    lista.innerHTML = '<div class="list-group-item bg-dark text-info border-secondary py-2"><i class="fas fa-check-circle me-1"></i>' +
+      escaparHtml(nombreClienteMesero(cliente)) + '</div>';
+  }
+}
+
+function guardarClienteNuevoMesero(nombre, telefono, direccion) {
+  const lista = leerClientesMesero();
+  const tel = normalizarTelefonoMesero(telefono);
+  let existente = null;
+  if (tel.length >= 7) {
+    existente = lista.find(function (cliente) {
+      return normalizarTelefonoMesero(cliente.telefono) === tel || normalizarTelefonoMesero(cliente.documento) === tel;
+    }) || null;
+  }
+  if (!existente && nombre) {
+    const nom = normalizarTextoClienteMesero(nombre);
+    existente = lista.find(function (cliente) {
+      return normalizarTextoClienteMesero(nombreClienteMesero(cliente)) === nom;
+    }) || null;
+  }
+  if (existente) return existente;
+  const nuevo = {
+    id: Date.now(),
+    documento: telefono || '',
+    nombre: nombre,
+    apellido: 'No proporcionado',
+    telefono: telefono || '',
+    correo: 'No proporcionado',
+    direccion: direccion || 'No proporcionado',
+    fechaRegistro: new Date().toISOString()
+  };
+  lista.push(nuevo);
+  localStorage.setItem('clientes', JSON.stringify(lista));
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirClientes === 'function') {
+    ToySoftFirebase.persistirClientes(lista);
+  }
+  return nuevo;
+}
+
 function abrirFormPedidoExternoMesero(tipo) {
   const esDom = tipo === 'domicilio';
   const titulo = document.getElementById('tituloPedidoExternoMesero');
@@ -395,10 +523,11 @@ function abrirFormPedidoExternoMesero(tipo) {
   if (titulo) titulo.textContent = esDom ? 'Domicilio' : 'Recoger';
   if (dirBox) dirBox.style.display = esDom ? '' : 'none';
   if (horaBox) horaBox.style.display = esDom ? 'none' : '';
-  ['clienteExternoMesero', 'telefonoExternoMesero', 'direccionExternoMesero', 'horaExternoMesero'].forEach(function (id) {
+  ['clienteExternoMesero', 'telefonoExternoMesero', 'direccionExternoMesero', 'horaExternoMesero', 'buscarClienteMesero', 'clienteIdExternoMesero'].forEach(function (id) {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  buscarClientesMesero();
   const modalEl = document.getElementById('modalPedidoExternoMesero');
   if (modalEl && typeof bootstrap !== 'undefined') {
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -419,13 +548,15 @@ function confirmarPedidoExternoMesero() {
     alert('Escribe la dirección del domicilio');
     return;
   }
+  const guardado = guardarClienteNuevoMesero(cliente, telefono, direccion);
   const siguiente = siguienteIdExternoMesero(tipo);
   mesasActivas.set(siguiente.id, crearPedidoMesero(tipo, {
     numero: siguiente.numero,
     cliente: cliente,
     telefono: telefono,
     direccion: tipo === 'domicilio' ? direccion : '',
-    horaRecoger: tipo === 'recoger' ? horaRecoger : ''
+    horaRecoger: tipo === 'recoger' ? horaRecoger : '',
+    clienteId: guardado && guardado.id
   }));
   persistirMesero(true);
   const modalEl = document.getElementById('modalPedidoExternoMesero');
@@ -545,6 +676,7 @@ function reubicarPedidoMesero(origen, destino, pedido) {
       dest.horaRecoger = pedido.horaRecoger;
     }
     if (pedido.nombreMesero && !dest.nombreMesero) dest.nombreMesero = pedido.nombreMesero;
+    if (pedido.sexoMesero && !dest.sexoMesero) dest.sexoMesero = pedido.sexoMesero;
     mesasActivas.set(destino, dest);
     pedido = dest;
   } else {
@@ -572,6 +704,7 @@ function reubicarPedidoMesero(origen, destino, pedido) {
       sesionId: pedido.sesionId || null,
       origen: 'mesero',
       nombreMesero: pedido.nombreMesero || nombreMeseroSesion(),
+      sexoMesero: pedido.sexoMesero || sexoMeseroSesion(),
       cliente: pedido.cliente || null,
       telefono: pedido.telefono || null,
       direccion: pedido.tipo === 'domicilio' ? (pedido.direccion || null) : null,
@@ -746,14 +879,20 @@ function confirmarProductoMesero() {
 
   const pedido = normalizarPedido(mesasActivas.get(mesaSeleccionada));
   const rondaActual = pedido.ronda || 1;
+  const nombreMesero = nombreMeseroSesion();
   const existente = producto.editableEnVenta
     ? null
-    : pedido.items.find(function (p) { return String(p.id) === String(producto.id) && p.estado !== 'en_cocina'; });
+    : pedido.items.find(function (p) {
+      return String(p.id) === String(producto.id)
+        && p.estado !== 'en_cocina'
+        && (!p.nombreMesero || !nombreMesero || p.nombreMesero === nombreMesero);
+    });
   if (existente) {
     existente.cantidad = (Number(existente.cantidad) || 0) + cantidad;
     if (detalles) existente.detalles = existente.detalles ? (existente.detalles + '; ' + detalles) : detalles;
+    anotarMeseroEnPedido(pedido, existente);
   } else {
-    pedido.items.push({
+    const item = {
       id: producto.id,
       nombre: producto.nombre,
       precio: Number(producto.precio) || 0,
@@ -761,7 +900,9 @@ function confirmarProductoMesero() {
       detalles: detalles,
       estado: 'pendiente',
       ronda: rondaActual
-    });
+    };
+    anotarMeseroEnPedido(pedido, item);
+    pedido.items.push(item);
   }
   mesasActivas.set(mesaSeleccionada, pedido);
   persistirMesero(true);
@@ -790,12 +931,11 @@ function enviarPedidoCocinaMesero() {
     return;
   }
   const rondaEnviada = nuevos.reduce(function (max, item) { return Math.max(max, rondaDeItem(item)); }, pedido.ronda || 1);
-  const nombreMesero = nombreMeseroSesion();
   nuevos.forEach(function (item) {
     item.estado = 'en_cocina';
     if (item.ronda == null) item.ronda = rondaEnviada;
     item.sesionId = pedido.sesionId;
-    if (nombreMesero) item.nombreMesero = nombreMesero;
+    anotarMeseroEnPedido(pedido, item);
   });
   const existentes = (ordenesCocina.get(mesaSeleccionada) || []).filter(function (item) {
     return item && item.sesionId === pedido.sesionId;
@@ -811,13 +951,14 @@ function enviarPedidoCocinaMesero() {
     sesionId: pedido.sesionId || null,
     origen: 'mesero',
     nombreMesero: nombreMeseroSesion(),
+    sexoMesero: sexoMeseroSesion(),
     cliente: pedido.cliente || null,
     telefono: pedido.telefono || null,
     direccion: pedido.direccion || null,
     horaRecoger: pedido.horaRecoger || null
   });
   sincronizarRonda(pedido);
-  if (nombreMesero) pedido.nombreMesero = nombreMesero;
+  anotarMeseroEnPedido(pedido);
   mesasActivas.set(mesaSeleccionada, pedido);
   persistirMesero(true);
   pintarMesero();
@@ -913,7 +1054,7 @@ function bytesEscPosTicketCocina(mesa, productos, opciones) {
   grande(false);
   ln(titulo);
   ln('Ronda: ' + rondaTicket);
-  if (nombreMeseroTicket) ln('Mesero: ' + nombreMeseroTicket);
+  if (nombreMeseroTicket) ln(etiquetaRolMeseroSesion(pedido, opciones) + ': ' + nombreMeseroTicket);
   ln(fechaTicket);
   centro(false);
   sep();
@@ -1006,7 +1147,7 @@ function htmlCuerpoTicketCocinaMesero(mesa, productos, opciones) {
   return '<div class="header text-center"><h2 style="margin:0;font-size:28px;">COCINA</h2>' +
     '<div style="font-size:22px;font-weight:bold;">' + escaparHtml(titulo) + '</div>' +
     '<div style="font-size:20px;font-weight:bold;">Ronda: ' + rondaTicket + '</div>' +
-    (nombreMeseroTicket ? '<div style="font-size:18px;font-weight:bold;">Mesero: ' + escaparHtml(nombreMeseroTicket) + '</div>' : '') +
+    (nombreMeseroTicket ? '<div style="font-size:18px;font-weight:bold;">' + escaparHtml(etiquetaRolMeseroSesion(pedido, opciones)) + ': ' + escaparHtml(nombreMeseroTicket) + '</div>' : '') +
     '<div>' + escaparHtml(fechaTicket) + '</div></div>' + infoCambio + infoCliente +
     '<table><thead><tr><th style="width:20%">Cant</th><th>Producto</th></tr></thead><tbody>' + filas +
     '</tbody></table><div class="text-center border-top">¡Gracias!</div>';
@@ -1075,6 +1216,9 @@ async function iniciarMesero() {
     pintarNombreMeseroCabecera();
     await ToySoftFirebase.sincronizarCatalogo();
     await ToySoftFirebase.sincronizarOperacion();
+    if (typeof ToySoftFirebase.sincronizarDatos === 'function') {
+      await ToySoftFirebase.sincronizarDatos();
+    }
     leerCatalogoLocal();
     leerOperacionLocal();
     hashOperacion = hashDeOperacion();
@@ -1085,9 +1229,22 @@ async function iniciarMesero() {
       pintarMesero();
     });
     ToySoftFirebase.escucharOperacion(aplicarOperacionNube);
+    if (typeof ToySoftFirebase.escucharDatos === 'function') {
+      ToySoftFirebase.escucharDatos(function () {
+        const modal = document.getElementById('modalPedidoExternoMesero');
+        if (modal && modal.classList.contains('show')) buscarClientesMesero();
+      });
+    }
   } catch (error) {
     console.warn('Mesero no pudo sincronizar', error);
   }
+}
+
+function uidMeseroSesion() {
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.uidMeseroActual === 'function') {
+    return ToySoftFirebase.uidMeseroActual();
+  }
+  return '';
 }
 
 function nombreMeseroSesion() {
@@ -1097,10 +1254,43 @@ function nombreMeseroSesion() {
   return '';
 }
 
+function anotarMeseroEnPedido(pedido, item) {
+  const nombre = nombreMeseroSesion();
+  const sexo = sexoMeseroSesion();
+  const uid = uidMeseroSesion();
+  if (pedido) {
+    if (nombre && !pedido.nombreMesero) pedido.nombreMesero = nombre;
+    if (sexo && !pedido.sexoMesero) pedido.sexoMesero = sexo;
+    if (uid && !pedido.meseroUid) pedido.meseroUid = uid;
+    if (!pedido.origen) pedido.origen = 'mesero';
+  }
+  if (item) {
+    if (nombre) item.nombreMesero = nombre;
+    if (sexo) item.sexoMesero = sexo;
+    if (uid) item.meseroUid = uid;
+  }
+}
+
+function sexoMeseroSesion() {
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.sexoMeseroActual === 'function') {
+    return ToySoftFirebase.sexoMeseroActual();
+  }
+  return '';
+}
+
+function etiquetaRolMeseroSesion(pedido, opciones) {
+  const sexo = (opciones && opciones.sexoMesero) || (pedido && pedido.sexoMesero) || sexoMeseroSesion();
+  return sexo === 'femenino' ? 'Mesera' : 'Mesero';
+}
+
 function pintarNombreMeseroCabecera() {
   const el = document.getElementById('nombreUsuarioMesero');
-  if (!el) return;
-  el.textContent = nombreMeseroSesion() || '';
+  if (el) el.textContent = nombreMeseroSesion() || '';
+  const rol = etiquetaRolMeseroSesion();
+  const rolEl = document.getElementById('rolMeseroCabecera');
+  if (rolEl) rolEl.textContent = rol;
+  const ayuda = document.getElementById('tituloAyuda');
+  if (ayuda) ayuda.textContent = '- ' + rol;
 }
 
 async function asegurarNombreMeseroSesion() {

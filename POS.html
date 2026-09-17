@@ -34,13 +34,16 @@
   <link rel="icon" type="image/png" sizes="512x512" href="./image/logo-ToySoft.png">
   <link rel="apple-touch-icon" href="./image/logo-ToySoft.png">
   <style>
-    #resumenVentasPorCanal tr[data-canal] {
+    #resumenVentasPorCanal tr[data-canal],
+    #resumenVentasPorMesero tr[data-mesero] {
       cursor: pointer;
     }
-    #resumenVentasPorCanal tr[data-canal]:hover {
+    #resumenVentasPorCanal tr[data-canal]:hover,
+    #resumenVentasPorMesero tr[data-mesero]:hover {
       background: rgba(13, 202, 240, 0.12);
     }
-    #resumenVentasPorCanal tr.canal-activo {
+    #resumenVentasPorCanal tr.canal-activo,
+    #resumenVentasPorMesero tr.canal-activo {
       background: rgba(13, 202, 240, 0.22);
     }
     .canal-tipo-cell {
@@ -73,23 +76,28 @@
     .canal-ver-detalle .canal-ocultar-label {
       display: none;
     }
-    #resumenVentasPorCanal tr[data-canal]:hover .canal-ver-detalle {
+    #resumenVentasPorCanal tr[data-canal]:hover .canal-ver-detalle,
+    #resumenVentasPorMesero tr[data-mesero]:hover .canal-ver-detalle {
       background: rgba(13, 202, 240, 0.22);
     }
-    #resumenVentasPorCanal tr.canal-activo .canal-ver-detalle {
+    #resumenVentasPorCanal tr.canal-activo .canal-ver-detalle,
+    #resumenVentasPorMesero tr.canal-activo .canal-ver-detalle {
       color: #06212a;
       background: #0dcaf0;
       border-color: #0dcaf0;
     }
-    #resumenVentasPorCanal tr.canal-activo .canal-ver-label {
+    #resumenVentasPorCanal tr.canal-activo .canal-ver-label,
+    #resumenVentasPorMesero tr.canal-activo .canal-ver-label {
       display: none;
     }
-    #resumenVentasPorCanal tr.canal-activo .canal-ocultar-label {
+    #resumenVentasPorCanal tr.canal-activo .canal-ocultar-label,
+    #resumenVentasPorMesero tr.canal-activo .canal-ocultar-label {
       display: inline-flex;
       align-items: center;
       gap: 0.3rem;
     }
-    #detalleProductosPorCanal {
+    #detalleProductosPorCanal,
+    #detalleProductosPorMesero {
       max-height: 260px;
       overflow-y: auto;
     }
@@ -1777,6 +1785,36 @@
 
           <div class="card mb-3">
             <div class="card-header">
+              <h6 class="mb-0"><i class="fas fa-user-tie text-warning"></i> Ventas por mesero</h6>
+              <small class="text-muted">Cuánto vendió cada mesero. Lo de caja, sin mesero, sale como Caja (POS).</small>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive mb-3">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Mesero</th>
+                      <th class="text-end">Ventas</th>
+                      <th class="text-end">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="resumenVentasPorMesero">
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <th>Total</th>
+                      <th class="text-end" id="totalVentasPorMeseroCantidad">0</th>
+                      <th class="text-end" id="totalVentasPorMeseroMonto">$ 0</th>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div id="detalleProductosPorMesero"></div>
+            </div>
+          </div>
+
+          <div class="card mb-3">
+            <div class="card-header">
               <h6 class="mb-0"><i class="fas fa-hand-holding-usd"></i> Propinas</h6>
               <small class="text-muted">Ya van en el total de ventas. Se restan del balance porque son del personal.</small>
             </div>
@@ -2766,11 +2804,11 @@
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js?v=25"></script>
-  <script src="firebase-init.js?v=25"></script>
-  <script src="ayuda.js?v=30"></script>
+  <script src="firebase-init.js?v=32"></script>
+  <script src="ayuda.js?v=35"></script>
   <script src="gastos-modelo.js"></script>
   <script src="inventario.js?v=25"></script>
-  <script src="app.js?v=27"></script>
+  <script src="app.js?v=29"></script>
   <script src="cotizaciones.js"></script>
   <script src="seguridad.js?v=25"></script>
   <script>

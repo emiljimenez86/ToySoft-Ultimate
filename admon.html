@@ -582,7 +582,7 @@
                     <h2 class="mb-0 fs-3 fs-md-2"><i class="fas fa-users me-2"></i>Equipo del negocio</h2>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small mb-2">Crea aquí las cuentas de mesero y envíales el enlace. Entran con el correo y la contraseña que les asignes. El nombre sale en el ticket de cocina.</p>
+                    <p class="text-muted small mb-2">Crea aquí las cuentas de mesero o mesera y envíales el enlace. Entran con el correo y la contraseña que les asignes. El nombre sale en el ticket de cocina. El sexo define si en la app dice Mesero o Mesera.</p>
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                         <span class="small text-warning" id="enlaceMeseroVisible">ultimate.toysoft.co/mesero</span>
                         <button type="button" class="btn btn-outline-warning btn-sm" onclick="copiarEnlaceMesero()">
@@ -591,15 +591,23 @@
                     </div>
                     <form class="row g-2 align-items-end mb-3" onsubmit="event.preventDefault(); guardarMeseroDesdeAdmin();">
                         <input type="hidden" id="meseroEditandoUid" value="">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small mb-1" for="nombreMeseroNuevo">Nombre</label>
                             <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="nombreMeseroNuevo" placeholder="Nombre" required>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label small mb-1" for="correoMeseroNuevo">Correo</label>
                             <input type="email" class="form-control form-control-sm bg-dark text-white border-secondary" id="correoMeseroNuevo" placeholder="Correo" required>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1" for="sexoMeseroNuevo">Sexo</label>
+                            <select class="form-select form-select-sm bg-dark text-white border-secondary" id="sexoMeseroNuevo" required>
+                                <option value="">Elegir</option>
+                                <option value="femenino">Femenino</option>
+                                <option value="masculino">Masculino</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label small mb-1" for="claveMeseroNuevo">Contraseña</label>
                             <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="claveMeseroNuevo" placeholder="Mínimo 6 caracteres" minlength="6" required>
                         </div>
@@ -981,10 +989,10 @@
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js?v=25"></script>
-    <script src="firebase-init.js?v=29"></script>
+    <script src="firebase-init.js?v=32"></script>
     <script src="seguridad.js?v=26"></script>
-    <script src="ayuda.js?v=32"></script>
+    <script src="ayuda.js?v=35"></script>
     <script src="gastos-modelo.js"></script>
-    <script src="admon.js?v=29"></script>
+    <script src="admon.js?v=30"></script>
 </body>
 </html> 

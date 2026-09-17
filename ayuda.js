@@ -430,8 +430,8 @@ const ayudaContextual = {
                         <h5 class="text-warning"><i class="fas fa-users me-1"></i> Equipo del negocio</h5>
                         <ul>
                             <li><strong>Copiar enlace:</strong> envía ese link al mesero. Ya no hay botón de Mesero en el inicio del POS.</li>
-                            <li><strong>Agregar:</strong> nombre, correo y contraseña (mínimo 6 caracteres). El nombre sale en el ticket de cocina.</li>
-                            <li>El mesero entra con ese correo y contraseña. Puede mesa, domicilio, recoger e imprimir ticket de cocina. No cobra.</li>
+                            <li><strong>Agregar:</strong> nombre, sexo, correo y contraseña (mínimo 6 caracteres). El sexo hace que la app diga Mesero o Mesera. El nombre sale en el ticket de cocina.</li>
+                            <li>Entra con ese correo y contraseña. Puede mesa, domicilio, recoger e imprimir ticket de cocina. No cobra.</li>
                             <li><strong>Lápiz:</strong> cambia nombre o contraseña. El correo no se cambia.</li>
                             <li><strong>Basura:</strong> quita al mesero de este negocio. Queda en verde un momento al agregarlo o editarlo.</li>
                             <li>Cada correo queda ligado a <strong>este</strong> restaurante. No ve datos de otro negocio.</li>
@@ -937,6 +937,13 @@ const ayudaContextual = {
                             <li>Toca <strong>Ver productos</strong> en cada tipo para ver el detalle; el botón pasa a <strong>Ocultar</strong></li>
                         </ul>
                         
+                        <h5 class="text-warning">👤 Ventas por mesero</h5>
+                        <ul>
+                            <li>Muestra cuánto vendió cada mesero en el periodo</li>
+                            <li>Las ventas hechas en caja, sin mesero, salen como <strong>Caja (POS)</strong></li>
+                            <li>Toca el nombre para ver los productos de ese mesero</li>
+                        </ul>
+                        
                         <h5 class="text-warning">🚚 Domicilios</h5>
                         <ul>
                             <li>Se restan del balance porque se pagan al domiciliario</li>
@@ -985,7 +992,7 @@ const ayudaContextual = {
                 <ul>
                     <li><strong>Abrir mesa:</strong> escribe el número y tócala para tomar el pedido.</li>
                     <li><strong>Cambio de mesa:</strong> dentro del pedido, toca <strong>Cambio de mesa</strong> y escribe el número nuevo. Si la mesa ya tenía pedido, se unen.</li>
-                    <li><strong>Domicilio ↔ Recoger:</strong> en un domicilio toca <strong>Pasar a Recoger</strong>; en recoger, <strong>Pasar a Domicilio</strong> (pide dirección).</li>
+                    <li><strong>Domicilio y Recoger:</strong> aparecen los clientes de Administración. Búscalo por nombre o teléfono; si es nuevo, escríbelo y queda en la misma base.</li>
                     <li>Si ya se había enviado a cocina, se imprime un ticket nuevo con el cambio desde el celular.</li>
                 </ul>
                 <h5 class="text-success">Enviar e imprimir</h5>
@@ -1349,6 +1356,7 @@ function mostrarAyudaEspecifica(tipo) {
                     <h6><i class="fas fa-balance-scale"></i> Balance del periodo</h6>
                     <ul class="mb-0">
                         <li><strong>Ver productos:</strong> En Ventas por tipo, abre el detalle de cada canal</li>
+                        <li><strong>Ventas por mesero:</strong> Cuánto vendió cada uno; Caja (POS) es lo que no tomó un mesero</li>
                         <li><strong>Bases de caja:</strong> Cada cierre con la base que entró y la que se dejó</li>
                         <li><strong>Varios cierres:</strong> No se suman las bases; queda la del último</li>
                         <li><strong>Total:</strong> Ventas − propinas − gastos − créditos − domicilios, más la última base dejada</li>

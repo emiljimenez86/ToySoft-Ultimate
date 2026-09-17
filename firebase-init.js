@@ -120,9 +120,37 @@
     return cuentaActiva() && getRol() === 'mesero';
   }
 
+  function normalizarSexoMesero(valor) {
+    const s = String(valor || '').trim().toLowerCase();
+    if (s === 'f' || s === 'femenino' || s === 'mujer' || s === 'mesera') return 'femenino';
+    if (s === 'm' || s === 'masculino' || s === 'hombre' || s === 'mesero') return 'masculino';
+    return '';
+  }
+
+  function etiquetaRolPorSexo(sexo) {
+    return normalizarSexoMesero(sexo) === 'femenino' ? 'Mesera' : 'Mesero';
+  }
+
+  function uidMeseroActual() {
+    if (usuarioAuth && usuarioAuth.uid) return String(usuarioAuth.uid);
+    try {
+      return (auth().currentUser && auth().currentUser.uid) || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
   function nombreMeseroActual() {
     const u = usuarioDoc || {};
     return String(u.nombre || '').trim();
+  }
+
+  function sexoMeseroActual() {
+    return normalizarSexoMesero((usuarioDoc || {}).sexo);
+  }
+
+  function etiquetaRolMeseroActual() {
+    return etiquetaRolPorSexo(sexoMeseroActual());
   }
 
   async function guardarNombreUsuario(nombre) {
@@ -264,6 +292,7 @@
         email: data.email || '',
         rol: data.rol || 'admin',
         nombre: data.nombre || '',
+        sexo: normalizarSexoMesero(data.sexo),
         activo: data.activo !== false
       };
     }).filter(function (u) {
@@ -346,15 +375,17 @@
     }
   }
 
-  async function crearCuentaMesero(nombre, email, password) {
+  async function crearCuentaMesero(nombre, email, password, sexo) {
     if (!esAdminNegocio()) throw new Error('Solo el administrador puede crear meseros.');
     if (!negocioIdActual) await asegurarNegocio();
     const nombreLimpio = String(nombre || '').trim();
     const correo = normalizarCorreo(email);
     const clave = normalizarClave(password);
+    const sexoLimpio = normalizarSexoMesero(sexo);
     if (!nombreLimpio) throw new Error('Escribe el nombre del mesero.');
     if (!correo) throw new Error('Escribe el correo del mesero.');
     if (clave.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+    if (!sexoLimpio) throw new Error('Elige el sexo: femenino o masculino.');
     if (!auth().currentUser) throw new Error('Se perdió la sesión del administrador. Vuelve a entrar.');
 
     const actuales = await listarUsuariosNegocio(true);
@@ -384,6 +415,7 @@
         rol: 'mesero',
         negocioId: negocioIdActual,
         nombre: nombreLimpio,
+        sexo: sexoLimpio,
         activo: true,
         creadoEn: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
@@ -393,7 +425,7 @@
       }
       throw error;
     }
-    return { uid: uid, email: correo, nombre: nombreLimpio, rol: 'mesero' };
+    return { uid: uid, email: correo, nombre: nombreLimpio, rol: 'mesero', sexo: sexoLimpio };
   }
 
   async function eliminarMesero(uid) {
@@ -422,13 +454,15 @@
       || codigo === 'auth/invalid-login-credentials';
   }
 
-  async function actualizarMesero(uid, nombre, password) {
+  async function actualizarMesero(uid, nombre, password, sexo) {
     if (!esAdminNegocio()) throw new Error('Solo el administrador puede modificar meseros.');
     const id = String(uid || '').trim();
     const nombreLimpio = String(nombre || '').trim();
     const clave = normalizarClave(password);
+    const sexoLimpio = normalizarSexoMesero(sexo);
     if (!id) throw new Error('Falta el mesero a modificar.');
     if (!nombreLimpio) throw new Error('Escribe el nombre del mesero.');
+    if (!sexoLimpio) throw new Error('Elige el sexo: femenino o masculino.');
     if (clave && clave.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
 
     const ref = db().collection('usuarios').doc(id);
@@ -440,13 +474,14 @@
 
     await ref.set({
       nombre: nombreLimpio,
+      sexo: sexoLimpio,
       actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
 
-    if (!clave) return { uid: id, nombre: nombreLimpio };
+    if (!clave) return { uid: id, nombre: nombreLimpio, sexo: sexoLimpio };
 
     const correo = normalizarCorreo(data.email);
-    if (!correo) return { uid: id, nombre: nombreLimpio };
+    if (!correo) return { uid: id, nombre: nombreLimpio, sexo: sexoLimpio };
     try {
       await llamarIdentityToolkit('accounts:signInWithPassword', {
         email: correo,
@@ -459,7 +494,7 @@
       }
       throw error;
     }
-    return { uid: id, nombre: nombreLimpio };
+    return { uid: id, nombre: nombreLimpio, sexo: sexoLimpio };
   }
 
   async function asegurarNegocio(opciones) {
@@ -1541,6 +1576,19 @@
     }, 400);
   }
 
+  function persistirClientes(lista) {
+    const clientes = Array.isArray(lista) ? lista : parseListaLocal('clientes');
+    localStorage.setItem('clientes', JSON.stringify(clientes));
+    if (!estaListo() || !negocioIdActual) return Promise.resolve(clientes);
+    return refDatos().set({
+      clientes: clientes,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).then(function () { return clientes; }).catch(function (error) {
+      console.warn('No se pudieron guardar los clientes en la nube', error);
+      return clientes;
+    });
+  }
+
   async function sincronizarDatos() {
     if (!negocioIdActual) await asegurarNegocio();
     const local = snapshotDatosLocal();
@@ -2019,6 +2067,9 @@
     getRol: getRol,
     esAdminNegocio: esAdminNegocio,
     esMesero: esMesero,
+    sexoMeseroActual: sexoMeseroActual,
+    etiquetaRolMeseroActual: etiquetaRolMeseroActual,
+    uidMeseroActual: uidMeseroActual,
     nombreMeseroActual: nombreMeseroActual,
     guardarNombreUsuario: guardarNombreUsuario,
     guardarDatosNegocio: guardarDatosNegocio,
@@ -2054,6 +2105,7 @@
     escucharInventario: escucharInventario,
     inventarioDesdeLocal: inventarioDesdeLocal,
     persistirDatosDebounced: persistirDatosDebounced,
+    persistirClientes: persistirClientes,
     sincronizarDatos: sincronizarDatos,
     escucharDatos: escucharDatos,
     persistirExtras: persistirExtras,

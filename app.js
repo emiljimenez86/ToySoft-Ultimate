@@ -186,6 +186,153 @@ function htmlImpresionTotalesPorCanalBalance() {
   }).join('');
 }
 
+const ETIQUETA_CAJA_BALANCE_MESERO = 'Caja (POS)';
+
+function montoLineaProductoBalance(item) {
+  if (!item) return 0;
+  const cantidad = parseFloat(item.cantidad) || 0;
+  const precio = parseFloat(item.precio) || 0;
+  if (item.total != null) return parseFloat(item.total) || 0;
+  return precio * cantidad;
+}
+
+function nombreMeseroDeTexto(valor) {
+  return String(valor || '').trim();
+}
+
+function agregarProductoAGrupoBalance(grupo, item) {
+  if (!grupo || !item) return;
+  const nombre = (item.nombre || 'Producto').toString().trim() || 'Producto';
+  if (!grupo.productos[nombre]) {
+    grupo.productos[nombre] = { nombre, cantidad: 0, total: 0 };
+  }
+  grupo.productos[nombre].cantidad += parseFloat(item.cantidad) || 0;
+  grupo.productos[nombre].total += montoLineaProductoBalance(item);
+}
+
+function grupoMeseroBalance(mapa, nombre, sexo) {
+  const clave = nombreMeseroDeTexto(nombre) || ETIQUETA_CAJA_BALANCE_MESERO;
+  if (!mapa[clave]) {
+    mapa[clave] = {
+      clave,
+      nombre: clave,
+      esCaja: clave === ETIQUETA_CAJA_BALANCE_MESERO,
+      cantidadVentas: 0,
+      total: 0,
+      productos: {},
+      icono: clave === ETIQUETA_CAJA_BALANCE_MESERO ? 'fa-cash-register' : 'fa-user-tie',
+      etiqueta: clave
+    };
+  }
+  if (sexo === 'femenino') mapa[clave].sexo = 'femenino';
+  return mapa[clave];
+}
+
+function resumirVentasPorMeseroBalance(ventas) {
+  const mapa = {};
+  (ventas || []).forEach(venta => {
+    const items = venta.items || venta.productos || [];
+    const nombreVenta = nombreMeseroDeTexto(venta.nombreMesero);
+    const nombresItems = {};
+    items.forEach(item => {
+      const n = nombreMeseroDeTexto(item && item.nombreMesero);
+      if (!n) return;
+      if (!nombresItems[n]) nombresItems[n] = [];
+      nombresItems[n].push(item);
+    });
+    const nombresUnicos = Object.keys(nombresItems);
+    const sexo = venta.sexoMesero || ((items.find(i => i && i.sexoMesero) || {}).sexoMesero);
+    const totalVenta = parseFloat(venta.total) || 0;
+
+    if (nombresUnicos.length <= 1) {
+      const nombre = nombresUnicos[0] || nombreVenta || (venta.origen === 'mesero' ? 'Mesero' : ETIQUETA_CAJA_BALANCE_MESERO);
+      const grupo = grupoMeseroBalance(mapa, nombre, sexo);
+      grupo.cantidadVentas += 1;
+      grupo.total += totalVenta;
+      items.forEach(item => agregarProductoAGrupoBalance(grupo, item));
+      return;
+    }
+
+    const subtotalItems = items.reduce((s, i) => s + montoLineaProductoBalance(i), 0) || 1;
+    const itemsSinMesero = items.filter(i => !nombreMeseroDeTexto(i && i.nombreMesero));
+    const destinoSinNombre = nombreVenta || ETIQUETA_CAJA_BALANCE_MESERO;
+    const aportes = {};
+    nombresUnicos.forEach(n => {
+      aportes[n] = nombresItems[n].reduce((s, i) => s + montoLineaProductoBalance(i), 0);
+    });
+    if (itemsSinMesero.length) {
+      aportes[destinoSinNombre] = (aportes[destinoSinNombre] || 0)
+        + itemsSinMesero.reduce((s, i) => s + montoLineaProductoBalance(i), 0);
+    }
+
+    Object.keys(aportes).forEach(n => {
+      const grupo = grupoMeseroBalance(mapa, n, sexo);
+      grupo.cantidadVentas += 1;
+      grupo.total += totalVenta * (aportes[n] / subtotalItems);
+      const susItems = n === destinoSinNombre
+        ? (nombresItems[n] || []).concat(itemsSinMesero)
+        : (nombresItems[n] || []);
+      susItems.forEach(item => agregarProductoAGrupoBalance(grupo, item));
+    });
+  });
+  return mapa;
+}
+
+function listaMeserosBalanceOrdenada(mapa) {
+  return Object.values(mapa || {}).sort((a, b) => {
+    if (a.esCaja !== b.esCaja) return a.esCaja ? 1 : -1;
+    return (b.total || 0) - (a.total || 0);
+  });
+}
+
+function mostrarDetalleMeseroBalance(clave) {
+  const data = window._balanceMeseros;
+  const detalle = document.getElementById('detalleProductosPorMesero');
+  if (!data || !detalle) return;
+
+  window._balanceMeseroActivo = window._balanceMeseroActivo === clave ? null : clave;
+  document.querySelectorAll('#resumenVentasPorMesero tr[data-mesero]').forEach(tr => {
+    const activo = tr.dataset.mesero === window._balanceMeseroActivo;
+    tr.classList.toggle('canal-activo', activo);
+    tr.setAttribute('aria-expanded', activo ? 'true' : 'false');
+  });
+
+  if (!window._balanceMeseroActivo) {
+    detalle.innerHTML = '';
+    return;
+  }
+
+  detalle.innerHTML = htmlTablaProductosCanalBalance(data[clave]);
+}
+
+function htmlImpresionTotalesPorMeseroBalance() {
+  const lista = listaMeserosBalanceOrdenada(window._balanceMeseros);
+  if (!lista.length) {
+    return '<tr><td colspan="3">Sin ventas en este periodo</td></tr>';
+  }
+  return lista.map(mesero => `
+    <tr>
+      <td>${mesero.nombre}</td>
+      <td style="text-align:right;">${(mesero.cantidadVentas || 0).toLocaleString()}</td>
+      <td style="text-align:right;">$ ${Math.round(mesero.total || 0).toLocaleString()}</td>
+    </tr>
+  `).join('');
+}
+
+function datosMeseroDePedido(pedido) {
+  const items = (pedido && pedido.items) || [];
+  const itemConMesero = items.find(function (i) {
+    return i && (i.nombreMesero || i.meseroUid);
+  }) || {};
+  const nombreMesero = nombreMeseroDeTexto((pedido && pedido.nombreMesero) || itemConMesero.nombreMesero);
+  return {
+    origen: (pedido && pedido.origen) || (nombreMesero ? 'mesero' : 'pos'),
+    nombreMesero,
+    sexoMesero: (pedido && pedido.sexoMesero) || itemConMesero.sexoMesero || '',
+    meseroUid: (pedido && pedido.meseroUid) || itemConMesero.meseroUid || ''
+  };
+}
+
 function obtenerCanalVentaRapida(venta) {
   if (!esVentaCajaRapida(venta)) return null;
   const canal = (venta.canal || '').toLowerCase().trim();
@@ -7032,6 +7179,11 @@ function imprimirTicketCocina(mesa, productos, opciones = {}) {
     || ((productos || []).find(function (item) { return item && item.nombreMesero; }) || {}).nombreMesero
     || ''
   ).trim();
+  const etiquetaRolMeseroTicket = (
+    opciones.sexoMesero
+    || (pedidoCompleto && pedidoCompleto.sexoMesero)
+    || ((productos || []).find(function (item) { return item && item.sexoMesero; }) || {}).sexoMesero
+  ) === 'femenino' ? 'Mesera' : 'Mesero';
 
   let contenido = '';
   if (esVentaRapida) {
@@ -7043,7 +7195,7 @@ function imprimirTicketCocina(mesa, productos, opciones = {}) {
         <div class="vr-meta">
           <div>${fechaTicket}</div>
           <div>Items: ${totalItems}</div>
-          ${nombreMeseroTicket ? `<div>Mesero: ${nombreMeseroTicket}</div>` : ''}
+          ${nombreMeseroTicket ? `<div>${etiquetaRolMeseroTicket}: ${nombreMeseroTicket}</div>` : ''}
         </div>
 
         ${infoCliente}
@@ -7071,7 +7223,7 @@ function imprimirTicketCocina(mesa, productos, opciones = {}) {
         <h2 style="margin: 0; font-size: 28px; font-weight: bold;">COCINA</h2>
         <div class="mb-1" style="font-size: 22px; font-weight: bold;">Mesa: ${mesa}</div>
         <div class="mb-1" style="font-size: 20px; font-weight: bold;">Ronda: ${rondaTicket}</div>
-        ${nombreMeseroTicket ? `<div class="mb-1" style="font-size: 18px; font-weight: bold;">Mesero: ${nombreMeseroTicket}</div>` : ''}
+        ${nombreMeseroTicket ? `<div class="mb-1" style="font-size: 18px; font-weight: bold;">${etiquetaRolMeseroTicket}: ${nombreMeseroTicket}</div>` : ''}
         <div class="mb-1">${fechaTicket}</div>
       </div>
       
@@ -8004,6 +8156,12 @@ function procesarPago() {
           mesaSeleccionada.startsWith('REC-') ? 'recoger' : 'mesa',
     estado: metodoPago === 'credito' ? 'pendiente' : 'pagado'
   };
+
+  const datosMeseroVenta = datosMeseroDePedido(pedido);
+  factura.origen = datosMeseroVenta.origen;
+  if (datosMeseroVenta.nombreMesero) factura.nombreMesero = datosMeseroVenta.nombreMesero;
+  if (datosMeseroVenta.sexoMesero) factura.sexoMesero = datosMeseroVenta.sexoMesero;
+  if (datosMeseroVenta.meseroUid) factura.meseroUid = datosMeseroVenta.meseroUid;
 
   registrarVentaUnificada(factura);
   if (factura.nombreDomiciliario) guardarNombreDomiciliario(factura.nombreDomiciliario);
@@ -12907,6 +13065,52 @@ if (elTotalDom) elTotalDom.textContent = `$ ${totalDomiciliosBalance.toLocaleStr
       detalleCanal.innerHTML = '';
     }
 
+    const meserosBalance = resumirVentasPorMeseroBalance(ventasFiltradas);
+    window._balanceMeseros = meserosBalance;
+    window._balanceMeseroActivo = null;
+    const resumenMeseroBody = document.getElementById('resumenVentasPorMesero');
+    const detalleMesero = document.getElementById('detalleProductosPorMesero');
+    let totalCantidadMesero = 0;
+    let totalMontoMesero = 0;
+    if (resumenMeseroBody) {
+      resumenMeseroBody.innerHTML = '';
+      const listaMeseros = listaMeserosBalanceOrdenada(meserosBalance);
+      if (!listaMeseros.length) {
+        const filaVacia = document.createElement('tr');
+        filaVacia.innerHTML = '<td colspan="3" class="text-muted">Sin ventas en este periodo</td>';
+        resumenMeseroBody.appendChild(filaVacia);
+      }
+      listaMeseros.forEach(mesero => {
+        totalCantidadMesero += mesero.cantidadVentas;
+        totalMontoMesero += mesero.total;
+        const fila = document.createElement('tr');
+        fila.dataset.mesero = mesero.clave;
+        fila.setAttribute('role', 'button');
+        fila.setAttribute('aria-expanded', 'false');
+        fila.title = `Ver productos de ${mesero.nombre}`;
+        fila.innerHTML = `
+          <td>
+            <div class="canal-tipo-cell">
+              <span class="canal-tipo-nombre"><i class="fas ${mesero.icono}"></i>${mesero.nombre}</span>
+              <span class="canal-ver-detalle">
+                <span class="canal-ver-label"><i class="fas fa-list-ul"></i> Ver productos</span>
+                <span class="canal-ocultar-label"><i class="fas fa-chevron-up"></i> Ocultar</span>
+              </span>
+            </div>
+          </td>
+          <td class="text-end">${mesero.cantidadVentas.toLocaleString()}</td>
+          <td class="text-end">$ ${Math.round(mesero.total).toLocaleString()}</td>
+        `;
+        fila.addEventListener('click', () => mostrarDetalleMeseroBalance(mesero.clave));
+        resumenMeseroBody.appendChild(fila);
+      });
+    }
+    const elCantMesero = document.getElementById('totalVentasPorMeseroCantidad');
+    const elMontoMesero = document.getElementById('totalVentasPorMeseroMonto');
+    if (elCantMesero) elCantMesero.textContent = totalCantidadMesero.toLocaleString();
+    if (elMontoMesero) elMontoMesero.textContent = `$ ${Math.round(totalMontoMesero).toLocaleString()}`;
+    if (detalleMesero) detalleMesero.innerHTML = '';
+
 // Actualizar tabla de gastos
 const resumenGastos = document.getElementById('resumenGastos');
 resumenGastos.innerHTML = '';
@@ -13235,6 +13439,11 @@ function imprimirBalance() {
     const resumenVentasPorCanalHTML = htmlImpresionTotalesPorCanalBalance();
     const totalCanalCantidadTexto = totalVentasPorCanalCantidad ? totalVentasPorCanalCantidad.textContent : '0';
     const totalCanalMontoTexto = totalVentasPorCanalMonto ? totalVentasPorCanalMonto.textContent : '$ 0';
+    const totalVentasPorMeseroCantidad = document.getElementById('totalVentasPorMeseroCantidad');
+    const totalVentasPorMeseroMonto = document.getElementById('totalVentasPorMeseroMonto');
+    const resumenVentasPorMeseroHTML = htmlImpresionTotalesPorMeseroBalance();
+    const totalMeseroCantidadTexto = totalVentasPorMeseroCantidad ? totalVentasPorMeseroCantidad.textContent : '0';
+    const totalMeseroMontoTexto = totalVentasPorMeseroMonto ? totalVentasPorMeseroMonto.textContent : '$ 0';
     const resumenDomiciliarios = document.getElementById('resumenDomiciliarios');
     const totalDomiciliosBalance = document.getElementById('totalDomiciliosBalance');
     const resumenDomiciliariosHTML = resumenDomiciliarios ? resumenDomiciliarios.innerHTML : '';
@@ -13408,6 +13617,20 @@ function imprimirBalance() {
                     <th>Total</th>
                     <th style="text-align:right;">${totalCanalCantidadTexto}</th>
                     <th style="text-align:right;">${totalCanalMontoTexto}</th>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="border-top">
+              <div class="mb-1"><strong>Ventas por mesero</strong></div>
+              <table>
+                ${resumenVentasPorMeseroHTML}
+                <tfoot>
+                  <tr>
+                    <th>Total</th>
+                    <th style="text-align:right;">${totalMeseroCantidadTexto}</th>
+                    <th style="text-align:right;">${totalMeseroMontoTexto}</th>
                   </tr>
                 </tfoot>
               </table>
@@ -14281,6 +14504,7 @@ function obtenerContenidoAyuda(tipo) {
           <ul class="list-unstyled">
             <li>• Elige diario, semanal, mensual o anual</li>
             <li>• En Ventas por tipo, toca <strong>Ver productos</strong> para el detalle; el botón pasa a <strong>Ocultar</strong></li>
+            <li>• En Ventas por mesero ves cuánto vendió cada uno; lo de caja sale como Caja (POS)</li>
             <li>• Los domicilios se restan porque se pagan al domiciliario</li>
           </ul>
         </div>

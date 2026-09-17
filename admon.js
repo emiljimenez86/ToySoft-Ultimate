@@ -695,11 +695,13 @@ function cancelarEdicionMesero() {
   const uidEl = document.getElementById('meseroEditandoUid');
   const nombre = document.getElementById('nombreMeseroNuevo');
   const correo = document.getElementById('correoMeseroNuevo');
+  const sexo = document.getElementById('sexoMeseroNuevo');
   const clave = document.getElementById('claveMeseroNuevo');
   const boton = document.getElementById('btnCrearMesero');
   const cancelar = document.getElementById('btnCancelarMesero');
   if (uidEl) uidEl.value = '';
   if (nombre) nombre.value = '';
+  if (sexo) sexo.value = '';
   if (correo) {
     correo.value = '';
     correo.readOnly = false;
@@ -724,11 +726,13 @@ function editarMeseroEquipo(uid) {
   const uidEl = document.getElementById('meseroEditandoUid');
   const nombre = document.getElementById('nombreMeseroNuevo');
   const correo = document.getElementById('correoMeseroNuevo');
+  const sexo = document.getElementById('sexoMeseroNuevo');
   const clave = document.getElementById('claveMeseroNuevo');
   const boton = document.getElementById('btnCrearMesero');
   const cancelar = document.getElementById('btnCancelarMesero');
   if (uidEl) uidEl.value = mesero.uid;
   if (nombre) nombre.value = mesero.nombre || '';
+  if (sexo) sexo.value = mesero.sexo === 'femenino' ? 'femenino' : (mesero.sexo === 'masculino' ? 'masculino' : '');
   if (correo) {
     correo.value = mesero.email || '';
     correo.readOnly = true;
@@ -769,7 +773,7 @@ async function cargarEquipoNegocio() {
     }
     listaEl.innerHTML = usuarios.map(function (u) {
       const esMesero = u.rol === 'mesero';
-      const rol = esMesero ? 'Mesero' : 'Administrador';
+      const rol = esMesero ? (u.sexo === 'femenino' ? 'Mesera' : 'Mesero') : 'Administrador';
       const nombre = textoSeguroEquipo(u.nombre || 'Sin nombre');
       const email = textoSeguroEquipo(u.email || u.uid);
       const uidAttr = textoSeguroEquipo(u.uid);
@@ -799,10 +803,15 @@ async function guardarMeseroDesdeAdmin() {
   const nombre = (document.getElementById('nombreMeseroNuevo') && document.getElementById('nombreMeseroNuevo').value || '').trim();
   const correo = (document.getElementById('correoMeseroNuevo') && document.getElementById('correoMeseroNuevo').value || '').trim();
   const clave = (document.getElementById('claveMeseroNuevo') && document.getElementById('claveMeseroNuevo').value || '');
+  const sexo = (document.getElementById('sexoMeseroNuevo') && document.getElementById('sexoMeseroNuevo').value || '').trim();
   const uid = uidMeseroEditando();
   const boton = document.getElementById('btnCrearMesero');
   if (!window.ToySoftFirebase) {
     mostrarMensajeEquipoMesero('No hay conexión con Firebase.', 'error');
+    return;
+  }
+  if (!sexo) {
+    mostrarMensajeEquipoMesero('Elige el sexo para mostrar Mesero o Mesera en la app.', 'error');
     return;
   }
   if (boton) boton.disabled = true;
@@ -812,22 +821,24 @@ async function guardarMeseroDesdeAdmin() {
         mostrarMensajeEquipoMesero('No se puede modificar el mesero en esta versión.', 'error');
         return;
       }
-      await ToySoftFirebase.actualizarMesero(uid, nombre, clave);
+      await ToySoftFirebase.actualizarMesero(uid, nombre, clave, sexo);
       meseroEquipoRecienteUid = uid;
       cancelarEdicionMesero();
       await cargarEquipoNegocio();
-      mostrarMensajeEquipoMesero('Mesero actualizado.', 'ok');
+      mostrarMensajeEquipoMesero(sexo === 'femenino' ? 'Mesera actualizada.' : 'Mesero actualizado.', 'ok');
       return;
     }
     if (typeof ToySoftFirebase.crearCuentaMesero !== 'function') {
       mostrarMensajeEquipoMesero('No hay conexión con Firebase.', 'error');
       return;
     }
-    const creado = await ToySoftFirebase.crearCuentaMesero(nombre, correo, clave);
+    const creado = await ToySoftFirebase.crearCuentaMesero(nombre, correo, clave, sexo);
     meseroEquipoRecienteUid = creado && creado.uid ? creado.uid : '';
     cancelarEdicionMesero();
     await cargarEquipoNegocio();
-    mostrarMensajeEquipoMesero((nombre || 'Mesero') + ' quedó agregado. Envíale el enlace de mesero.', 'ok');
+    const rol = sexo === 'femenino' ? 'Mesera' : 'Mesero';
+    const verbo = sexo === 'femenino' ? 'quedó agregada' : 'quedó agregado';
+    mostrarMensajeEquipoMesero((nombre || rol) + ' ' + verbo + '. Envíale el enlace de mesero.', 'ok');
   } catch (error) {
     mostrarMensajeEquipoMesero((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message, 'error');
     if (uid) {
