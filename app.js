@@ -2923,12 +2923,10 @@ function imprimirPedidosNuevosDeMesero(lista) {
     if (!id || window._idsCocinaMeseroVistos.has(id)) return;
     window._idsCocinaMeseroVistos.add(id);
     if (orden.origen !== 'mesero') return;
-    if (typeof imprimirTicketCocina !== 'function') return;
-    imprimirTicketCocina(orden.mesa, orden.items || [], {
-      ronda: orden.ronda,
-      pedido: orden,
-      nombreMesero: orden.nombreMesero,
-      silencioso: true
+    if (typeof mostrarAvisoTicketCocinaMesero !== 'function') return;
+    mostrarAvisoTicketCocinaMesero({
+      mesa: orden.mesa,
+      nombreMesero: orden.nombreMesero
     });
   });
 }
@@ -6904,30 +6902,9 @@ function mostrarAvisoTicketCocinaMesero(datos) {
   window._htmlTicketMeseroPendiente = datos.html || '';
     aviso.innerHTML =
     '<div class="fw-bold">Pedido de mesero en cocina</div>' +
-    '<div class="mb-2">' + mesa + mesero + '. Si no salió el ticket, tócalo aquí.</div>' +
-    '<button type="button" class="btn btn-info btn-sm me-2" id="btnImprimirTicketMeseroAviso">Imprimir ticket</button>' +
+    '<div class="mb-2">' + mesa + mesero + '. El ticket se imprime desde el celular a la impresora de cocina.</div>' +
     '<button type="button" class="btn btn-outline-light btn-sm" id="btnCerrarAvisoTicketMesero">Cerrar</button>';
   document.body.appendChild(aviso);
-  const btnImprimir = document.getElementById('btnImprimirTicketMeseroAviso');
-  if (btnImprimir) {
-    btnImprimir.onclick = function () {
-      const html = window._htmlTicketMeseroPendiente;
-      if (!html) return;
-      let ventana = null;
-      try {
-        ventana = window.open('', '_blank', 'width=400,height=600,scrollbars=yes');
-      } catch (e) {
-        ventana = null;
-      }
-      if (ventana) {
-        ventana.document.write(html);
-        ventana.document.close();
-        ventana.focus();
-      } else {
-        imprimirHtmlEnIframe(html);
-      }
-    };
-  }
   const btnCerrar = document.getElementById('btnCerrarAvisoTicketMesero');
   if (btnCerrar) btnCerrar.onclick = function () { if (aviso.parentNode) aviso.remove(); };
   setTimeout(function () {

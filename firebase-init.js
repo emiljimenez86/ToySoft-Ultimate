@@ -766,6 +766,13 @@
     return out;
   }
 
+  function camposImpresoraCocina(origen) {
+    const ip = String((origen && origen.impresoraCocinaIp) || '').trim();
+    let puerto = parseInt((origen && origen.impresoraCocinaPuerto), 10);
+    if (!Number.isFinite(puerto) || puerto < 1 || puerto > 65535) puerto = 9100;
+    return { impresoraCocinaIp: ip, impresoraCocinaPuerto: String(puerto) };
+  }
+
   function snapshotOperacionLocal() {
     return Object.assign({
       mesasActivas: parseJsonLocal('mesasActivas', []),
@@ -779,7 +786,10 @@
       pantallaCocinaActivada: localStorage.getItem('pantallaCocinaActivada') === 'true',
       cocinaSonidoActivado: localStorage.getItem('cocinaSonidoActivado') !== 'false',
       cocinaIntervaloActualizacion: localStorage.getItem('cocinaIntervaloActualizacion') || '30'
-    }, flagsBotonesPOSDesdeStorage());
+    }, camposImpresoraCocina({
+      impresoraCocinaIp: localStorage.getItem('impresoraCocinaIp') || '',
+      impresoraCocinaPuerto: localStorage.getItem('impresoraCocinaPuerto') || '9100'
+    }), flagsBotonesPOSDesdeStorage());
   }
 
   function operacionLimpia(datos) {
@@ -796,7 +806,7 @@
       pantallaCocinaActivada: origen.pantallaCocinaActivada === true,
       cocinaSonidoActivado: origen.cocinaSonidoActivado !== false,
       cocinaIntervaloActualizacion: String(origen.cocinaIntervaloActualizacion || '30')
-    }, flagsBotonesPOSDesdeDatos(origen)), function (clave, valor) {
+    }, camposImpresoraCocina(origen), flagsBotonesPOSDesdeDatos(origen)), function (clave, valor) {
       return valor === undefined ? null : valor;
     });
     return JSON.parse(texto);
@@ -815,7 +825,7 @@
       pantallaCocinaActivada: nube.pantallaCocinaActivada === true,
       cocinaSonidoActivado: nube.cocinaSonidoActivado !== false,
       cocinaIntervaloActualizacion: String(nube.cocinaIntervaloActualizacion || '30')
-    }, flagsBotonesPOSDesdeDatos(nube));
+    }, camposImpresoraCocina(nube), flagsBotonesPOSDesdeDatos(nube));
   }
 
   function escribirOperacionLocal(datos) {
@@ -833,6 +843,8 @@
     localStorage.setItem('pantallaCocinaActivada', local.pantallaCocinaActivada ? 'true' : 'false');
     localStorage.setItem('cocinaSonidoActivado', local.cocinaSonidoActivado ? 'true' : 'false');
     localStorage.setItem('cocinaIntervaloActualizacion', local.cocinaIntervaloActualizacion);
+    localStorage.setItem('impresoraCocinaIp', local.impresoraCocinaIp || '');
+    localStorage.setItem('impresoraCocinaPuerto', local.impresoraCocinaPuerto || '9100');
     FLAGS_BOTONES_POS.forEach(function (clave) {
       localStorage.setItem(clave, local[clave] ? 'true' : 'false');
     });
@@ -875,6 +887,8 @@
       payload.pantallaCocinaActivada = limpio.pantallaCocinaActivada;
       payload.cocinaSonidoActivado = limpio.cocinaSonidoActivado;
       payload.cocinaIntervaloActualizacion = limpio.cocinaIntervaloActualizacion;
+      payload.impresoraCocinaIp = limpio.impresoraCocinaIp || '';
+      payload.impresoraCocinaPuerto = limpio.impresoraCocinaPuerto || '9100';
       payload.posMostrarGastos = limpio.posMostrarGastos;
       payload.posMostrarInventario = limpio.posMostrarInventario;
       payload.posMostrarCierreAdmin = limpio.posMostrarCierreAdmin;
@@ -926,6 +940,8 @@
         pantallaCocinaActivada: nube.pantallaCocinaActivada,
         cocinaSonidoActivado: nube.cocinaSonidoActivado,
         cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion,
+        impresoraCocinaIp: nube.impresoraCocinaIp,
+        impresoraCocinaPuerto: nube.impresoraCocinaPuerto,
         posMostrarGastos: nube.posMostrarGastos,
         posMostrarInventario: nube.posMostrarInventario,
         posMostrarCierreAdmin: nube.posMostrarCierreAdmin,
@@ -967,6 +983,8 @@
         pantallaCocinaActivada: nube.pantallaCocinaActivada,
         cocinaSonidoActivado: nube.cocinaSonidoActivado,
         cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion,
+        impresoraCocinaIp: nube.impresoraCocinaIp,
+        impresoraCocinaPuerto: nube.impresoraCocinaPuerto,
         posMostrarGastos: nube.posMostrarGastos,
         posMostrarInventario: nube.posMostrarInventario,
         posMostrarCierreAdmin: nube.posMostrarCierreAdmin,

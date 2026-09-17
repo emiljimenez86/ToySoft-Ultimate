@@ -986,12 +986,12 @@ const ayudaContextual = {
                     <li><strong>Abrir mesa:</strong> escribe el número y tócala para tomar el pedido.</li>
                     <li><strong>Cambio de mesa:</strong> dentro del pedido, toca <strong>Cambio de mesa</strong> y escribe el número nuevo. Si la mesa ya tenía pedido, se unen.</li>
                     <li><strong>Domicilio ↔ Recoger:</strong> en un domicilio toca <strong>Pasar a Recoger</strong>; en recoger, <strong>Pasar a Domicilio</strong> (pide dirección).</li>
-                    <li>Si ya se había enviado a cocina, se imprime un ticket nuevo con el cambio, aquí y en caja.</li>
+                    <li>Si ya se había enviado a cocina, se imprime un ticket nuevo con el cambio desde el celular.</li>
                 </ul>
                 <h5 class="text-success">Enviar e imprimir</h5>
                 <ul>
-                    <li><strong>Enviar a cocina:</strong> manda los productos a caja y abre el ticket en este celular para imprimir. En caja también puede salir.</li>
-                    <li><strong>Imprimir ticket:</strong> vuelve a abrir el ticket en el celular. Si el diálogo no aparece, toca Imprimir en la pantalla blanca.</li>
+                    <li><strong>Enviar a cocina:</strong> manda el pedido a caja y lo imprime desde este celular a la impresora térmica de cocina (por red). En el computador de caja ya no se abre imprimir.</li>
+                    <li><strong>Imprimir ticket:</strong> vuelve a enviar el ticket a la impresora de cocina.</li>
                 </ul>
                 <div class="alert alert-warning mb-0">
                     El cobro lo hace caja en el Punto de Venta.

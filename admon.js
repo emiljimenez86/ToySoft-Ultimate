@@ -872,6 +872,8 @@ function cargarConfigPantallaCocina() {
   const chkActivada = document.getElementById('pantallaCocinaActivada');
   const chkSonido = document.getElementById('cocinaSonidoActivado');
   const inputIntervalo = document.getElementById('cocinaIntervaloActualizacion');
+  const inputIp = document.getElementById('impresoraCocinaIp');
+  const inputPuerto = document.getElementById('impresoraCocinaPuerto');
   
   if (chkActivada) chkActivada.checked = activada;
   if (chkSonido) chkSonido.checked = sonido;
@@ -879,6 +881,8 @@ function cargarConfigPantallaCocina() {
     inputIntervalo.value = intervalo;
     console.log('✅ Intervalo cargado en el campo:', intervalo);
   }
+  if (inputIp) inputIp.value = localStorage.getItem('impresoraCocinaIp') || '';
+  if (inputPuerto) inputPuerto.value = localStorage.getItem('impresoraCocinaPuerto') || '9100';
 }
 
 function guardarConfigPantallaCocina() {
@@ -901,10 +905,22 @@ function guardarConfigPantallaCocina() {
   }
   
   console.log('Guardando intervalo de actualización:', intervalo, 'segundos');
+
+  const inputIp = document.getElementById('impresoraCocinaIp');
+  const inputPuerto = document.getElementById('impresoraCocinaPuerto');
+  const ip = String((inputIp && inputIp.value) || '').trim();
+  if (ip && !/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+    alert('La IP de la impresora no es válida. Ejemplo: 192.168.1.87');
+    return;
+  }
+  let puerto = parseInt(inputPuerto && inputPuerto.value, 10);
+  if (!Number.isFinite(puerto) || puerto < 1 || puerto > 65535) puerto = 9100;
   
   localStorage.setItem('pantallaCocinaActivada', activada ? 'true' : 'false');
   localStorage.setItem('cocinaSonidoActivado', sonido ? 'true' : 'false');
   localStorage.setItem('cocinaIntervaloActualizacion', String(intervalo));
+  localStorage.setItem('impresoraCocinaIp', ip);
+  localStorage.setItem('impresoraCocinaPuerto', String(puerto));
   if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
     ToySoftFirebase.persistirOperacionInmediato();
   }

@@ -520,6 +520,22 @@
                         <small class="text-muted d-block mt-1">Tiempo entre actualizaciones automáticas (1-60 segundos)</small>
                     </div>
                 </div>
+
+                <div class="border border-secondary rounded p-3 mb-3">
+                    <h6 class="text-info mb-2"><i class="fas fa-print me-1"></i>Impresora térmica de cocina (red)</h6>
+                    <p class="text-muted small mb-2">El mesero envía el ticket desde el celular a esta impresora. En caja ya no se abre el diálogo de imprimir.</p>
+                    <div class="row g-2">
+                        <div class="col-12 col-md-7">
+                            <label class="form-label small" for="impresoraCocinaIp">IP de la impresora</label>
+                            <input type="text" id="impresoraCocinaIp" class="form-control bg-dark text-white border-secondary" placeholder="Ej. 192.168.1.87" inputmode="decimal" autocomplete="off">
+                        </div>
+                        <div class="col-6 col-md-5">
+                            <label class="form-label small" for="impresoraCocinaPuerto">Puerto</label>
+                            <input type="number" id="impresoraCocinaPuerto" class="form-control bg-dark text-white border-secondary" value="9100" min="1" max="65535">
+                            <small class="text-muted">Normalmente 9100</small>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="mt-3">
                     <button type="button" class="btn btn-info" onclick="guardarConfigPantallaCocina()">
@@ -965,10 +981,10 @@
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js?v=25"></script>
-    <script src="firebase-init.js?v=28"></script>
+    <script src="firebase-init.js?v=29"></script>
     <script src="seguridad.js?v=26"></script>
-    <script src="ayuda.js?v=30"></script>
+    <script src="ayuda.js?v=32"></script>
     <script src="gastos-modelo.js"></script>
-    <script src="admon.js?v=28"></script>
+    <script src="admon.js?v=29"></script>
 </body>
 </html> 
