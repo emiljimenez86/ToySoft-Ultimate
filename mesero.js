@@ -427,8 +427,8 @@ function clienteCoincideMesero(cliente, busqueda) {
 function filtrarClientesMesero(busqueda) {
   const fuente = leerClientesMesero();
   const query = String(busqueda || '').trim();
-  if (query) return fuente.filter(function (cliente) { return clienteCoincideMesero(cliente, query); });
-  return fuente.slice(-12).reverse();
+  if (!query) return [];
+  return fuente.filter(function (cliente) { return clienteCoincideMesero(cliente, query); });
 }
 
 function direccionClienteMesero(cliente) {
@@ -445,7 +445,7 @@ function buscarClientesMesero() {
   if (!filtrados.length) {
     lista.innerHTML = query
       ? '<div class="list-group-item bg-dark text-muted border-secondary small">No se encontró. Escríbelo abajo.</div>'
-      : '<div class="list-group-item bg-dark text-muted border-secondary small">No hay clientes guardados todavía.</div>';
+      : '<div class="list-group-item bg-dark text-muted border-secondary small">Escriba nombre o teléfono para buscar. Si es nuevo, escríbalo abajo.</div>';
     return;
   }
   const max = 12;

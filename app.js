@@ -6237,7 +6237,7 @@ function limpiarClienteVentaRapida() {
     aviso.style.display = 'none';
     aviso.innerHTML = '';
   }
-  buscarClientesVentaRapida(true);
+  buscarClientesVentaRapida(false);
 }
 
 function obtenerValorDomicilioVentaRapida() {
@@ -7540,7 +7540,9 @@ function mostrarModalPago() {
       return;
     }
 
-    // Actualizar la lista de clientes
+    // Actualizar la lista de clientes (solo si se busca)
+    const buscarPago = document.getElementById('buscarClientePago');
+    if (buscarPago) buscarPago.value = '';
     actualizarListaClientesPago();
     
     // Calcular totales
@@ -7631,11 +7633,18 @@ function actualizarListaClientesPago() {
   buscarClientesPago();
 }
 
-function renderizarResultadosClientes(lista, busqueda, alSeleccionar) {
+function renderizarResultadosClientes(lista, busqueda, alSeleccionar, opciones) {
   if (!lista) return;
   lista.innerHTML = '';
-  const filtrados = filtrarClientesParaLista(busqueda);
   const query = String(busqueda || '').trim();
+  const soloConBusqueda = !!(opciones && opciones.soloConBusqueda);
+
+  if (soloConBusqueda && !query) {
+    lista.innerHTML = '<p class="text-muted mb-0 small">Escriba nombre o teléfono para buscar. Si no busca, el pedido queda sin cliente.</p>';
+    return;
+  }
+
+  const filtrados = filtrarClientesParaLista(busqueda);
 
   if (filtrados.length === 0) {
     lista.innerHTML = query
@@ -7682,14 +7691,14 @@ function buscarClientes() {
   const input = document.getElementById('buscarCliente');
   const listaClientes = document.getElementById('listaClientes');
   if (!listaClientes) return;
-  renderizarResultadosClientes(listaClientes, input ? input.value : '', seleccionarClientePorId);
+  renderizarResultadosClientes(listaClientes, input ? input.value : '', seleccionarClientePorId, { soloConBusqueda: true });
 }
 
 function buscarClientesPago() {
   const input = document.getElementById('buscarClientePago');
   const listaClientes = document.getElementById('listaClientesPago');
   if (!listaClientes) return;
-  renderizarResultadosClientes(listaClientes, input ? input.value : '', seleccionarClientePagoPorId);
+  renderizarResultadosClientes(listaClientes, input ? input.value : '', seleccionarClientePagoPorId, { soloConBusqueda: true });
 }
 
 function seleccionarClientePorId(clienteId) {
@@ -7733,16 +7742,17 @@ function seleccionarClientePago(cliente) {
       <option value="mixto">Efectivo y Transferencia</option>
     `;
     
-    // Mostrar mensaje de confirmación
-    const mensaje = document.createElement('div');
-    mensaje.className = 'alert alert-success mt-2';
-    mensaje.textContent = `Cliente ${cliente.nombre} seleccionado`;
-    document.getElementById('listaClientesPago').appendChild(mensaje);
-    
-    // Remover el mensaje después de 2 segundos
-    setTimeout(() => {
-      mensaje.remove();
-    }, 2000);
+    // Mostrar mensaje de confirmación y quitar la lista para no elegir otro por error
+    const listaPago = document.getElementById('listaClientesPago');
+    if (listaPago) {
+      listaPago.innerHTML = '';
+      const mensaje = document.createElement('div');
+      mensaje.className = 'alert alert-success mt-2 mb-0';
+      mensaje.textContent = `Cliente ${nombreCompletoCliente(cliente)} seleccionado`;
+      listaPago.appendChild(mensaje);
+    }
+    const inputPago = document.getElementById('buscarClientePago');
+    if (inputPago) inputPago.value = '';
   }
 }
 
