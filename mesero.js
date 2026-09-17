@@ -275,8 +275,8 @@ function actualizarBotonCambioMesero() {
 function pintarOrden() {
   const cont = document.getElementById('ordenMesero');
   const barra = document.getElementById('barraEnviar');
-  const sub = document.getElementById('subtituloMesero');
-  if (sub) sub.textContent = mesaSeleccionada ? etiquetaPedidoMesero(mesaSeleccionada) : 'Pedidos';
+  const titulo = document.getElementById('tituloPedidoActual');
+  if (titulo) titulo.textContent = mesaSeleccionada ? etiquetaPedidoMesero(mesaSeleccionada) : 'Pedidos';
   actualizarBotonCambioMesero();
   if (!cont) return;
   if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
@@ -953,14 +953,9 @@ function nombreMeseroSesion() {
 }
 
 function pintarNombreMeseroCabecera() {
-  const sub = document.getElementById('subtituloMesero');
-  if (!sub) return;
-  const nombre = nombreMeseroSesion();
-  if (mesaSeleccionada) {
-    sub.textContent = nombre ? (nombre + ' · Mesa ' + mesaSeleccionada) : ('Mesa ' + mesaSeleccionada);
-  } else {
-    sub.textContent = nombre || 'Mesas';
-  }
+  const el = document.getElementById('nombreUsuarioMesero');
+  if (!el) return;
+  el.textContent = nombreMeseroSesion() || '';
 }
 
 async function asegurarNombreMeseroSesion() {
@@ -981,15 +976,13 @@ function mostrarLoginMesero() {
   const app = document.getElementById('appMesero');
   if (login) login.style.display = 'flex';
   if (app) app.style.display = 'none';
-  document.body.style.paddingBottom = '0';
 }
 
 function mostrarAppMesero() {
   const login = document.getElementById('loginMesero');
   const app = document.getElementById('appMesero');
   if (login) login.style.display = 'none';
-  if (app) app.style.display = 'block';
-  document.body.style.paddingBottom = '';
+  if (app) app.style.display = 'flex';
 }
 
 async function iniciarSesionMesero() {

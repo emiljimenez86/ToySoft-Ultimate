@@ -20,23 +20,213 @@
   <link rel="stylesheet" href="styles.css">
   <style>
     html, body {
-      display: block !important;
+      display: flex !important;
+      flex-direction: column !important;
       align-items: stretch !important;
       justify-content: flex-start !important;
       width: 100% !important;
       max-width: 100% !important;
       min-height: 100vh;
       min-height: 100dvh;
-      overflow-x: hidden;
+      height: 100%;
+      overflow: hidden;
     }
-    body { background: #111; color: #fff; padding-bottom: 160px; font-size: 18px; }
+    body { background: #111; color: #fff; padding-bottom: 0; font-size: 18px; }
     #appMesero, #loginMesero { width: 100%; max-width: 100%; }
-    .mesero-top {
-      position: sticky; top: 0; z-index: 20;
-      background: #1a1a1a; border-bottom: 1px solid #333;
-      padding: 14px 16px;
+    #loginMesero { flex: 1; overflow-y: auto; min-height: 0; }
+    #appMesero {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      align-items: stretch;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+      width: 100%;
     }
-    .mesero-top .text-info { font-size: 1.25rem; }
+    .mesero-top {
+      flex-shrink: 0;
+      z-index: 20;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      padding: 12px 16px 14px;
+      text-align: center;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .mesero-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .logo-mesero-top {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 2px solid #0dcaf0;
+      box-shadow: 0 6px 16px rgba(13, 202, 240, 0.25);
+      background: #111;
+    }
+    .mesero-brand-text { text-align: center; line-height: 1.15; }
+    .mesero-marca {
+      font-family: 'Exo 2', 'Rajdhani', sans-serif;
+      font-weight: 800;
+      font-size: 1.45rem;
+      color: #0dcaf0;
+      letter-spacing: 0.02em;
+    }
+    .mesero-usuario {
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .mesero-rol {
+      color: #8b9aa3;
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-top: 1px;
+    }
+    .mesero-cuerpo {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      min-height: 0;
+      width: 100%;
+    }
+    #vistaMesas, #vistaPedido {
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .input-mesa-blanca,
+    #nuevaMesaMesero {
+      background: #fff !important;
+      color: #111 !important;
+      border: 1px solid #e6e6e6 !important;
+      border-radius: 14px !important;
+      min-height: 52px;
+      font-size: 1.08rem;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    }
+    #nuevaMesaMesero::placeholder { color: #6c757d; }
+    #nuevaMesaMesero:focus {
+      background: #fff !important;
+      color: #111 !important;
+      border-color: #0dcaf0 !important;
+      box-shadow: 0 0 0 3px rgba(13, 202, 240, 0.28);
+    }
+    .acciones-mesero {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 1.15rem;
+    }
+    .accion-mesero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 102px;
+      padding: 14px 8px;
+      border: none;
+      border-radius: 18px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.82rem;
+      line-height: 1.15;
+      letter-spacing: 0.01em;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .accion-mesero i { font-size: 1.55rem; position: relative; z-index: 1; }
+    .accion-mesero span { position: relative; z-index: 1; }
+    .accion-mesero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(160deg, rgba(255,255,255,0.28), transparent 55%);
+      pointer-events: none;
+    }
+    .accion-mesa { background: linear-gradient(160deg, #ffc107, #ff8c00); color: #1a1a1a; }
+    .accion-domicilio { background: linear-gradient(160deg, #2ecc71, #1e8e4d); }
+    .accion-recoger { background: linear-gradient(160deg, #3d9bff, #0d6efd); }
+    .accion-mesero:active { transform: scale(0.97); }
+    .mesero-chrome-inferior {
+      flex-shrink: 0;
+      margin-top: auto;
+      background: #141414;
+      border-top: 1px solid #2c2c2c;
+      padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+      width: 100%;
+    }
+    .mesero-bottom-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      margin: 0 auto 10px;
+      max-width: 480px;
+    }
+    .btn-ayuda-mesero {
+      align-self: center;
+      border: none;
+      border-radius: 22px;
+      width: 132px;
+      min-height: 40px;
+      padding: 4px 10px;
+      background: linear-gradient(135deg, #0dcaf0 0%, #0a58ca 100%);
+      box-shadow: 0 6px 16px rgba(13, 202, 240, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      cursor: pointer;
+    }
+    .btn-ayuda-mesero img {
+      width: 22px;
+      height: 22px;
+      margin-right: 6px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3);
+      object-fit: cover;
+    }
+    .btn-ayuda-mesero span {
+      font-family: 'Orbitron', 'Exo 2', 'Rajdhani', 'Roboto Mono', monospace;
+      font-weight: 800;
+      font-size: 0.62rem;
+      letter-spacing: 0.2px;
+      line-height: 1.05;
+      text-align: center;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+    .btn-salir-mesero {
+      min-height: 44px;
+      font-weight: 700;
+      border-radius: 12px;
+    }
+    .mesero-footer {
+      text-align: center;
+      color: #8b9aa3;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      margin: 0 !important;
+      padding: 4px 8px 0 !important;
+      background: transparent !important;
+      border: none !important;
+    }
+    .mesero-footer div { margin: 0; }
+    .mesero-footer .copy { color: #adb5bd; }
+    .mesero-footer .autor { color: #0dcaf0; font-weight: 600; }
     .mesas-container {
       display: flex;
       flex-wrap: wrap;
@@ -141,26 +331,28 @@
       background: #1c1c1c; border: 1px solid #333; border-radius: 12px;
       padding: 16px; cursor: pointer; font-size: 1.08rem;
     }
-    #nuevaMesaMesero, #vistaMesas .input-group .btn, #vistaMesas .form-control {
-      min-height: 48px; font-size: 1.05rem;
-    }
     .item-pendiente { color: #ffc107; }
     .item-cocina { color: #0dcaf0; }
     .barra-enviar {
-      position: fixed; left: 0; right: 0; bottom: 0;
-      background: #1a1a1a; border-top: 1px solid #333;
-      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      flex-shrink: 0;
+      background: #1a1a1a;
+      border-top: 1px solid #333;
+      padding: 10px 16px;
     }
     .vista { display: none; }
     .vista.visible { display: block; }
     .login-mesero {
-      min-height: 100vh;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px 16px;
+      padding: 24px 16px calc(16px + env(safe-area-inset-bottom));
       background: #111;
+    }
+    .login-mesero .mesero-footer {
+      margin-top: 24px;
+      width: 100%;
     }
     .login-mesero .form-control {
       background: #1a1a1a;
@@ -228,20 +420,7 @@
       display: block !important;
       text-align: center !important;
     }
-    #btnAyudaFlotante {
-      bottom: 148px !important;
-      right: 10px !important;
-      width: 96px !important;
-      height: 36px !important;
-      padding: 3px 7px !important;
-      border-radius: 18px !important;
-    }
-    #btnAyudaFlotante img {
-      width: 20px !important;
-      height: 20px !important;
-      margin-right: 5px !important;
-      border-width: 2px !important;
-    }
+    #btnAyudaFlotante { display: none !important; }
     .capa-impresion-mesero {
       display: none;
       position: fixed;
@@ -290,7 +469,7 @@
     #contenidoImpresionMesero .border-top { border-top: 1px dashed #000; margin-top: 8px; padding-top: 8px; text-align: center; }
     @media print {
       @page { margin: 0; }
-      #loginMesero, #appMesero, #btnAyudaFlotante, .capa-impresion-acciones {
+      #loginMesero, #appMesero, #btnAyudaFlotante, .capa-impresion-acciones, .mesero-chrome-inferior {
         display: none !important;
       }
       .capa-impresion-mesero {
@@ -305,7 +484,7 @@
     }
   </style>
 </head>
-<body>
+<body class="pagina-mesero">
   <div id="loginMesero" class="login-mesero" style="display: none;">
     <img src="image/logo-ToySoft.png" alt="ToySoft" class="logo-mesero mb-3">
     <h1 class="h3 text-info mb-1">Mesero</h1>
@@ -338,28 +517,37 @@
       </div>
       <p class="small text-white-50 mt-3 mb-0">Si no tienes cuenta, pídesela al administrador.</p>
     </form>
+    <footer class="mesero-footer mt-auto pt-3 pb-2">
+      <div class="copy">© 2026 ToySoft. Todos los derechos reservados.</div>
+      <div class="autor">Emil Jiménez Ortiz - Ing. de Software</div>
+    </footer>
   </div>
 
   <div id="appMesero" style="display: none;">
-  <div class="mesero-top d-flex align-items-center justify-content-between gap-2">
-    <div>
-      <div class="text-info fw-bold">Mesero</div>
-      <div class="small text-muted" id="subtituloMesero">Pedidos</div>
+  <div class="mesero-top">
+    <div class="mesero-brand">
+      <img src="image/logo-ToySoft.png" alt="ToySoft" class="logo-mesero-top">
+      <div class="mesero-marca">ToySoft</div>
     </div>
-    <button type="button" class="btn btn-outline-danger btn-sm" onclick="cerrarSesion()">Salir</button>
+    <div class="mesero-usuario" id="nombreUsuarioMesero"></div>
+    <div class="mesero-rol">Mesero</div>
   </div>
 
+  <div class="mesero-cuerpo">
   <div id="vistaMesas" class="vista visible p-3">
-    <div class="input-group mb-2">
-      <input type="number" id="nuevaMesaMesero" class="form-control bg-dark text-white border-secondary" placeholder="N° de mesa" min="1">
-      <button class="btn btn-warning" type="button" onclick="crearMesaMesero()">Abrir mesa</button>
-    </div>
-    <div class="d-flex gap-2 mb-3">
-      <button class="btn btn-domicilio-moderno flex-grow-1" type="button" onclick="abrirFormPedidoExternoMesero('domicilio')">
-        <i class="fas fa-motorcycle me-1"></i>Domicilio
+    <input type="number" id="nuevaMesaMesero" class="form-control input-mesa-blanca mb-3" placeholder="N° de mesa" min="1" inputmode="numeric">
+    <div class="acciones-mesero">
+      <button class="accion-mesero accion-mesa" type="button" onclick="crearMesaMesero()">
+        <i class="fas fa-utensils"></i>
+        <span>Abrir mesa</span>
       </button>
-      <button class="btn btn-recoger-moderno flex-grow-1" type="button" onclick="abrirFormPedidoExternoMesero('recoger')">
-        <i class="fas fa-shopping-bag me-1"></i>Recoger
+      <button class="accion-mesero accion-domicilio" type="button" onclick="abrirFormPedidoExternoMesero('domicilio')">
+        <i class="fas fa-motorcycle"></i>
+        <span>Domicilio</span>
+      </button>
+      <button class="accion-mesero accion-recoger" type="button" onclick="abrirFormPedidoExternoMesero('recoger')">
+        <i class="fas fa-shopping-bag"></i>
+        <span>Recoger</span>
       </button>
     </div>
     <h6 class="text-white-50 small text-uppercase mb-2">Mesas</h6>
@@ -372,15 +560,17 @@
   </div>
 
   <div id="vistaPedido" class="vista p-3">
-    <div class="d-flex gap-2 mb-3">
+    <div class="d-flex gap-2 mb-2">
       <button class="btn btn-outline-secondary flex-grow-1" type="button" onclick="volverAMesas()"><i class="fas fa-arrow-left me-1"></i>Pedidos</button>
       <button class="btn btn-outline-warning flex-grow-1" type="button" id="btnCambioPedidoMesero" onclick="abrirCambioPedidoMesero()" style="display: none;">
         <i class="fas fa-exchange-alt me-1"></i>Cambio de mesa
       </button>
     </div>
+    <div class="text-info fw-bold mb-3" id="tituloPedidoActual"></div>
     <div id="ordenMesero" class="mb-3"></div>
     <div id="categoriasMesero" class="d-flex flex-wrap gap-2 mb-3"></div>
     <div id="productosMesero" class="d-grid gap-2"></div>
+  </div>
   </div>
 
   <div class="barra-enviar" id="barraEnviar" style="display: none;">
@@ -392,6 +582,20 @@
         <i class="fas fa-print me-1"></i>Imprimir ticket
       </button>
     </div>
+  </div>
+
+  <div class="mesero-chrome-inferior">
+    <div class="mesero-bottom-actions">
+      <button type="button" id="btnAyudaMesero" class="btn-ayuda-mesero" onclick="mostrarAyudaContextual()" title="Ayuda (F1)">
+        <img src="image/logo-ToySoft.png" alt="ToySoft">
+        <span>Toy de<br>Ayudas</span>
+      </button>
+      <button type="button" class="btn btn-outline-danger w-100 btn-salir-mesero" onclick="cerrarSesion()">Salir</button>
+    </div>
+    <footer class="mesero-footer">
+      <div class="copy">© 2026 ToySoft. Todos los derechos reservados.</div>
+      <div class="autor">Emil Jiménez Ortiz - Ing. de Software</div>
+    </footer>
   </div>
 
   <div class="modal fade" id="modalPedidoExternoMesero" tabindex="-1">
@@ -540,7 +744,7 @@
   <script src="firebase-config.js?v=25"></script>
   <script src="firebase-init.js?v=28"></script>
   <script src="seguridad.js?v=26"></script>
-  <script src="mesero.js?v=30"></script>
+  <script src="mesero.js?v=31"></script>
   <script src="ayuda.js?v=31"></script>
   <script src="install.js?v=28"></script>
   <script>
