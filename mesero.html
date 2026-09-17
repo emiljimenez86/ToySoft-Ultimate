@@ -19,25 +19,130 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="styles.css">
   <style>
-    body { background: #111; color: #fff; padding-bottom: 140px; }
+    html, body {
+      display: block !important;
+      align-items: stretch !important;
+      justify-content: flex-start !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+    body { background: #111; color: #fff; padding-bottom: 160px; font-size: 18px; }
+    #appMesero, #loginMesero { width: 100%; max-width: 100%; }
     .mesero-top {
       position: sticky; top: 0; z-index: 20;
       background: #1a1a1a; border-bottom: 1px solid #333;
-      padding: 12px 16px;
+      padding: 14px 16px;
     }
-    .mesa-chip {
-      min-height: 76px; border-radius: 14px; border: 1px solid #333;
-      background: #222; color: #fff; font-weight: 700;
+    .mesero-top .text-info { font-size: 1.25rem; }
+    .mesas-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      padding: 4px 0 8px;
+      gap: 2px 4px;
     }
-    .mesa-chip.ocupada { border-color: #0dcaf0; background: #12343c; }
-    .mesa-chip.domicilio { border-color: #ffc107; background: #3a3210; }
-    .mesa-chip.recoger { border-color: #6ea8fe; background: #152238; }
-    .mesa-chip.activa { outline: 2px solid #0dcaf0; }
-    .cat-btn { border-radius: 20px; }
+    .mesero-mesa-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 104px;
+    }
+    .mesa-btn {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      margin: 6px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: hidden;
+      padding: 0;
+      color: #fff;
+    }
+    .mesa-btn::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(145deg, rgba(255,255,255,0.2), rgba(255,255,255,0));
+      border-radius: 50%;
+    }
+    .mesa-btn-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 1;
+      line-height: 1.1;
+    }
+    .mesa-btn i { font-size: 1.45rem; margin-bottom: 4px; }
+    .mesa-etiqueta { font-size: 0.85rem; opacity: 0.95; margin-bottom: 2px; }
+    .mesa-btn .mesa-numero {
+      font-size: 1.35rem;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      position: static;
+    }
+    .mesa-activa {
+      background-color: #ff8c00;
+      border: 3px solid #ff8c00;
+      color: white;
+    }
+    .mesa-domicilio {
+      background-color: #4CAF50;
+      border: 3px solid #4CAF50;
+      color: white;
+    }
+    .mesa-recoger {
+      background-color: #2196F3;
+      border: 3px solid #2196F3;
+      color: white;
+    }
+    .mesa-seleccionada {
+      background-color: #ff4500;
+      border: 3px solid #ff4500;
+      color: white;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5), 0 8px 16px rgba(0, 0, 0, 0.3);
+      transform: scale(1.05);
+    }
+    .mesa-seleccionada::after {
+      content: '';
+      position: absolute;
+      top: -2px; left: -2px; right: -2px; bottom: -2px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      animation: pulse-mesa 1.5s infinite;
+    }
+    @keyframes pulse-mesa {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.5; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .mesa-caption {
+      font-size: 0.72rem;
+      color: #aaa;
+      text-align: center;
+      max-width: 96px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .cat-btn { border-radius: 22px; padding: 10px 16px; font-size: 1rem; }
     .cat-btn.active { background: #0dcaf0; border-color: #0dcaf0; color: #111; }
     .prod-card {
       background: #1c1c1c; border: 1px solid #333; border-radius: 12px;
-      padding: 12px; cursor: pointer;
+      padding: 16px; cursor: pointer; font-size: 1.08rem;
+    }
+    #nuevaMesaMesero, #vistaMesas .input-group .btn, #vistaMesas .form-control {
+      min-height: 48px; font-size: 1.05rem;
     }
     .item-pendiente { color: #ffc107; }
     .item-cocina { color: #0dcaf0; }
@@ -61,7 +166,10 @@
       background: #1a1a1a;
       color: #fff;
       border-color: #444;
+      min-height: 52px;
+      font-size: 1.1rem;
     }
+    .login-mesero .btn { min-height: 52px; font-size: 1.1rem; }
     .login-mesero .form-control::placeholder { color: #888; }
     .login-password-wrap {
       position: relative;
@@ -114,28 +222,99 @@
     .btn span[style*="Orbitron"] {
       font-family: 'Orbitron', 'Exo 2', 'Rajdhani', 'Roboto Mono', monospace !important;
       font-weight: 800 !important;
-      font-size: 1rem !important;
-      letter-spacing: 0.3px !important;
-      line-height: 1.1 !important;
+      font-size: 0.62rem !important;
+      letter-spacing: 0.2px !important;
+      line-height: 1.05 !important;
       display: block !important;
       text-align: center !important;
     }
     #btnAyudaFlotante {
-      bottom: 160px !important;
-      right: 12px !important;
+      bottom: 148px !important;
+      right: 10px !important;
+      width: 96px !important;
+      height: 36px !important;
+      padding: 3px 7px !important;
+      border-radius: 18px !important;
+    }
+    #btnAyudaFlotante img {
+      width: 20px !important;
+      height: 20px !important;
+      margin-right: 5px !important;
+      border-width: 2px !important;
+    }
+    .capa-impresion-mesero {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 20000;
+      background: #fff;
+      color: #000;
+      overflow: auto;
+      padding: 16px 16px 90px;
+    }
+    .capa-impresion-mesero.visible { display: block; }
+    .capa-impresion-acciones {
+      position: sticky;
+      top: 0;
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      background: #fff;
+      padding-bottom: 8px;
+      z-index: 1;
+    }
+    .capa-impresion-acciones button {
+      flex: 1;
+      min-height: 48px;
+      font-size: 1.05rem;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #0dcaf0;
+      color: #111;
+      font-weight: 700;
+    }
+    .capa-impresion-acciones .btn-cerrar-impresion {
+      background: #eee;
+      color: #111;
+    }
+    #contenidoImpresionMesero {
+      font-family: monospace;
+      font-size: 16px;
+      max-width: 320px;
+      margin: 0 auto;
+    }
+    #contenidoImpresionMesero table { width: 100%; border-collapse: collapse; }
+    #contenidoImpresionMesero th, #contenidoImpresionMesero td { text-align: left; vertical-align: top; padding: 2px 0; }
+    #contenidoImpresionMesero .header { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 8px; text-align: center; }
+    #contenidoImpresionMesero .cliente-info { border: 1px solid #000; padding: 6px; margin: 8px 0; }
+    #contenidoImpresionMesero .border-top { border-top: 1px dashed #000; margin-top: 8px; padding-top: 8px; text-align: center; }
+    @media print {
+      @page { margin: 0; }
+      #loginMesero, #appMesero, #btnAyudaFlotante, .capa-impresion-acciones {
+        display: none !important;
+      }
+      .capa-impresion-mesero {
+        display: block !important;
+        position: static !important;
+        inset: auto;
+        overflow: visible;
+        padding: 0;
+        background: #fff;
+      }
+      #contenidoImpresionMesero { max-width: 57mm; font-size: 14px; }
     }
   </style>
 </head>
 <body>
   <div id="loginMesero" class="login-mesero" style="display: none;">
     <img src="image/logo-ToySoft.png" alt="ToySoft" class="logo-mesero mb-3">
-    <h1 class="h4 text-info mb-1">Mesero</h1>
-    <p class="small text-white-50 text-center mb-3">Entra con el correo y la contraseña que te dio Administración. Tu nombre sale en el ticket de cocina.</p>
-    <div id="loginMensaje" class="alert alert-danger py-2 px-3 small mb-2 w-100" style="display: none; max-width: 360px;"></div>
-    <form class="w-100" style="max-width: 360px;" onsubmit="event.preventDefault(); iniciarSesionMesero();">
-      <input type="email" id="usuario" class="form-control form-control-sm mb-2" placeholder="Correo" autocomplete="username" required>
+    <h1 class="h3 text-info mb-1">Mesero</h1>
+    <p class="text-white-50 text-center mb-3 px-2">Entra con el correo y la contraseña que te dio Administración. Tu nombre sale en el ticket de cocina.</p>
+    <div id="loginMensaje" class="alert alert-danger py-2 px-3 mb-2 w-100" style="display: none; max-width: 420px;"></div>
+    <form class="w-100" style="max-width: 420px;" onsubmit="event.preventDefault(); iniciarSesionMesero();">
+      <input type="email" id="usuario" class="form-control mb-2" placeholder="Correo" autocomplete="username" required>
       <div class="login-password-wrap mb-3">
-        <input type="password" id="clave" class="form-control form-control-sm" placeholder="Contraseña" autocomplete="current-password" required>
+        <input type="password" id="clave" class="form-control" placeholder="Contraseña" autocomplete="current-password" required>
         <button type="button" class="login-password-toggle" id="btnVerClave" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña">
           <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
@@ -150,7 +329,7 @@
         </button>
       </div>
       <div class="d-grid">
-        <button type="submit" class="btn btn-info btn-sm">Iniciar sesión</button>
+        <button type="submit" class="btn btn-info">Iniciar sesión</button>
       </div>
       <div class="mt-2 text-center">
         <button type="button" id="installButton" class="btn btn-outline-warning btn-sm" onclick="installPWA()">
@@ -173,27 +352,32 @@
   <div id="vistaMesas" class="vista visible p-3">
     <div class="input-group mb-2">
       <input type="number" id="nuevaMesaMesero" class="form-control bg-dark text-white border-secondary" placeholder="N° de mesa" min="1">
-      <button class="btn btn-info" type="button" onclick="crearMesaMesero()">Abrir mesa</button>
+      <button class="btn btn-warning" type="button" onclick="crearMesaMesero()">Abrir mesa</button>
     </div>
     <div class="d-flex gap-2 mb-3">
-      <button class="btn btn-outline-warning flex-grow-1" type="button" onclick="abrirFormPedidoExternoMesero('domicilio')">
+      <button class="btn btn-domicilio-moderno flex-grow-1" type="button" onclick="abrirFormPedidoExternoMesero('domicilio')">
         <i class="fas fa-motorcycle me-1"></i>Domicilio
       </button>
-      <button class="btn btn-outline-primary flex-grow-1" type="button" onclick="abrirFormPedidoExternoMesero('recoger')">
+      <button class="btn btn-recoger-moderno flex-grow-1" type="button" onclick="abrirFormPedidoExternoMesero('recoger')">
         <i class="fas fa-shopping-bag me-1"></i>Recoger
       </button>
     </div>
     <h6 class="text-white-50 small text-uppercase mb-2">Mesas</h6>
-    <div id="listaMesasMesero" class="row g-2 mb-3"></div>
+    <div id="listaMesasMesero" class="mesas-container"></div>
     <h6 class="text-white-50 small text-uppercase mb-2">Domicilios</h6>
-    <div id="listaDomiciliosMesero" class="row g-2 mb-3"></div>
+    <div id="listaDomiciliosMesero" class="mesas-container"></div>
     <h6 class="text-white-50 small text-uppercase mb-2">Recoger</h6>
-    <div id="listaRecogerMesero" class="row g-2"></div>
-    <p class="text-muted small mt-3 mb-0">Sin cobros ni inventario. El pedido llega a caja y a cocina. Al enviar se abre el ticket para imprimir.</p>
+    <div id="listaRecogerMesero" class="mesas-container"></div>
+      <p class="text-muted mt-3 mb-0">Sin cobros ni inventario. El pedido llega a caja. Al enviar o al tocar Imprimir, sale el ticket en este celular y también en caja.</p>
   </div>
 
   <div id="vistaPedido" class="vista p-3">
-    <button class="btn btn-outline-secondary btn-sm mb-3" type="button" onclick="volverAMesas()"><i class="fas fa-arrow-left me-1"></i>Pedidos</button>
+    <div class="d-flex gap-2 mb-3">
+      <button class="btn btn-outline-secondary flex-grow-1" type="button" onclick="volverAMesas()"><i class="fas fa-arrow-left me-1"></i>Pedidos</button>
+      <button class="btn btn-outline-warning flex-grow-1" type="button" id="btnCambioPedidoMesero" onclick="abrirCambioPedidoMesero()" style="display: none;">
+        <i class="fas fa-exchange-alt me-1"></i>Cambio de mesa
+      </button>
+    </div>
     <div id="ordenMesero" class="mb-3"></div>
     <div id="categoriasMesero" class="d-flex flex-wrap gap-2 mb-3"></div>
     <div id="productosMesero" class="d-grid gap-2"></div>
@@ -234,6 +418,55 @@
         </div>
         <div class="modal-footer border-secondary">
           <button type="button" class="btn btn-info w-100" onclick="confirmarPedidoExternoMesero()">Crear pedido</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalCambioMesaMesero" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title"><i class="fas fa-exchange-alt me-1"></i>Cambio de mesa</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-white-50">Si ya se envió a cocina, se imprime un ticket nuevo con el cambio.</p>
+          <label class="form-label small" for="mesaOrigenMesero">Mesa actual</label>
+          <input type="text" id="mesaOrigenMesero" class="form-control bg-dark text-white border-secondary mb-2" readonly>
+          <label class="form-label small" for="mesaDestinoMesero">Nueva mesa</label>
+          <input type="number" id="mesaDestinoMesero" class="form-control bg-dark text-white border-secondary" placeholder="Número de mesa" min="1">
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-warning" onclick="procesarCambioMesaMesero()">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalCambioTipoMesero" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title" id="tituloCambioTipoMesero"><i class="fas fa-exchange-alt me-1"></i>Cambiar tipo</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="tipoDestinoCambioMesero" value="">
+          <p class="small text-white-50" id="notaCambioTipoMesero">Si ya se envió a cocina, se imprime un ticket nuevo.</p>
+          <label class="form-label small" for="pedidoOrigenCambioMesero">Pedido actual</label>
+          <input type="text" id="pedidoOrigenCambioMesero" class="form-control bg-dark text-white border-secondary mb-2" readonly>
+          <label class="form-label small" for="pedidoDestinoCambioMesero">Pasará a</label>
+          <input type="text" id="pedidoDestinoCambioMesero" class="form-control bg-dark text-white border-secondary mb-2" readonly>
+          <div id="cajaDireccionCambioMesero" style="display: none;">
+            <label class="form-label small" for="direccionCambioMesero">Dirección de domicilio</label>
+            <input type="text" id="direccionCambioMesero" class="form-control bg-dark text-white border-secondary" placeholder="Calle, barrio, referencias">
+          </div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-warning" onclick="procesarCambioTipoMesero()">Confirmar</button>
         </div>
       </div>
     </div>
@@ -292,6 +525,14 @@
     </div>
   </div>
 
+  <div id="capaImpresionMesero" class="capa-impresion-mesero" hidden>
+    <div class="capa-impresion-acciones">
+      <button type="button" onclick="confirmarImpresionMesero()">Imprimir</button>
+      <button type="button" class="btn-cerrar-impresion" onclick="cerrarCapaImpresionMesero()">Cerrar</button>
+    </div>
+    <div id="contenidoImpresionMesero"></div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
@@ -299,9 +540,9 @@
   <script src="firebase-config.js?v=25"></script>
   <script src="firebase-init.js?v=28"></script>
   <script src="seguridad.js?v=26"></script>
-  <script src="mesero.js?v=26"></script>
-  <script src="ayuda.js?v=27"></script>
-  <script src="install.js?v=27"></script>
+  <script src="mesero.js?v=30"></script>
+  <script src="ayuda.js?v=31"></script>
+  <script src="install.js?v=28"></script>
   <script>
     (function () {
       function pintarOjo(visible) {

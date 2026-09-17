@@ -189,19 +189,36 @@ function pintarChipsPedidos(contId, ids, claseExtra) {
   const cont = document.getElementById(contId);
   if (!cont) return;
   if (!ids.length) {
-    cont.innerHTML = '<div class="col-12 text-muted small">Ninguno abierto.</div>';
+    cont.innerHTML = '<p class="text-muted small mb-0 w-100">Ninguno abierto.</p>';
     return;
   }
   cont.innerHTML = ids.map(function (id) {
     const pedido = mesasActivas.get(id);
     const n = contarItems(pedido);
-    const activa = String(id) === String(mesaSeleccionada) ? ' activa' : '';
-    const titulo = etiquetaPedidoMesero(id, pedido);
-    const extra = pedido && pedido.cliente ? '<div class="small fw-normal text-white-50">' + escaparHtml(pedido.cliente) + '</div>' : '';
-    return '<div class="col-6 col-sm-4">' +
-      '<button type="button" class="mesa-chip ocupada w-100 ' + (claseExtra || '') + activa + '" onclick="abrirMesaMesero(\'' + String(id).replace(/'/g, '') + '\')">' +
-      '<div>' + escaparHtml(titulo) + '</div>' + extra +
-      '<div class="small fw-normal text-info">' + n + ' prod.</div></button></div>';
+    const seleccionada = String(id) === String(mesaSeleccionada) ? ' mesa-seleccionada' : '';
+    const idJs = String(id).replace(/'/g, '');
+    let tipoClase = 'mesa-activa';
+    let interior;
+    if (claseExtra === 'domicilio' || esDomicilioMesero(id, pedido)) {
+      tipoClase = 'mesa-domicilio';
+      const num = parseInt(String(id).replace(/\D/g, ''), 10);
+      interior = '<div class="mesa-btn-inner"><i class="fas fa-motorcycle"></i><span class="mesa-numero">D' +
+        escaparHtml(String(Number.isFinite(num) ? num : id)) + '</span></div>';
+    } else if (claseExtra === 'recoger' || esRecogerMesero(id, pedido)) {
+      tipoClase = 'mesa-recoger';
+      const num = parseInt(String(id).replace(/\D/g, ''), 10);
+      interior = '<div class="mesa-btn-inner"><i class="fas fa-shopping-bag"></i><span class="mesa-numero">R' +
+        escaparHtml(String(Number.isFinite(num) ? num : id)) + '</span></div>';
+    } else {
+      interior = '<div class="mesa-btn-inner"><span class="mesa-etiqueta">Mesa</span><span class="mesa-numero">' +
+        escaparHtml(String(id)) + '</span></div>';
+    }
+    const cliente = pedido && pedido.cliente ? escaparHtml(pedido.cliente) : '';
+    const pie = (cliente ? cliente + ' · ' : '') + n + ' prod.';
+    return '<div class="mesero-mesa-item">' +
+      '<button type="button" class="mesa-btn ' + tipoClase + seleccionada + '" onclick="abrirMesaMesero(\'' + idJs + '\')">' +
+      interior + '</button>' +
+      '<div class="mesa-caption">' + pie + '</div></div>';
   }).join('');
 }
 
@@ -229,7 +246,7 @@ function pintarListaMesas() {
   const contMesas = document.getElementById('listaMesasMesero');
   if (contMesas) {
     if (!idsMesas.length) {
-      contMesas.innerHTML = '<div class="col-12 text-muted">No hay mesas abiertas. Escribe un número y ábrela.</div>';
+      contMesas.innerHTML = '<p class="text-muted mb-0 w-100">No hay mesas abiertas. Escribe un número y ábrela.</p>';
     } else {
       pintarChipsPedidos('listaMesasMesero', idsMesas, '');
     }
@@ -238,11 +255,29 @@ function pintarListaMesas() {
   pintarChipsPedidos('listaRecogerMesero', idsRec, 'recoger');
 }
 
+function actualizarBotonCambioMesero() {
+  const btn = document.getElementById('btnCambioPedidoMesero');
+  if (!btn) return;
+  const id = mesaSeleccionada ? String(mesaSeleccionada) : '';
+  const pedido = mesasActivas.get(id);
+  const hay = !!(pedido && (pedido.items || []).length);
+  btn.style.display = hay ? '' : 'none';
+  if (!hay) return;
+  if (esDomicilioMesero(id, pedido)) {
+    btn.innerHTML = '<i class="fas fa-shopping-bag me-1"></i>Pasar a Recoger';
+  } else if (esRecogerMesero(id, pedido)) {
+    btn.innerHTML = '<i class="fas fa-motorcycle me-1"></i>Pasar a Domicilio';
+  } else {
+    btn.innerHTML = '<i class="fas fa-exchange-alt me-1"></i>Cambio de mesa';
+  }
+}
+
 function pintarOrden() {
   const cont = document.getElementById('ordenMesero');
   const barra = document.getElementById('barraEnviar');
   const sub = document.getElementById('subtituloMesero');
   if (sub) sub.textContent = mesaSeleccionada ? etiquetaPedidoMesero(mesaSeleccionada) : 'Pedidos';
+  actualizarBotonCambioMesero();
   if (!cont) return;
   if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
     cont.innerHTML = '';
@@ -415,6 +450,234 @@ function volverAMesas() {
   pintarMesero();
 }
 
+function idsCocinaListosMesero() {
+  try {
+    const lista = JSON.parse(localStorage.getItem('pedidosCocinaListos') || '[]');
+    if (!Array.isArray(lista) || !lista.length) return [];
+    if (typeof lista[0] === 'number') return lista;
+    return lista.map(function (p) { return p && p.id; }).filter(function (id) { return id != null; });
+  } catch (e) {
+    return [];
+  }
+}
+
+function textoCambioPedidoMesero(cambio) {
+  if (!cambio) return { titulo: '', linea: '' };
+  const o = String(cambio.origen || '');
+  const d = String(cambio.destino || '');
+  const canal = cambio.tipoCambio === 'canal'
+    || ((o.indexOf('DOM-') === 0 || o.indexOf('REC-') === 0) && (d.indexOf('DOM-') === 0 || d.indexOf('REC-') === 0));
+  return {
+    titulo: canal ? 'CAMBIO DE TIPO' : 'CAMBIO DE MESA',
+    linea: etiquetaPedidoMesero(o) + ' → ' + etiquetaPedidoMesero(d)
+  };
+}
+
+function abrirCambioPedidoMesero() {
+  if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
+    alert('Elige un pedido primero');
+    return;
+  }
+  const pedido = normalizarPedido(mesasActivas.get(mesaSeleccionada));
+  if (!(pedido.items || []).length) {
+    alert('Agrega productos antes de cambiar');
+    return;
+  }
+  const id = String(mesaSeleccionada);
+  if (esDomicilioMesero(id, pedido)) {
+    mostrarModalCambioTipoMesero('recoger');
+  } else if (esRecogerMesero(id, pedido)) {
+    mostrarModalCambioTipoMesero('domicilio');
+  } else {
+    mostrarModalCambioMesaMesero();
+  }
+}
+
+function mostrarModalCambioMesaMesero() {
+  const origen = document.getElementById('mesaOrigenMesero');
+  const destino = document.getElementById('mesaDestinoMesero');
+  if (origen) origen.value = String(mesaSeleccionada);
+  if (destino) destino.value = '';
+  const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambioMesaMesero'));
+  modal.show();
+  setTimeout(function () { if (destino) destino.focus(); }, 300);
+}
+
+function mostrarModalCambioTipoMesero(tipoDestino) {
+  const pedido = mesasActivas.get(mesaSeleccionada) || {};
+  const titulo = document.getElementById('tituloCambioTipoMesero');
+  const tipoEl = document.getElementById('tipoDestinoCambioMesero');
+  const origenEl = document.getElementById('pedidoOrigenCambioMesero');
+  const destinoEl = document.getElementById('pedidoDestinoCambioMesero');
+  const cajaDir = document.getElementById('cajaDireccionCambioMesero');
+  const dirEl = document.getElementById('direccionCambioMesero');
+  const nota = document.getElementById('notaCambioTipoMesero');
+  if (tipoEl) tipoEl.value = tipoDestino;
+  if (origenEl) origenEl.value = etiquetaPedidoMesero(mesaSeleccionada, pedido) + (pedido.cliente ? ' · ' + pedido.cliente : '');
+  if (destinoEl) destinoEl.value = tipoDestino === 'recoger' ? 'Pedido para recoger' : 'Pedido a domicilio';
+  if (titulo) {
+    titulo.innerHTML = tipoDestino === 'recoger'
+      ? '<i class="fas fa-shopping-bag me-1"></i>Pasar a Recoger'
+      : '<i class="fas fa-motorcycle me-1"></i>Pasar a Domicilio';
+  }
+  if (tipoDestino === 'domicilio') {
+    if (cajaDir) cajaDir.style.display = 'block';
+    if (dirEl) dirEl.value = pedido.direccion || '';
+    if (nota) nota.textContent = 'Quedará como domicilio. Escribe o corrige la dirección. Si ya iba a cocina, se imprime un ticket nuevo.';
+  } else {
+    if (cajaDir) cajaDir.style.display = 'none';
+    if (dirEl) dirEl.value = '';
+    if (nota) nota.textContent = 'Quedará para recoger. Se conservan nombre y teléfono. Si ya iba a cocina, se imprime un ticket nuevo.';
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambioTipoMesero')).show();
+}
+
+function reubicarPedidoMesero(origen, destino, pedido) {
+  if (mesasActivas.has(destino) && String(origen) !== String(destino)) {
+    const dest = normalizarPedido(mesasActivas.get(destino));
+    dest.items = (dest.items || []).concat(pedido.items || []);
+    dest.cambioMesa = pedido.cambioMesa;
+    sincronizarRonda(dest);
+    if (pedido.cliente && !dest.cliente) {
+      dest.cliente = pedido.cliente;
+      dest.telefono = pedido.telefono;
+      dest.direccion = pedido.direccion;
+      dest.horaRecoger = pedido.horaRecoger;
+    }
+    if (pedido.nombreMesero && !dest.nombreMesero) dest.nombreMesero = pedido.nombreMesero;
+    mesasActivas.set(destino, dest);
+    pedido = dest;
+  } else {
+    mesasActivas.set(destino, pedido);
+  }
+  mesasActivas.delete(origen);
+  if (ordenesCocina.has(origen)) {
+    const items = ordenesCocina.get(origen) || [];
+    ordenesCocina.delete(origen);
+    ordenesCocina.set(destino, (ordenesCocina.get(destino) || []).concat(items));
+  }
+  const listos = idsCocinaListosMesero();
+  historialCocina = historialCocina.filter(function (h) {
+    return !(String(h.mesa) === String(origen) && listos.indexOf(h.id) === -1);
+  });
+  const enCocina = (pedido.items || []).filter(function (item) { return item.estado === 'en_cocina'; });
+  if (enCocina.length) {
+    historialCocina.push({
+      id: Date.now(),
+      fecha: new Date().toISOString(),
+      fechaMostrar: (pedido.cambioMesa && pedido.cambioMesa.fecha) || new Date().toLocaleString(),
+      mesa: destino,
+      items: enCocina,
+      ronda: enCocina.reduce(function (max, item) { return Math.max(max, rondaDeItem(item)); }, 1),
+      sesionId: pedido.sesionId || null,
+      origen: 'mesero',
+      nombreMesero: pedido.nombreMesero || nombreMeseroSesion(),
+      cliente: pedido.cliente || null,
+      telefono: pedido.telefono || null,
+      direccion: pedido.tipo === 'domicilio' ? (pedido.direccion || null) : null,
+      horaRecoger: pedido.tipo === 'recoger' ? (pedido.horaRecoger || null) : null,
+      cambioMesa: pedido.cambioMesa
+    });
+  }
+  mesaSeleccionada = destino;
+  persistirMesero(true);
+  pintarMesero();
+  return enCocina;
+}
+
+function procesarCambioMesaMesero() {
+  const origen = String(mesaSeleccionada || '').trim();
+  const destino = String((document.getElementById('mesaDestinoMesero') || {}).value || '').trim();
+  if (!origen || !mesasActivas.has(origen)) {
+    alert('No se encontró la mesa actual');
+    return;
+  }
+  if (!destino) {
+    alert('Escribe el número de la nueva mesa');
+    return;
+  }
+  if (!/^\d+$/.test(destino)) {
+    alert('La mesa destino debe ser un número');
+    return;
+  }
+  if (origen === destino) {
+    alert('La mesa nueva debe ser distinta');
+    return;
+  }
+  const pedido = normalizarPedido(mesasActivas.get(origen));
+  if (!(pedido.items || []).length) {
+    alert('No hay productos para mover');
+    return;
+  }
+  pedido.cambioMesa = {
+    origen: origen,
+    destino: destino,
+    fecha: new Date().toLocaleString()
+  };
+  mesasActivas.set(origen, pedido);
+  const modal = bootstrap.Modal.getInstance(document.getElementById('modalCambioMesaMesero'));
+  if (modal) modal.hide();
+  const enCocina = reubicarPedidoMesero(origen, destino, pedido);
+  if (enCocina.length) imprimirTicketCocinaMesero(destino, enCocina, { pedido: mesasActivas.get(destino) });
+}
+
+function procesarCambioTipoMesero() {
+  const origen = String(mesaSeleccionada || '');
+  if (!origen || !mesasActivas.has(origen)) {
+    alert('No hay un pedido seleccionado');
+    return;
+  }
+  const pedido = normalizarPedido(mesasActivas.get(origen));
+  if (!(pedido.items || []).length) {
+    alert('No hay productos en este pedido');
+    return;
+  }
+  const tipoDestino = (document.getElementById('tipoDestinoCambioMesero') || {}).value;
+  if (tipoDestino !== 'domicilio' && tipoDestino !== 'recoger') {
+    alert('No se pudo determinar el tipo');
+    return;
+  }
+  if (esDomicilioMesero(origen, pedido) && tipoDestino === 'domicilio') {
+    alert('Este pedido ya es un domicilio');
+    return;
+  }
+  if (esRecogerMesero(origen, pedido) && tipoDestino === 'recoger') {
+    alert('Este pedido ya es para recoger');
+    return;
+  }
+  let nuevo;
+  if (tipoDestino === 'recoger') {
+    nuevo = siguienteIdExternoMesero('recoger');
+    pedido.tipo = 'recoger';
+    pedido.numero = nuevo.numero;
+    pedido.direccion = '';
+  } else {
+    const direccion = String((document.getElementById('direccionCambioMesero') || {}).value || pedido.direccion || '').trim();
+    if (!direccion) {
+      alert('Escribe la dirección del domicilio');
+      const inputDir = document.getElementById('direccionCambioMesero');
+      if (inputDir) inputDir.focus();
+      return;
+    }
+    nuevo = siguienteIdExternoMesero('domicilio');
+    pedido.tipo = 'domicilio';
+    pedido.numero = nuevo.numero;
+    pedido.direccion = direccion;
+    pedido.horaRecoger = '';
+  }
+  pedido.cambioMesa = {
+    origen: origen,
+    destino: nuevo.id,
+    fecha: new Date().toLocaleString(),
+    tipoCambio: 'canal'
+  };
+  mesasActivas.set(origen, pedido);
+  const modal = bootstrap.Modal.getInstance(document.getElementById('modalCambioTipoMesero'));
+  if (modal) modal.hide();
+  const enCocina = reubicarPedidoMesero(origen, nuevo.id, pedido);
+  if (enCocina.length) imprimirTicketCocinaMesero(nuevo.id, enCocina, { pedido: mesasActivas.get(nuevo.id) });
+}
+
 function elegirCategoriaMesero(cat) {
   categoriaActual = cat;
   pintarCategorias();
@@ -573,7 +836,7 @@ function imprimirPedidoMesero() {
   imprimirTicketCocinaMesero(mesaSeleccionada, aImprimir, { ronda: pedido.ronda, pedido: pedido });
 }
 
-function imprimirTicketCocinaMesero(mesa, productos, opciones) {
+function htmlCuerpoTicketCocinaMesero(mesa, productos, opciones) {
   opciones = opciones || {};
   const pedido = opciones.pedido || mesasActivas.get(mesa) || {};
   const fechaTicket = new Date().toLocaleString();
@@ -598,56 +861,58 @@ function imprimirTicketCocinaMesero(mesa, productos, opciones) {
       (item.detalles ? '<div class="detalles"><span class="detalle-label">Detalle:</span> ' + escaparHtml(item.detalles) + '</div>' : '') +
       '</td></tr>';
   }).join('');
-  const html = '<!DOCTYPE html><html><head><title>Ticket de Cocina</title><meta charset="UTF-8">' +
-    '<style>body{font-family:monospace;font-size:14px;width:57mm;margin:0;padding:1mm;}' +
-    '.text-center{text-align:center;}table{width:100%;border-collapse:collapse;margin:1mm 0;}' +
-    'th,td{padding:.5mm;text-align:left;vertical-align:top;}' +
-    '.header{border-bottom:1px dashed #000;padding-bottom:1mm;margin-bottom:1mm;}' +
-    '.cliente-info{border:1px solid #000;padding:1mm;margin:1mm 0;}' +
-    '.cliente-label{font-weight:bold;margin-bottom:.5mm;}' +
-    '.border-top{border-top:1px dashed #000;margin-top:1mm;padding-top:1mm;}' +
-    '.botones-impresion{position:fixed;top:8px;right:8px;z-index:9;}' +
-    '.botones-impresion button{margin-left:4px;padding:6px 10px;}' +
-    '@media print{.botones-impresion{display:none;}@page{margin:0;}}</style></head><body>' +
-    '<div class="botones-impresion"><button type="button" onclick="window.print()">Imprimir</button>' +
-    '<button type="button" id="btnCerrarImpresion">Cerrar</button></div>' +
-    '<div class="header text-center"><h2 style="margin:0;font-size:28px;">COCINA</h2>' +
+  let infoCambio = '';
+  if (pedido.cambioMesa) {
+    const info = textoCambioPedidoMesero(pedido.cambioMesa);
+    infoCambio = '<div class="cliente-info" style="border:2px solid #000;text-align:center;">' +
+      '<div style="font-weight:bold;font-size:16px;">' + escaparHtml(info.titulo) + '</div>' +
+      '<div style="font-size:14px;">' + escaparHtml(info.linea) + '</div>' +
+      (pedido.cambioMesa.fecha ? '<div>' + escaparHtml(pedido.cambioMesa.fecha) + '</div>' : '') +
+      '</div>';
+  }
+  return '<div class="header text-center"><h2 style="margin:0;font-size:28px;">COCINA</h2>' +
     '<div style="font-size:22px;font-weight:bold;">' + escaparHtml(titulo) + '</div>' +
     '<div style="font-size:20px;font-weight:bold;">Ronda: ' + rondaTicket + '</div>' +
     (nombreMeseroTicket ? '<div style="font-size:18px;font-weight:bold;">Mesero: ' + escaparHtml(nombreMeseroTicket) + '</div>' : '') +
-    '<div>' + escaparHtml(fechaTicket) + '</div></div>' + infoCliente +
+    '<div>' + escaparHtml(fechaTicket) + '</div></div>' + infoCambio + infoCliente +
     '<table><thead><tr><th style="width:20%">Cant</th><th>Producto</th></tr></thead><tbody>' + filas +
-    '</tbody></table><div class="text-center border-top">¡Gracias!</div></body></html>';
+    '</tbody></table><div class="text-center border-top">¡Gracias!</div>';
+}
 
+function cerrarCapaImpresionMesero() {
+  const capa = document.getElementById('capaImpresionMesero');
+  if (capa) {
+    capa.hidden = true;
+    capa.classList.remove('visible');
+  }
+  document.body.classList.remove('imprimiendo-mesero');
+}
+
+function confirmarImpresionMesero() {
+  try { window.print(); } catch (e) {}
+}
+
+function imprimirTicketCocinaMesero(mesa, productos, opciones) {
+  const ticket = htmlCuerpoTicketCocinaMesero(mesa, productos, opciones);
+  const capa = document.getElementById('capaImpresionMesero');
+  const contenido = document.getElementById('contenidoImpresionMesero');
+  if (capa && contenido) {
+    contenido.innerHTML = ticket;
+    capa.hidden = false;
+    capa.classList.add('visible');
+    document.body.classList.add('imprimiendo-mesero');
+    try { window.print(); } catch (e) {}
+    return;
+  }
+  const html = '<!DOCTYPE html><html><head><title>Ticket de Cocina</title><meta charset="UTF-8"></head><body>' + ticket + '</body></html>';
   let ventana = null;
   try { ventana = window.open('', '_blank', 'width=400,height=600,scrollbars=yes'); } catch (e) { ventana = null; }
   if (ventana) {
     ventana.document.write(html);
     ventana.document.close();
     ventana.focus();
-    try {
-      const btn = ventana.document.getElementById('btnCerrarImpresion');
-      if (btn) btn.onclick = function () { try { ventana.close(); } catch (e) {} };
-    } catch (e) {}
-    return;
+    try { ventana.print(); } catch (e) {}
   }
-  const iframe = document.createElement('iframe');
-  iframe.setAttribute('aria-hidden', 'true');
-  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-  document.body.appendChild(iframe);
-  const doc = iframe.contentWindow.document;
-  doc.open();
-  doc.write(html);
-  doc.close();
-  setTimeout(function () {
-    try {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-    } catch (e) {
-      alert('No se pudo abrir la impresión. Permite ventanas emergentes.');
-    }
-    setTimeout(function () { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); }, 2500);
-  }, 250);
 }
 
 async function iniciarMesero() {

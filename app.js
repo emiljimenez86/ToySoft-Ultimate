@@ -2927,7 +2927,8 @@ function imprimirPedidosNuevosDeMesero(lista) {
     imprimirTicketCocina(orden.mesa, orden.items || [], {
       ronda: orden.ronda,
       pedido: orden,
-      nombreMesero: orden.nombreMesero
+      nombreMesero: orden.nombreMesero,
+      silencioso: true
     });
   });
 }
@@ -6868,9 +6869,88 @@ function enCerrarVentanaImpresion(ventana, alCerrar, opciones = {}) {
 }
 
 // Función para imprimir ticket de cocina
-function imprimirTicketCocina(mesa, productos, opciones = {}) {
+function imprimirHtmlEnIframe(html) {
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    setTimeout(function () {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) { /* ignore */ }
+      setTimeout(function () {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      }, 4000);
+    }, 350);
+  } catch (e) { /* ignore */ }
+}
+
+function mostrarAvisoTicketCocinaMesero(datos) {
+  datos = datos || {};
+  let aviso = document.getElementById('avisoTicketMesero');
+  if (aviso && aviso.parentNode) aviso.remove();
+  aviso = document.createElement('div');
+  aviso.id = 'avisoTicketMesero';
+  aviso.className = 'alert alert-info position-fixed shadow';
+  aviso.style.cssText = 'top: 16px; right: 16px; z-index: 10050; max-width: 360px;';
+  const mesa = String(datos.mesa || '');
+  const mesero = datos.nombreMesero ? (' · ' + String(datos.nombreMesero)) : '';
+  window._htmlTicketMeseroPendiente = datos.html || '';
+    aviso.innerHTML =
+    '<div class="fw-bold">Pedido de mesero en cocina</div>' +
+    '<div class="mb-2">' + mesa + mesero + '. Si no salió el ticket, tócalo aquí.</div>' +
+    '<button type="button" class="btn btn-info btn-sm me-2" id="btnImprimirTicketMeseroAviso">Imprimir ticket</button>' +
+    '<button type="button" class="btn btn-outline-light btn-sm" id="btnCerrarAvisoTicketMesero">Cerrar</button>';
+  document.body.appendChild(aviso);
+  const btnImprimir = document.getElementById('btnImprimirTicketMeseroAviso');
+  if (btnImprimir) {
+    btnImprimir.onclick = function () {
+      const html = window._htmlTicketMeseroPendiente;
+      if (!html) return;
+      let ventana = null;
+      try {
+        ventana = window.open('', '_blank', 'width=400,height=600,scrollbars=yes');
+      } catch (e) {
+        ventana = null;
+      }
+      if (ventana) {
+        ventana.document.write(html);
+        ventana.document.close();
+        ventana.focus();
+      } else {
+        imprimirHtmlEnIframe(html);
+      }
+    };
+  }
+  const btnCerrar = document.getElementById('btnCerrarAvisoTicketMesero');
+  if (btnCerrar) btnCerrar.onclick = function () { if (aviso.parentNode) aviso.remove(); };
+  setTimeout(function () {
+    if (aviso && aviso.parentNode) aviso.remove();
+  }, 20000);
+}
+
+function entregarDocumentoImpresionCocina(html, opciones) {
+  opciones = opciones || {};
   const alCerrar = typeof opciones.alCerrar === 'function' ? opciones.alCerrar : null;
-  // Ventana propia (no reutilizar ImpresionBalance del cierre) para evitar conflictos
+  const silencioso = !!opciones.silencioso;
+  if (silencioso) {
+    imprimirHtmlEnIframe(html);
+    mostrarAvisoTicketCocinaMesero({
+      mesa: opciones.mesa,
+      nombreMesero: opciones.nombreMesero,
+      html: html
+    });
+    if (alCerrar) {
+      try { alCerrar(null); } catch (e) { /* ignore */ }
+    }
+    return null;
+  }
   let ventana = null;
   try {
     ventana = window.open('', '_blank', 'width=400,height=600,scrollbars=yes');
@@ -6878,13 +6958,22 @@ function imprimirTicketCocina(mesa, productos, opciones = {}) {
     ventana = null;
   }
   if (!ventana) {
-    alert('No se pudo abrir la ventana de impresión. Por favor, verifique que los bloqueadores de ventanas emergentes estén desactivados.');
+    imprimirHtmlEnIframe(html);
     if (alCerrar) {
       try { alCerrar(null); } catch (e) { /* ignore */ }
     }
-    return;
+    return null;
   }
-  
+  ventana.document.write(html);
+  ventana.document.close();
+  ventana.focus();
+  return ventana;
+}
+
+function imprimirTicketCocina(mesa, productos, opciones = {}) {
+  const alCerrar = typeof opciones.alCerrar === 'function' ? opciones.alCerrar : null;
+  const silencioso = !!opciones.silencioso;
+
   // Obtener el pedido completo (mesa activa o datos explícitos ej. venta rápida)
   const pedidoCompleto = opciones.pedido || mesasActivas.get(mesa);
   const esVentaRapida = !!(opciones.esVentaRapida
@@ -7042,8 +7131,7 @@ function imprimirTicketCocina(mesa, productos, opciones = {}) {
     `;
   }
   
-  // Escribir el contenido completo en la ventana
-  ventana.document.write(`
+  const htmlDocumento = `
     <!DOCTYPE html>
     <html>
       <head>
@@ -7242,11 +7330,15 @@ function imprimirTicketCocina(mesa, productos, opciones = {}) {
         </div>
       </body>
     </html>
-  `);
-  
-  // Cerrar el documento y enfocar la ventana
-  ventana.document.close();
-  ventana.focus();
+  `;
+
+  const ventana = entregarDocumentoImpresionCocina(htmlDocumento, {
+    silencioso: silencioso,
+    alCerrar: alCerrar,
+    mesa: mesa,
+    nombreMesero: nombreMeseroTicket
+  });
+  if (!ventana) return;
 
   if (alCerrar) {
     enCerrarVentanaImpresion(ventana, alCerrar, {

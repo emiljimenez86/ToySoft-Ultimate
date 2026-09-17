@@ -984,13 +984,14 @@ const ayudaContextual = {
                 <h5 class="text-warning">Mesas, domicilio y recoger</h5>
                 <ul>
                     <li><strong>Abrir mesa:</strong> escribe el número y tócala para tomar el pedido.</li>
-                    <li><strong>Domicilio:</strong> pide nombre, teléfono y dirección.</li>
-                    <li><strong>Recoger:</strong> pide nombre, teléfono y hora (opcional).</li>
+                    <li><strong>Cambio de mesa:</strong> dentro del pedido, toca <strong>Cambio de mesa</strong> y escribe el número nuevo. Si la mesa ya tenía pedido, se unen.</li>
+                    <li><strong>Domicilio ↔ Recoger:</strong> en un domicilio toca <strong>Pasar a Recoger</strong>; en recoger, <strong>Pasar a Domicilio</strong> (pide dirección).</li>
+                    <li>Si ya se había enviado a cocina, se imprime un ticket nuevo con el cambio, aquí y en caja.</li>
                 </ul>
                 <h5 class="text-success">Enviar e imprimir</h5>
                 <ul>
-                    <li><strong>Enviar a cocina:</strong> manda los productos nuevos. Aparecen en caja y en la pantalla de cocina, con tu nombre.</li>
-                    <li><strong>Imprimir ticket:</strong> abre el ticket de cocina. Si no salió al enviar, usa este botón.</li>
+                    <li><strong>Enviar a cocina:</strong> manda los productos a caja y abre el ticket en este celular para imprimir. En caja también puede salir.</li>
+                    <li><strong>Imprimir ticket:</strong> vuelve a abrir el ticket en el celular. Si el diálogo no aparece, toca Imprimir en la pantalla blanca.</li>
                 </ul>
                 <div class="alert alert-warning mb-0">
                     El cobro lo hace caja en el Punto de Venta.
@@ -1474,16 +1475,16 @@ document.addEventListener('DOMContentLoaded', function() {
         btnAyuda.id = 'btnAyudaFlotante';
         btnAyuda.className = 'btn btn-info position-fixed';
         btnAyuda.style.cssText = `
-            bottom: 20px; 
-            right: 20px; 
+            bottom: 16px; 
+            right: 16px; 
             z-index: 1000; 
-            border-radius: 30px; 
-            width: 140px; 
-            height: 50px; 
-            padding: 12px 16px;
+            border-radius: 22px; 
+            width: 108px; 
+            height: 40px; 
+            padding: 4px 8px;
             background: linear-gradient(135deg, #0dcaf0 0%, #0a58ca 100%);
             border: none;
-            box-shadow: 0 8px 25px rgba(13, 202, 240, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 6px 16px rgba(13, 202, 240, 0.35), 0 3px 8px rgba(0, 0, 0, 0.15);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             align-items: center;
@@ -1491,8 +1492,8 @@ document.addEventListener('DOMContentLoaded', function() {
             cursor: pointer;
         `;
         btnAyuda.innerHTML = `
-            <img src="image/logo-ToySoft.png" alt="ToySoft" style="width: 36px; height: 36px; margin-right: 10px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.3); filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3)); object-fit: cover;">
-            <span style="font-family: 'Orbitron', 'Exo 2', 'Rajdhani', 'Roboto Mono', monospace; font-weight: 800; font-size: 0.95rem; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.4); letter-spacing: 0.3px; line-height: 1.1; display: block; text-align: center;">Toy de<br>Ayudas</span>
+            <img src="image/logo-ToySoft.png" alt="ToySoft" style="width: 24px; height: 24px; margin-right: 6px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); object-fit: cover;">
+            <span style="font-family: 'Orbitron', 'Exo 2', 'Rajdhani', 'Roboto Mono', monospace; font-weight: 800; font-size: 0.68rem; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.4); letter-spacing: 0.2px; line-height: 1.05; display: block; text-align: center;">Toy de<br>Ayudas</span>
         `;
         btnAyuda.title = 'Ayuda (F1)';
         btnAyuda.onclick = mostrarAyudaContextual;
