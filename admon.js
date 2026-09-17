@@ -258,14 +258,20 @@ async function verificarPinAdministracion() {
     pinError.style.display = 'none';
     pinInput.classList.remove('is-invalid');
 
+    if (typeof pinAccesoBloqueado === 'function' && pinAccesoBloqueado()) {
+        if (typeof prepararUiPin === 'function') prepararUiPin();
+        return;
+    }
+
     let correcto = false;
     if (window.ToySoftFirebase && typeof ToySoftFirebase.esPinAdministracion === 'function') {
         correcto = await ToySoftFirebase.esPinAdministracion(pinIngresado);
     } else {
         correcto = pinIngresado === PIN_ADMINISTRACION;
     }
-    
+
     if (correcto) {
+        if (typeof limpiarIntentosPin === 'function') limpiarIntentosPin();
         // PIN correcto - NO guardar acceso, siempre pedirá PIN al entrar
         
         // Ocultar modal y mostrar contenido
@@ -281,15 +287,23 @@ async function verificarPinAdministracion() {
         
         console.log('✅ PIN de administración correcto');
     } else {
-        // PIN incorrecto
+        const n = typeof registrarPinFallido === 'function' ? registrarPinFallido() : 1;
         pinInput.classList.add('is-invalid');
         pinError.style.display = 'block';
+        pinError.textContent = typeof mensajeIntentoPin === 'function'
+            ? mensajeIntentoPin(n)
+            : 'PIN incorrecto. Por favor, intente nuevamente.';
         pinInput.value = '';
         pinInput.focus();
         
-        // Agregar efecto de vibración (si está disponible)
         if (navigator.vibrate) {
-            navigator.vibrate(200);
+            navigator.vibrate(n >= 3 ? [200, 80, 200, 80, 400] : 200);
+        }
+        if (n >= 3) {
+            alert(typeof avisoBloqueoPinTexto === 'function'
+                ? avisoBloqueoPinTexto()
+                : 'ÚLTIMO AVISO: el sistema se va a bloquear.');
+            if (typeof prepararUiPin === 'function') prepararUiPin();
         }
         
         console.log('❌ PIN de administración incorrecto');
@@ -368,6 +382,8 @@ function mostrarRecuperarPinAdministracion() {
     }
     if (formPin) formPin.style.display = 'none';
     if (formRecuperar) formRecuperar.style.display = 'block';
+    const lockAdmin = document.getElementById('capaBloqueoPinAdministracion');
+    if (lockAdmin) lockAdmin.style.display = 'none';
     if (errorEl) {
         errorEl.style.display = 'none';
         errorEl.textContent = '';
@@ -402,6 +418,7 @@ function mostrarFormularioPinAdministracion() {
         pinInput.classList.remove('is-invalid');
         pinInput.focus();
     }
+    if (typeof prepararUiPin === 'function') prepararUiPin();
 }
 
 async function restablecerPinAdministracionDesdeCuenta() {
@@ -440,6 +457,7 @@ async function restablecerPinAdministracionDesdeCuenta() {
             okEl.textContent = 'PIN restablecido. Anótalo y úsalo para entrar.';
             okEl.style.display = 'block';
         }
+        if (typeof limpiarIntentosPin === 'function') limpiarIntentosPin();
         if (clave) clave.value = '';
     } catch (error) {
         console.error(error);

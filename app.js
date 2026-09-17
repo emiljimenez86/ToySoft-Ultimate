@@ -14004,8 +14004,10 @@ function mostrarModalNuevaCotizacion() {
 // Función para mostrar el modal de PIN
 function mostrarModalPin(accion) {
   accionPendiente = accion;
-  document.getElementById('pinAcceso').value = '';
-  document.getElementById('mensajeErrorPin').style.display = 'none';
+  const pinInput = document.getElementById('pinAcceso');
+  const mensajeError = document.getElementById('mensajeErrorPin');
+  if (pinInput) pinInput.value = '';
+  if (mensajeError) mensajeError.style.display = 'none';
 
   const titulos = {
     'cierre-administrativo': 'Acceso restringido — Cierre administrativo',
@@ -14016,21 +14018,46 @@ function mostrarModalPin(accion) {
     'historial-admin': 'Acceso restringido — Cierres administrativos'
   };
   const tituloModal = document.getElementById('modalPinAccesoLabel');
-  if (tituloModal) tituloModal.textContent = titulos[accion] || 'Acceso restringido';
+  if (tituloModal) {
+    tituloModal.dataset.tituloOriginal = titulos[accion] || 'Acceso restringido';
+    tituloModal.textContent = tituloModal.dataset.tituloOriginal;
+  }
 
+  if (typeof prepararUiPin === 'function') prepararUiPin();
   abrirModalEstatico('modalPinAcceso');
+  setTimeout(function () {
+    if (pinInput && typeof pinAccesoBloqueado === 'function' && !pinAccesoBloqueado()) pinInput.focus();
+  }, 250);
 }
 
 async function verificarPinAcceso() {
+  if (typeof pinAccesoBloqueado === 'function' && pinAccesoBloqueado()) {
+    if (typeof prepararUiPin === 'function') prepararUiPin();
+    return;
+  }
   const pinIngresado = document.getElementById('pinAcceso').value;
   const mensajeError = document.getElementById('mensajeErrorPin');
   const modulo = moduloPinDeAccion(accionPendiente);
   const ok = await pinModuloLocal(modulo, pinIngresado);
   if (!ok) {
-    mensajeError.style.display = 'block';
+    const n = typeof registrarPinFallido === 'function' ? registrarPinFallido() : 1;
+    if (mensajeError) {
+      mensajeError.textContent = typeof mensajeIntentoPin === 'function'
+        ? mensajeIntentoPin(n)
+        : 'PIN incorrecto. Intente nuevamente.';
+      mensajeError.style.display = 'block';
+    }
     document.getElementById('pinAcceso').value = '';
+    if (navigator.vibrate) navigator.vibrate(n >= 3 ? [200, 80, 200, 80, 400] : 200);
+    if (n >= 3) {
+      alert(typeof avisoBloqueoPinTexto === 'function'
+        ? avisoBloqueoPinTexto()
+        : 'ÚLTIMO AVISO: el sistema se va a bloquear.');
+      if (typeof prepararUiPin === 'function') prepararUiPin();
+    }
     return;
   }
+  if (typeof limpiarIntentosPin === 'function') limpiarIntentosPin();
 
   const modal = bootstrap.Modal.getInstance(document.getElementById('modalPinAcceso'));
   if (modal) modal.hide();

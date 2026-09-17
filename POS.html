@@ -1606,6 +1606,7 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
+          <div id="cuerpoPinAcceso">
           <div class="mb-3">
             <label for="pinAcceso" class="form-label">Ingrese el PIN de 4 dígitos</label>
             <input type="password" class="form-control bg-dark text-white border-light" id="pinAcceso" 
@@ -1621,10 +1622,18 @@
           <div id="mensajeErrorPin" class="text-danger" style="display: none;">
             PIN incorrecto. Intente nuevamente.
           </div>
+          </div>
+          <div id="capaBloqueoPinAcceso" class="text-center" style="display: none;">
+            <div class="text-danger mb-2" style="font-size: 2.2rem;"><i class="fas fa-shield-alt"></i></div>
+            <h5 class="text-danger fw-bold mb-2">ACCESO BLOQUEADO</h5>
+            <p class="mb-2">Se detectaron 3 intentos fallidos de PIN. Por seguridad, los módulos protegidos quedan bloqueados.</p>
+            <p class="text-warning fw-bold mb-2">El intento queda registrado. Avise al administrador.</p>
+            <p class="mb-0">Tiempo restante: <span class="fw-bold" data-tiempo-bloqueo-pin>15:00</span></p>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="button" class="btn btn-primary" onclick="verificarPinAcceso()">
+          <button type="button" class="btn btn-primary" id="btnVerificarPinAcceso" onclick="verificarPinAcceso()">
             <i class="fas fa-unlock"></i> Acceder
           </button>
         </div>
@@ -2808,9 +2817,9 @@
   <script src="ayuda.js?v=35"></script>
   <script src="gastos-modelo.js"></script>
   <script src="inventario.js?v=25"></script>
-  <script src="app.js?v=32"></script>
+  <script src="app.js?v=33"></script>
   <script src="cotizaciones.js"></script>
-  <script src="seguridad.js?v=25"></script>
+  <script src="seguridad.js?v=27"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const ok = await verificarAcceso();

@@ -62,6 +62,17 @@
                         <img src="image/logo-ToySoft.png" alt="Logo" class="img-fluid mb-3" style="max-width: 100px;">
                         <h4 class="text-info" id="tituloPinAdministracion">Ingrese el PIN de Administración</h4>
                     </div>
+                    <div id="capaBloqueoPinAdministracion" class="text-center mb-3" style="display: none;">
+                        <div class="text-danger mb-2" style="font-size: 2.2rem;"><i class="fas fa-shield-alt"></i></div>
+                        <h5 class="text-danger fw-bold mb-2">ACCESO BLOQUEADO</h5>
+                        <p class="mb-2">Se detectaron 3 intentos fallidos de PIN. Por seguridad, el acceso queda bloqueado.</p>
+                        <p class="text-warning fw-bold mb-2">El intento queda registrado.</p>
+                        <p class="mb-3">Tiempo restante: <span class="fw-bold" data-tiempo-bloqueo-pin>15:00</span></p>
+                        <p class="small text-white-50 mb-3">Si eres el administrador, usa Olvidé el PIN con la contraseña de la cuenta.</p>
+                        <button type="button" class="btn btn-link btn-sm text-info p-0" onclick="mostrarRecuperarPinAdministracion()">
+                            Olvidé el PIN
+                        </button>
+                    </div>
                     <form id="formPinAdministracion" onsubmit="event.preventDefault(); verificarPinAdministracion();">
                         <div class="mb-3">
                             <label for="pinAdministracion" class="form-label">PIN</label>
@@ -990,9 +1001,9 @@
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js?v=25"></script>
     <script src="firebase-init.js?v=33"></script>
-    <script src="seguridad.js?v=26"></script>
+    <script src="seguridad.js?v=27"></script>
     <script src="ayuda.js?v=35"></script>
     <script src="gastos-modelo.js"></script>
-    <script src="admon.js?v=30"></script>
+    <script src="admon.js?v=31"></script>
 </body>
 </html> 

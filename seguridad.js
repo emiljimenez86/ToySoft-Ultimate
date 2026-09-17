@@ -335,3 +335,115 @@ document.addEventListener('DOMContentLoaded', function () {
         if (user) redirigirMeseroSiNoCorresponde();
     }).catch(function () {});
 });
+
+const PIN_INTENTOS_MAX = 3;
+const PIN_BLOQUEO_MS = 15 * 60 * 1000;
+const STORAGE_PIN_INTENTOS = 'toysoftPinIntentosFallidos';
+const STORAGE_PIN_BLOQUEO = 'toysoftPinBloqueoHasta';
+let timerBloqueoPin = null;
+
+function minutosSegundosPin(ms) {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return m + ':' + String(s).padStart(2, '0');
+}
+
+function bloqueoPinHasta() {
+    const hasta = parseInt(localStorage.getItem(STORAGE_PIN_BLOQUEO) || '0', 10) || 0;
+    if (hasta && hasta <= Date.now()) {
+        localStorage.removeItem(STORAGE_PIN_BLOQUEO);
+        localStorage.removeItem(STORAGE_PIN_INTENTOS);
+        return 0;
+    }
+    return hasta;
+}
+
+function pinAccesoBloqueado() {
+    return bloqueoPinHasta() > Date.now();
+}
+
+function intentosPinFallidos() {
+    return parseInt(localStorage.getItem(STORAGE_PIN_INTENTOS) || '0', 10) || 0;
+}
+
+function limpiarIntentosPin() {
+    localStorage.removeItem(STORAGE_PIN_INTENTOS);
+    localStorage.removeItem(STORAGE_PIN_BLOQUEO);
+    if (timerBloqueoPin) {
+        clearInterval(timerBloqueoPin);
+        timerBloqueoPin = null;
+    }
+}
+
+function registrarPinFallido() {
+    const n = intentosPinFallidos() + 1;
+    localStorage.setItem(STORAGE_PIN_INTENTOS, String(n));
+    if (n >= PIN_INTENTOS_MAX) {
+        localStorage.setItem(STORAGE_PIN_BLOQUEO, String(Date.now() + PIN_BLOQUEO_MS));
+    }
+    return n;
+}
+
+function mensajeIntentoPin(n) {
+    if (n >= PIN_INTENTOS_MAX) {
+        return 'ACCESO BLOQUEADO. Se detectaron 3 intentos fallidos. El sistema queda bloqueado por seguridad. El intento queda registrado.';
+    }
+    const quedan = PIN_INTENTOS_MAX - n;
+    if (quedan === 1) {
+        return 'PIN incorrecto. Queda 1 intento. El siguiente bloqueará todo el sistema.';
+    }
+    return 'PIN incorrecto. Quedan ' + quedan + ' intentos.';
+}
+
+function avisoBloqueoPinTexto() {
+    return 'ÚLTIMO AVISO\n\nSe detectaron 3 intentos fallidos de PIN.\nPor seguridad, el sistema se va a bloquear.\n\nEl intento queda registrado.\nAvise al administrador.';
+}
+
+function actualizarTextosTiempoBloqueoPin() {
+    const hasta = bloqueoPinHasta();
+    const resto = hasta ? minutosSegundosPin(hasta - Date.now()) : '0:00';
+    document.querySelectorAll('[data-tiempo-bloqueo-pin]').forEach(function (el) {
+        el.textContent = resto;
+    });
+    if (!hasta) {
+        if (timerBloqueoPin) {
+            clearInterval(timerBloqueoPin);
+            timerBloqueoPin = null;
+        }
+        prepararUiPin();
+    }
+}
+
+function iniciarTemporizadorBloqueoPin() {
+    actualizarTextosTiempoBloqueoPin();
+    if (timerBloqueoPin) clearInterval(timerBloqueoPin);
+    if (!pinAccesoBloqueado()) return;
+    timerBloqueoPin = setInterval(actualizarTextosTiempoBloqueoPin, 1000);
+}
+
+function prepararUiPin() {
+    const bloqueado = pinAccesoBloqueado();
+    const formPos = document.getElementById('cuerpoPinAcceso');
+    const lockPos = document.getElementById('capaBloqueoPinAcceso');
+    const btnAcceder = document.getElementById('btnVerificarPinAcceso');
+    const tituloPos = document.getElementById('modalPinAccesoLabel');
+    if (lockPos) lockPos.style.display = bloqueado ? 'block' : 'none';
+    if (formPos) formPos.style.display = bloqueado ? 'none' : '';
+    if (btnAcceder) btnAcceder.style.display = bloqueado ? 'none' : '';
+    if (tituloPos) tituloPos.textContent = bloqueado ? 'SISTEMA BLOQUEADO' : (tituloPos.dataset.tituloOriginal || tituloPos.textContent);
+
+    const formAdmin = document.getElementById('formPinAdministracion');
+    const lockAdmin = document.getElementById('capaBloqueoPinAdministracion');
+    const tituloAdmin = document.getElementById('tituloPinAdministracion');
+    const recuperarVisible = document.getElementById('formRecuperarPinAdministracion')
+        && document.getElementById('formRecuperarPinAdministracion').style.display !== 'none';
+    if (lockAdmin) lockAdmin.style.display = (bloqueado && !recuperarVisible) ? 'block' : 'none';
+    if (formAdmin && !recuperarVisible) formAdmin.style.display = bloqueado ? 'none' : 'block';
+    if (tituloAdmin && !recuperarVisible) {
+        tituloAdmin.textContent = bloqueado ? 'SISTEMA BLOQUEADO' : 'Ingrese el PIN de Administración';
+    }
+
+    if (bloqueado) iniciarTemporizadorBloqueoPin();
+    else actualizarTextosTiempoBloqueoPin();
+}
