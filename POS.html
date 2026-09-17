@@ -2804,11 +2804,11 @@
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js?v=25"></script>
-  <script src="firebase-init.js?v=32"></script>
+  <script src="firebase-init.js?v=33"></script>
   <script src="ayuda.js?v=35"></script>
   <script src="gastos-modelo.js"></script>
   <script src="inventario.js?v=25"></script>
-  <script src="app.js?v=29"></script>
+  <script src="app.js?v=30"></script>
   <script src="cotizaciones.js"></script>
   <script src="seguridad.js?v=25"></script>
   <script>
@@ -3546,21 +3546,7 @@
           <div class="mb-1 total-row"><strong>Total: $${total.toFixed(0)}</strong></div>
         </div>
         
-        ${(() => {
-          const datosNegocio = JSON.parse(localStorage.getItem('datosNegocio'));
-          if (datosNegocio && Object.values(datosNegocio).some(valor => valor)) {
-            return `
-              <div class="border-top mt-1">
-                ${datosNegocio.nombre ? `<div><strong>${datosNegocio.nombre}</strong></div>` : ''}
-                ${datosNegocio.nit ? `<div>NIT/Cédula: ${datosNegocio.nit}</div>` : ''}
-                ${datosNegocio.direccion ? `<div>Dirección: ${datosNegocio.direccion}</div>` : ''}
-                ${datosNegocio.correo ? `<div>Correo: ${datosNegocio.correo}</div>` : ''}
-                ${datosNegocio.telefono ? `<div>Teléfono: ${datosNegocio.telefono}</div>` : ''}
-              </div>
-            `;
-          }
-          return '';
-        })()}
+        ${typeof htmlPieDatosNegocioTicket === 'function' ? htmlPieDatosNegocioTicket() : ''}
         
         <div class="text-center mt-1">
           <div class="border-top">¡Gracias por su compra!</div>
@@ -3785,10 +3771,6 @@
     // Función para imprimir cierre operativo
     function imprimirCierreOperativo(cierre) {
       try {
-        // Obtener información del negocio
-        const datosNegocio = JSON.parse(localStorage.getItem('datosNegocio'));
-
-        // Crear ventana de impresión
         const ventana = window.open('', 'ImpresionCierreOperativo', 'width=400,height=600,scrollbars=yes');
         if (!ventana) {
           alert('Por favor, permite las ventanas emergentes para este sitio');
@@ -3799,18 +3781,7 @@
         const checklistCompletado = Object.values(cierre.checklist).filter(item => item).length;
         const checklistTotal = Object.keys(cierre.checklist).length;
 
-        let infoNegocio = '';
-        if (datosNegocio && (
-          datosNegocio.nombre || datosNegocio.nit || datosNegocio.direccion || datosNegocio.correo || datosNegocio.telefono
-        )) {
-          infoNegocio += '<div class="border-top mt-1">';
-          if (datosNegocio.nombre) infoNegocio += `<div><strong>${datosNegocio.nombre}</strong></div>`;
-          if (datosNegocio.nit) infoNegocio += `<div>NIT/Cédula: ${datosNegocio.nit}</div>`;
-          if (datosNegocio.direccion) infoNegocio += `<div>Dirección: ${datosNegocio.direccion}</div>`;
-          if (datosNegocio.correo) infoNegocio += `<div>Correo: ${datosNegocio.correo}</div>`;
-          if (datosNegocio.telefono) infoNegocio += `<div>Teléfono: ${datosNegocio.telefono}</div>`;
-          infoNegocio += '</div>';
-        }
+        let infoNegocio = typeof htmlPieDatosNegocioTicket === 'function' ? htmlPieDatosNegocioTicket() : '';
 
         const contenido = `
           <html>

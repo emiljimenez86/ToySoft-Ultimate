@@ -33,6 +33,60 @@ function abrirModalEstatico(elementOrId, extraOptions = {}) {
   return modal;
 }
 
+function correoCuentaFirebase() {
+  try {
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.getUsuario === 'function') {
+      const u = ToySoftFirebase.getUsuario() || {};
+      if (u.email) return String(u.email).trim().toLowerCase();
+    }
+    if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+      return String(firebase.auth().currentUser.email || '').trim().toLowerCase();
+    }
+  } catch (e) {}
+  return '';
+}
+
+function esNombreNegocioPorDefecto(nombre) {
+  const n = String(nombre || '').trim().toLowerCase();
+  return !n
+    || n === 'toysoft'
+    || n === 'toysoft pos'
+    || n === 'toysoft ultimate'
+    || n === 'toysoft ultimate version';
+}
+
+function datosNegocioParaTicket() {
+  let datos = {};
+  try {
+    datos = JSON.parse(localStorage.getItem('datosNegocio') || '{}') || {};
+  } catch (e) {
+    datos = {};
+  }
+  const correo = String(datos.correo || '').trim();
+  const correoCuenta = correoCuentaFirebase();
+  return {
+    nombre: esNombreNegocioPorDefecto(datos.nombre) ? '' : String(datos.nombre || '').trim(),
+    nit: String(datos.nit || '').trim(),
+    direccion: String(datos.direccion || '').trim(),
+    correo: (correo && correo.toLowerCase() !== correoCuenta) ? correo : '',
+    telefono: String(datos.telefono || '').trim()
+  };
+}
+
+function htmlPieDatosNegocioTicket() {
+  const d = datosNegocioParaTicket();
+  if (!d.nombre && !d.nit && !d.direccion && !d.correo && !d.telefono) return '';
+  return `
+    <div class="border-top mt-1">
+      ${d.nombre ? `<div><strong>${d.nombre}</strong></div>` : ''}
+      ${d.nit ? `<div>NIT/Cédula: ${d.nit}</div>` : ''}
+      ${d.direccion ? `<div>Dirección: ${d.direccion}</div>` : ''}
+      ${d.correo ? `<div>Correo: ${d.correo}</div>` : ''}
+      ${d.telefono ? `<div>Teléfono: ${d.telefono}</div>` : ''}
+    </div>
+  `;
+}
+
 // Memoria de nombres de domiciliarios (autocompletado)
 const STORAGE_DOMICILIARIOS = 'nombresDomiciliarios';
 const MAX_DOMICILIARIOS = 50;
@@ -5417,21 +5471,7 @@ function mostrarReciboVentaRapida(venta, ventanaExistente) {
       ` : ''}
     </div>
     
-    ${(() => {
-      const datosNegocio = JSON.parse(localStorage.getItem('datosNegocio') || '{}');
-      if (datosNegocio && Object.values(datosNegocio).some(valor => valor)) {
-        return `
-          <div class="border-top mt-1">
-            ${datosNegocio.nombre ? `<div><strong>${datosNegocio.nombre}</strong></div>` : ''}
-            ${datosNegocio.nit ? `<div>NIT/Cédula: ${datosNegocio.nit}</div>` : ''}
-            ${datosNegocio.direccion ? `<div>Dirección: ${datosNegocio.direccion}</div>` : ''}
-            ${datosNegocio.correo ? `<div>Correo: ${datosNegocio.correo}</div>` : ''}
-            ${datosNegocio.telefono ? `<div>Teléfono: ${datosNegocio.telefono}</div>` : ''}
-          </div>
-        `;
-      }
-      return '';
-    })()}
+    ${htmlPieDatosNegocioTicket()}
     
     <div class="text-center mt-1">
       <div class="border-top">¡Gracias por su compra!</div>
@@ -8302,21 +8342,7 @@ function procesarPago() {
       ` : ''}
     </div>
     
-    ${(() => {
-      const datosNegocio = JSON.parse(localStorage.getItem('datosNegocio'));
-      if (datosNegocio && Object.values(datosNegocio).some(valor => valor)) {
-        return `
-          <div class="border-top mt-1">
-            ${datosNegocio.nombre ? `<div><strong>${datosNegocio.nombre}</strong></div>` : ''}
-            ${datosNegocio.nit ? `<div>NIT/Cédula: ${datosNegocio.nit}</div>` : ''}
-            ${datosNegocio.direccion ? `<div>Dirección: ${datosNegocio.direccion}</div>` : ''}
-            ${datosNegocio.correo ? `<div>Correo: ${datosNegocio.correo}</div>` : ''}
-            ${datosNegocio.telefono ? `<div>Teléfono: ${datosNegocio.telefono}</div>` : ''}
-          </div>
-        `;
-      }
-      return '';
-    })()}
+    ${htmlPieDatosNegocioTicket()}
     
     <div class="text-center mt-1">
       <div class="border-top">¡Gracias por su compra!</div>
@@ -9496,9 +9522,6 @@ function imprimirBalanceDiario(datosCierre = null) {
             detalles = detallesEl ? detallesEl.value : '';
         }
 
-        // Obtener información del negocio
-        const datosNegocio = JSON.parse(localStorage.getItem('datosNegocio'));
-
         // Leer últimos consecutivos DOM/REC antes del reinicio
         const ultimoDom = parseInt(localStorage.getItem('contadorDomicilios')) || 0;
         const ultimoRec = parseInt(localStorage.getItem('contadorRecoger')) || 0;
@@ -9511,18 +9534,7 @@ function imprimirBalanceDiario(datosCierre = null) {
             alert('Error al abrir ventana de impresión: ' + error.message);
             return;
         }
-        let infoNegocio = '';
-        if (datosNegocio && (
-            datosNegocio.nombre || datosNegocio.nit || datosNegocio.direccion || datosNegocio.correo || datosNegocio.telefono
-        )) {
-            infoNegocio += '<div class="border-top mt-1">';
-            if (datosNegocio.nombre) infoNegocio += `<div><strong>${datosNegocio.nombre}</strong></div>`;
-            if (datosNegocio.nit) infoNegocio += `<div>NIT/Cédula: ${datosNegocio.nit}</div>`;
-            if (datosNegocio.direccion) infoNegocio += `<div>Dirección: ${datosNegocio.direccion}</div>`;
-            if (datosNegocio.correo) infoNegocio += `<div>Correo: ${datosNegocio.correo}</div>`;
-            if (datosNegocio.telefono) infoNegocio += `<div>Teléfono: ${datosNegocio.telefono}</div>`;
-            infoNegocio += '</div>';
-        }
+        let infoNegocio = typeof htmlPieDatosNegocioTicket === 'function' ? htmlPieDatosNegocioTicket() : '';
 
         const contenido = `
             <html>
@@ -10778,21 +10790,7 @@ function mostrarVistaPreviaRecibo() {
       <div class="mb-1 total-row"><strong>TOTAL:</strong> <span style="float:right;">${formatearNumero(total)}</span></div>
     </div>
     
-    ${(() => {
-      const datosNegocio = JSON.parse(localStorage.getItem('datosNegocio'));
-      if (datosNegocio && Object.values(datosNegocio).some(valor => valor)) {
-        return `
-          <div class="border-top mt-1">
-            ${datosNegocio.nombre ? `<div><strong>${datosNegocio.nombre}</strong></div>` : ''}
-            ${datosNegocio.nit ? `<div>NIT/Cédula: ${datosNegocio.nit}</div>` : ''}
-            ${datosNegocio.direccion ? `<div>Dirección: ${datosNegocio.direccion}</div>` : ''}
-            ${datosNegocio.correo ? `<div>Correo: ${datosNegocio.correo}</div>` : ''}
-            ${datosNegocio.telefono ? `<div>Teléfono: ${datosNegocio.telefono}</div>` : ''}
-          </div>
-        `;
-      }
-      return '';
-    })()}
+    ${htmlPieDatosNegocioTicket()}
     
     <div class="text-center mt-1">
       <div class="border-top">¡Gracias por su visita!</div>

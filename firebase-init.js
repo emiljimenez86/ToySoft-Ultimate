@@ -537,10 +537,10 @@
         creadoEn: firebase.firestore.FieldValue.serverTimestamp()
       };
       const negocio = {
-        nombre: local.nombre || NOMBRE_NEGOCIO_DEFAULT,
+        nombre: local.nombre || '',
         nit: local.nit || '',
         direccion: local.direccion || '',
-        correo: local.correo || user.email || '',
+        correo: local.correo || '',
         telefono: local.telefono || '',
         creadoEn: firebase.firestore.FieldValue.serverTimestamp(),
         actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
