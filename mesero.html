@@ -122,7 +122,8 @@
     }
     .acciones-mesero {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 96px));
+      justify-content: center;
       gap: 10px;
       margin-bottom: 1.15rem;
     }
@@ -131,14 +132,15 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      min-height: 102px;
-      padding: 14px 8px;
+      gap: 6px;
+      width: 96px;
+      min-height: 86px;
+      padding: 10px 6px;
       border: none;
-      border-radius: 18px;
+      border-radius: 16px;
       color: #fff;
       font-weight: 800;
-      font-size: 0.82rem;
+      font-size: 0.74rem;
       line-height: 1.15;
       letter-spacing: 0.01em;
       box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
@@ -148,7 +150,7 @@
       -webkit-appearance: none;
       appearance: none;
     }
-    .accion-mesero i { font-size: 1.55rem; position: relative; z-index: 1; }
+    .accion-mesero i { font-size: 1.28rem; position: relative; z-index: 1; }
     .accion-mesero span { position: relative; z-index: 1; }
     .accion-mesero::after {
       content: '';
@@ -172,7 +174,7 @@
     .mesero-bottom-actions {
       display: flex;
       flex-direction: column;
-      align-items: stretch;
+      align-items: center;
       gap: 8px;
       margin: 0 auto 10px;
       max-width: 480px;
@@ -210,9 +212,13 @@
       text-shadow: 0 2px 4px rgba(0,0,0,0.4);
     }
     .btn-salir-mesero {
-      min-height: 44px;
+      width: auto;
+      min-width: 108px;
+      min-height: 34px;
+      padding: 6px 18px;
+      font-size: 0.85rem;
       font-weight: 700;
-      border-radius: 12px;
+      border-radius: 18px;
     }
     .mesero-footer {
       text-align: center;
@@ -556,7 +562,6 @@
     <div id="listaDomiciliosMesero" class="mesas-container"></div>
     <h6 class="text-white-50 small text-uppercase mb-2">Recoger</h6>
     <div id="listaRecogerMesero" class="mesas-container"></div>
-      <p class="text-muted mt-3 mb-0">Sin cobros ni inventario. El pedido llega a caja. Al enviar o al tocar Imprimir, sale el ticket en este celular y también en caja.</p>
   </div>
 
   <div id="vistaPedido" class="vista p-3">
@@ -590,7 +595,7 @@
         <img src="image/logo-ToySoft.png" alt="ToySoft">
         <span>Toy de<br>Ayudas</span>
       </button>
-      <button type="button" class="btn btn-outline-danger w-100 btn-salir-mesero" onclick="cerrarSesion()">Salir</button>
+      <button type="button" class="btn btn-outline-danger btn-salir-mesero" onclick="cerrarSesion()">Salir</button>
     </div>
     <footer class="mesero-footer">
       <div class="copy">© 2026 ToySoft. Todos los derechos reservados.</div>
