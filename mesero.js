@@ -317,10 +317,13 @@ function pintarOrden() {
   }).join('') + '<div class="fw-bold mt-2">Total: ' + formatearPrecioMesero(total) + '</div>';
   if (barra) {
     barra.style.display = 'block';
+    const hayEnCocina = (pedido.items || []).some(function (item) { return item.estado === 'en_cocina'; });
     const btnEnviar = barra.querySelector('.btn-enviar-cocina-mesero');
+    const btnImprimir = barra.querySelector('.btn-imprimir-ticket-mesero');
     if (btnEnviar) btnEnviar.style.display = pendientes ? '' : 'none';
+    if (btnImprimir) btnImprimir.style.display = hayEnCocina ? '' : 'none';
     const acciones = document.getElementById('accionesPedidoMesero');
-    if (acciones) acciones.classList.toggle('con-enviar', pendientes > 0);
+    if (acciones) acciones.classList.toggle('con-enviar', pendientes > 0 && hayEnCocina);
   }
 }
 
@@ -896,7 +899,7 @@ function elegirCategoriaMesero(cat) {
 
 function checksHtml(lista, name) {
   return (lista || []).map(function (nombre) {
-    return '<label class="form-check"><input class="form-check-input" type="checkbox" name="' + name + '" value="' + escaparHtml(nombre) + '"> <span class="form-check-label">' + escaparHtml(nombre) + '</span></label>';
+    return '<label class="chip-opcion-mesero"><input type="checkbox" name="' + name + '" value="' + escaparHtml(nombre) + '"><span>' + escaparHtml(nombre) + '</span></label>';
   }).join('');
 }
 
@@ -909,6 +912,8 @@ function abrirProductoMesero(id) {
   }
   productoPendiente = producto;
   document.getElementById('nombreProductoMesero').textContent = producto.nombre;
+  const precioEl = document.getElementById('precioProductoMesero');
+  if (precioEl) precioEl.textContent = formatearPrecioMesero(producto.precio);
   document.getElementById('cantidadProductoMesero').value = '1';
   document.getElementById('detalleProductoMesero').value = '';
   const salsasBox = document.getElementById('salsasMeseroBox');
@@ -1045,10 +1050,9 @@ function enviarPedidoCocinaMesero() {
 function imprimirPedidoMesero() {
   if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) return;
   const pedido = normalizarPedido(mesasActivas.get(mesaSeleccionada));
-  const pendientes = (pedido.items || []).filter(function (item) { return item.estado !== 'en_cocina'; });
-  const aImprimir = pendientes.length ? pendientes : (pedido.items || []);
+  const aImprimir = (pedido.items || []).filter(function (item) { return item.estado === 'en_cocina'; });
   if (!aImprimir.length) {
-    alert('No hay productos para imprimir');
+    avisoMesero('Primero envía el pedido a cocina');
     return;
   }
   imprimirTicketCocinaMesero(mesaSeleccionada, aImprimir, { ronda: pedido.ronda, pedido: pedido });

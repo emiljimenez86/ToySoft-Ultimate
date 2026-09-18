@@ -1001,7 +1001,7 @@ const ayudaContextual = {
                 <h5 class="text-success">Enviar e imprimir</h5>
                 <ul>
                     <li><strong>Enviar a cocina:</strong> manda el pedido a caja y lo imprime desde este celular a la impresora térmica de cocina (por red). En el computador de caja ya no se abre imprimir.</li>
-                    <li><strong>Imprimir ticket:</strong> vuelve a enviar el ticket a la impresora de cocina.</li>
+                    <li><strong>Imprimir ticket:</strong> aparece después de enviar a cocina, para reimprimir ese ticket.</li>
                 </ul>
                 <div class="alert alert-warning mb-0">
                     El cobro lo hace caja en el Punto de Venta.
