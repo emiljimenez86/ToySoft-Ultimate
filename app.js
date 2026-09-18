@@ -14,7 +14,8 @@ let historialCocina = []; // Almacena el historial de órdenes de cocina
 let ultimaFechaContadores = null; // Fecha del último contador
 
 // Abrir modal Bootstrap sin cerrar por clic afuera ni Escape
-function abrirModalEstatico(elementOrId, extraOptions = {}) {
+function abrirModalEstatico(elementOrId, extraOptions) {
+  extraOptions = extraOptions || {};
   const el = typeof elementOrId === 'string'
     ? document.getElementById(elementOrId)
     : elementOrId;
@@ -23,30 +24,53 @@ function abrirModalEstatico(elementOrId, extraOptions = {}) {
     return null;
   }
   if (typeof bootstrap === 'undefined' || !bootstrap.Modal) {
-    console.error('Bootstrap no está disponible para abrir', elementOrId);
+    mostrarModalRespaldo(el);
     return null;
   }
-  try {
-    if (el.parentNode !== document.body) document.body.appendChild(el);
-  } catch (e) {}
-  const opciones = Object.assign({
+  const opciones = {
     backdrop: 'static',
     keyboard: false
-  }, extraOptions || {});
+  };
+  Object.keys(extraOptions).forEach(function (clave) {
+    opciones[clave] = extraOptions[clave];
+  });
   let modal = null;
   try {
-    modal = bootstrap.Modal.getInstance(el);
-  } catch (e) {}
-  if (!modal) {
-    modal = new bootstrap.Modal(el, opciones);
+    modal = bootstrap.Modal.getOrCreateInstance(el, opciones);
+  } catch (error) {
+    try {
+      const previa = bootstrap.Modal.getInstance(el);
+      if (previa) previa.dispose();
+    } catch (e) {}
+    try {
+      modal = new bootstrap.Modal(el, opciones);
+    } catch (e2) {
+      console.warn('No se pudo crear el modal con Bootstrap', e2);
+      mostrarModalRespaldo(el);
+      return null;
+    }
   }
-  el.style.zIndex = '2000';
-  modal.show();
-  setTimeout(function () {
-    const backs = document.querySelectorAll('.modal-backdrop');
-    if (backs.length) backs[backs.length - 1].style.zIndex = '1990';
-  }, 0);
+  try {
+    modal.show();
+  } catch (error) {
+    console.warn('No se pudo mostrar el modal con Bootstrap', error);
+    mostrarModalRespaldo(el);
+  }
   return modal;
+}
+
+function mostrarModalRespaldo(el) {
+  if (!el) return;
+  el.classList.add('show');
+  el.style.display = 'block';
+  el.removeAttribute('aria-hidden');
+  el.setAttribute('aria-modal', 'true');
+  if (!document.querySelector('.modal-backdrop')) {
+    const fondo = document.createElement('div');
+    fondo.className = 'modal-backdrop fade show';
+    document.body.appendChild(fondo);
+  }
+  document.body.classList.add('modal-open');
 }
 
 function correoCuentaFirebase() {
@@ -14023,40 +14047,37 @@ function mostrarModalNuevaCotizacion() {
 
 // Función para mostrar el modal de PIN
 function mostrarModalPin(accion) {
-  try {
-    accionPendiente = accion;
-    const pinInput = document.getElementById('pinAcceso');
-    const mensajeError = document.getElementById('mensajeErrorPin');
-    if (pinInput) pinInput.value = '';
-    if (mensajeError) mensajeError.style.display = 'none';
+  accionPendiente = accion;
+  const pinInput = document.getElementById('pinAcceso');
+  const mensajeError = document.getElementById('mensajeErrorPin');
+  if (pinInput) pinInput.value = '';
+  if (mensajeError) mensajeError.style.display = 'none';
 
-    const titulos = {
-      'cierre-administrativo': 'Acceso restringido — Cierre administrativo',
-      balance: 'Acceso restringido — Balance',
-      inventario: 'Acceso restringido — Inventario',
-      historial: 'Acceso restringido — Historial',
-      gastos: 'Acceso restringido — Gastos',
-      'historial-admin': 'Acceso restringido — Cierres administrativos'
-    };
-    const tituloModal = document.getElementById('modalPinAccesoLabel');
-    if (tituloModal) {
-      tituloModal.dataset.tituloOriginal = titulos[accion] || 'Acceso restringido';
-      tituloModal.textContent = tituloModal.dataset.tituloOriginal;
-    }
-
-    if (typeof prepararUiPin === 'function') prepararUiPin();
-    const modal = abrirModalEstatico('modalPinAcceso');
-    if (!modal) {
-      alert('No se pudo abrir el PIN. Recarga la página.');
-      return;
-    }
-    setTimeout(function () {
-      if (pinInput && typeof pinAccesoBloqueado === 'function' && !pinAccesoBloqueado()) pinInput.focus();
-    }, 250);
-  } catch (error) {
-    console.error('Error al abrir el PIN', error);
-    alert('No se pudo abrir el acceso con PIN. Recarga la página.');
+  const titulos = {
+    'cierre-administrativo': 'Acceso restringido — Cierre administrativo',
+    balance: 'Acceso restringido — Balance',
+    inventario: 'Acceso restringido — Inventario',
+    historial: 'Acceso restringido — Historial',
+    gastos: 'Acceso restringido — Gastos',
+    'historial-admin': 'Acceso restringido — Cierres administrativos'
+  };
+  const tituloModal = document.getElementById('modalPinAccesoLabel');
+  if (tituloModal) {
+    tituloModal.dataset.tituloOriginal = titulos[accion] || 'Acceso restringido';
+    tituloModal.textContent = tituloModal.dataset.tituloOriginal;
   }
+
+  if (typeof prepararUiPin === 'function') {
+    try { prepararUiPin(); } catch (e) { console.warn(e); }
+  }
+  const modalEl = document.getElementById('modalPinAcceso');
+  if (modalEl) modalEl.style.zIndex = '2000';
+  abrirModalEstatico('modalPinAcceso');
+  setTimeout(function () {
+    if (pinInput && typeof pinAccesoBloqueado === 'function' && !pinAccesoBloqueado()) {
+      try { pinInput.focus(); } catch (e) {}
+    }
+  }, 250);
 }
 
 function ejecutarAccionTrasPin(accion) {

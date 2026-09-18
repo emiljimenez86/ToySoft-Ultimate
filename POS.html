@@ -129,13 +129,81 @@
       -webkit-text-fill-color: #111;
       box-shadow: 0 0 0 1000px #fff inset;
     }
-    .grupo-mesa-pos {
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-      border-radius: 12px;
-      overflow: hidden;
+    .abre-mesa-pos {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
     }
-    .grupo-mesa-pos #nuevaMesa {
-      box-shadow: none;
+    .campo-mesa-pos {
+      display: flex;
+      align-items: center;
+      min-height: 46px;
+      padding: 0 12px 0 0;
+      background: #fff;
+      border: 1px solid #e6e6e6;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .etiqueta-mesa-pos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 42px;
+      height: 46px;
+      padding: 0 10px;
+      margin-right: 6px;
+      color: #0dcaf0;
+      font-weight: 800;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+      background: #f3f6f8;
+      border-right: 1px solid #e6e6e6;
+      border-radius: 7px 0 0 7px;
+    }
+    .campo-mesa-pos #nuevaMesa {
+      width: 108px;
+      min-height: 44px;
+      margin: 0;
+      padding: 0 4px 0 2px;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: #111 !important;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .campo-mesa-pos #nuevaMesa:focus {
+      box-shadow: none !important;
+      outline: none;
+    }
+    .campo-mesa-pos:focus-within {
+      border-color: #0dcaf0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(13, 202, 240, 0.22);
+    }
+    .btn-nueva-mesa-pos {
+      border: none;
+      border-radius: 8px;
+      min-height: 46px;
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.92rem;
+      letter-spacing: 0.01em;
+      color: #1a1306;
+      background: linear-gradient(180deg, #ffd54a 0%, #ffc107 55%, #ff9800 100%);
+      box-shadow: 0 4px 12px rgba(255, 152, 0, 0.35);
+      cursor: pointer;
+      white-space: nowrap;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .btn-nueva-mesa-pos:hover {
+      filter: brightness(1.05);
+    }
+    .btn-nueva-mesa-pos:active {
+      filter: brightness(0.97);
     }
     .buscador-producto-pos {
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
@@ -576,10 +644,15 @@
             <h4 class="text-info mb-3">Mesas Activas</h4>
             <div class="d-flex justify-content-between align-items-center mb-3">
               <div class="d-flex flex-wrap gap-2 align-items-center">
-                <div class="input-group grupo-mesa-pos" style="max-width: 280px;">
-                  <input type="number" id="nuevaMesa" class="form-control input-pos-blanco" 
-                         placeholder="N° de mesa" min="1">
-                  <button class="btn btn-warning btn-luz-segundo" onclick="crearNuevaMesa()"><i class="fas fa-plus"></i> Nueva Mesa</button>
+                <div class="abre-mesa-pos">
+                  <div class="campo-mesa-pos">
+                    <span class="etiqueta-mesa-pos">N°</span>
+                    <input type="number" id="nuevaMesa" class="form-control input-pos-blanco"
+                           placeholder="de mesa" min="1" aria-label="Número de mesa">
+                  </div>
+                  <button type="button" class="btn-nueva-mesa-pos" onclick="crearNuevaMesa()">
+                    + Nueva Mesa
+                  </button>
                 </div>
                 <button class="btn btn-warning btn-rombo btn-luz-segundo" onclick="ventaRapida()" title="Venta Rápida"><span class="btn-rombo-inner"><i class="fas fa-bolt"></i><span>Venta Rápida</span></span></button>
               </div>
@@ -2867,7 +2940,7 @@
   <script src="ayuda.js?v=35"></script>
   <script src="gastos-modelo.js"></script>
   <script src="inventario.js?v=25"></script>
-  <script src="app.js?v=34"></script>
+  <script src="app.js?v=35"></script>
   <script src="cotizaciones.js"></script>
   <script src="seguridad.js?v=27"></script>
   <script>

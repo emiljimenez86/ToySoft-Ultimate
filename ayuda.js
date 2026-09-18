@@ -991,7 +991,8 @@ const ayudaContextual = {
                 <h5 class="text-warning">Mesas, domicilio y recoger</h5>
                 <ul>
                     <li><strong>Actualizar:</strong> el círculo de la esquina superior izquierda recarga la app si el internet se trabó.</li>
-                    <li><strong>Abrir mesa:</strong> escribe el número y tócala para tomar el pedido.</li>
+                    <li><strong>Abrir mesa:</strong> escribe el N° en el recuadro blanco y toca el botón naranja <strong>Abrir mesa</strong> (la flecha lo indica).</li>
+                    <li><strong>Volver a Pedidos:</strong> dentro del pedido, el botón cyan regresa a la lista de mesas.</li>
                     <li><strong>Cambio de mesa:</strong> dentro del pedido, toca <strong>Cambio de mesa</strong> y escribe el número nuevo. Si la mesa ya tenía pedido, se unen.</li>
                     <li><strong>Domicilio y Recoger:</strong> aparecen los clientes de Administración. Búscalo por nombre o teléfono; si es nuevo, escríbelo y queda en la misma base.</li>
                     <li><strong>Buscar producto:</strong> dentro del pedido, el campo blanco filtra por nombre o categoría, igual que en caja.</li>

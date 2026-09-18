@@ -135,63 +135,297 @@
       width: 100%;
     }
     #vistaMesas, #vistaPedido {
+      width: 100%;
       max-width: 480px;
       margin-left: auto;
       margin-right: auto;
     }
-    .input-mesa-blanca,
-    #nuevaMesaMesero,
-    #buscarProductoMesero {
-      background: #fff !important;
-      color: #111 !important;
-      border: 1px solid #e6e6e6 !important;
-      border-radius: 14px !important;
-      min-height: 52px;
-      font-size: 1.08rem;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    .inicio-acciones-mesero {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-bottom: 1.15rem;
     }
-    #nuevaMesaMesero::placeholder,
-    #buscarProductoMesero::placeholder { color: #6c757d; }
-    #nuevaMesaMesero:focus,
-    #buscarProductoMesero:focus {
-      background: #fff !important;
+    .abrir-mesa-paso {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 2.15 1 0;
+      min-width: 0;
+      padding: 4px;
+      border: 1.5px dashed rgba(255, 193, 7, 0.72);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255, 193, 7, 0.16), rgba(255, 140, 0, 0.06));
+    }
+    .abrir-mesa-paso.con-numero {
+      border-style: solid;
+      border-color: #ffc107;
+      background: linear-gradient(180deg, rgba(255, 193, 7, 0.28), rgba(255, 140, 0, 0.12));
+      box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.18);
+    }
+    .abrir-mesa-paso.falta-numero {
+      animation: sacudirMesa 0.45s ease;
+      border-color: #ff6b6b;
+    }
+    @keyframes sacudirMesa {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    .campo-nro-mesa {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 52px;
+      width: 52px;
+      min-height: 86px;
+      padding: 8px 2px 10px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+    }
+    .campo-nro-mesa .etiqueta-nro {
+      color: #0aa2c0;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .campo-nro-mesa #nuevaMesaMesero {
+      width: 100%;
+      min-height: 32px;
+      margin: 0;
+      padding: 0;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
       color: #111 !important;
-      border-color: #0dcaf0 !important;
-      box-shadow: 0 0 0 3px rgba(13, 202, 240, 0.28);
+      font-size: 1.28rem;
+      font-weight: 800;
+      text-align: center;
+      -moz-appearance: textfield;
+    }
+    .campo-nro-mesa #nuevaMesaMesero::-webkit-outer-spin-button,
+    .campo-nro-mesa #nuevaMesaMesero::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .campo-nro-mesa #nuevaMesaMesero::placeholder {
+      color: #c5cdd1;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .campo-nro-mesa:focus-within {
+      box-shadow: 0 0 0 3px rgba(13, 202, 240, 0.28), 0 6px 14px rgba(0, 0, 0, 0.22);
+    }
+    .abrir-mesa-flecha {
+      flex: 0 0 16px;
+      width: 16px;
+      color: #ffc107;
+      font-size: 1.05rem;
+      text-align: center;
+      animation: pulsoFlechaMesa 1.4s ease-in-out infinite;
+    }
+    .abrir-mesa-paso.con-numero .abrir-mesa-flecha {
+      color: #ffe08a;
+      animation-duration: 0.7s;
+    }
+    @keyframes pulsoFlechaMesa {
+      0%, 100% { transform: translateX(0); opacity: 0.55; }
+      50% { transform: translateX(3px); opacity: 1; }
+    }
+    .abrir-mesa-paso .accion-mesa {
+      flex: 1 1 0;
+      width: auto;
+      min-width: 72px;
+    }
+    .inicio-acciones-mesero > .accion-mesero {
+      flex: 1 1 0;
+      width: auto;
+      min-width: 0;
+    }
+    .abrir-mesa-paso.con-numero .accion-mesa {
+      box-shadow: 0 0 0 2px #ffe08a, 0 8px 18px rgba(255, 140, 0, 0.45);
+    }
+    .pedido-nav-mesero {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      width: 100%;
+      margin-bottom: 14px;
+    }
+    .pedido-nav-mesero.con-cambio {
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    }
+    .btn-volver-pedidos,
+    .btn-cambio-pedido-mesero {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      min-height: 56px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-weight: 800;
+      line-height: 1.15;
+      text-align: center;
+      white-space: normal;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .btn-volver-pedidos {
+      border: none;
+      background: linear-gradient(180deg, #3dd8f5 0%, #0dcaf0 55%, #0aa2c0 100%);
+      color: #082830;
+      font-size: 1.05rem;
+      box-shadow: 0 6px 16px rgba(13, 202, 240, 0.32);
+    }
+    .btn-volver-pedidos:active {
+      transform: scale(0.98);
+    }
+    .btn-cambio-pedido-mesero {
+      min-height: 52px;
+      border: 1.5px solid #ffc107;
+      background: rgba(255, 193, 7, 0.12);
+      color: #ffc107;
+      font-size: 0.92rem;
+    }
+    .btn-cambio-pedido-mesero:active {
+      background: rgba(255, 193, 7, 0.22);
     }
     .buscador-producto-mesero {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      width: 100%;
+      min-height: 52px;
+      margin-bottom: 12px;
+      padding: 0 4px 0 14px;
+      background: #fff;
+      border: 1px solid #e6e6e6;
+      border-radius: 10px;
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
-      border-radius: 14px;
       overflow: hidden;
     }
-    .buscador-producto-mesero .input-group-text {
-      background: #fff;
-      border: 1px solid #e6e6e6;
+    .buscador-producto-mesero:focus-within {
+      border-color: #0dcaf0;
+      box-shadow: 0 0 0 3px rgba(13, 202, 240, 0.28);
+    }
+    .buscador-producto-mesero > i {
+      flex: 0 0 auto;
+      flex-shrink: 0;
       color: #6c757d;
-      min-height: 52px;
-      padding-left: 14px;
-      padding-right: 10px;
+      font-size: 0.95rem;
     }
     .buscador-producto-mesero #buscarProductoMesero {
-      box-shadow: none;
+      flex: 1 1 auto;
+      min-width: 0;
+      width: auto !important;
+      min-height: 50px;
+      margin: 0;
+      padding: 0 10px;
+      background: transparent !important;
+      border: none !important;
       border-radius: 0 !important;
-      border-left: none !important;
-      border-right: none !important;
+      box-shadow: none !important;
+      color: #111 !important;
+      font-size: 1.02rem !important;
     }
-    .buscador-producto-mesero .btn-limpiar-busqueda-mesero {
-      background: #fff;
-      border: 1px solid #e6e6e6;
-      color: #333;
-      min-height: 52px;
-      min-width: 48px;
+    .buscador-producto-mesero #buscarProductoMesero::placeholder { color: #6c757d; }
+    .buscador-producto-mesero #buscarProductoMesero:focus {
+      outline: none;
+      box-shadow: none !important;
+    }
+    .btn-limpiar-busqueda-mesero {
+      flex: 0 0 46px;
+      width: 46px !important;
+      min-width: 46px;
+      height: 46px;
+      margin: 0;
+      padding: 0;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #555;
+      font-size: 1rem;
+      cursor: pointer;
     }
     #buscarProductoMesero::-webkit-search-cancel-button { display: none; }
-    .acciones-mesero {
+    #categoriasMesero {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .cat-chip-mesero {
+      width: auto !important;
+      max-width: 100%;
+      min-height: 40px;
+      padding: 8px 14px;
+      border: 1.5px solid rgba(13, 202, 240, 0.7);
+      border-radius: 10px;
+      background: rgba(13, 202, 240, 0.08);
+      color: #9be7f5;
+      font-weight: 700;
+      font-size: 0.92rem;
+      line-height: 1.1;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .cat-chip-mesero.active {
+      background: #0dcaf0;
+      border-color: #0dcaf0;
+      color: #082830;
+    }
+    .acciones-pedido-mesero {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 96px));
-      justify-content: center;
+      grid-template-columns: 1fr;
       gap: 10px;
-      margin-bottom: 1.15rem;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .acciones-pedido-mesero.con-enviar {
+      grid-template-columns: 1fr 1fr;
+    }
+    .btn-enviar-cocina-mesero,
+    .btn-imprimir-ticket-mesero {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      min-height: 50px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      line-height: 1.15;
+      white-space: normal;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .btn-enviar-cocina-mesero {
+      border: none;
+      background: linear-gradient(180deg, #3dd8f5 0%, #0dcaf0 100%);
+      color: #082830;
+    }
+    .btn-imprimir-ticket-mesero {
+      border: 1.5px solid #8b9aa3;
+      background: rgba(255, 255, 255, 0.04);
+      color: #fff;
     }
     .accion-mesero {
       display: flex;
@@ -424,8 +658,6 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .cat-btn { border-radius: 22px; padding: 10px 16px; font-size: 1rem; }
-    .cat-btn.active { background: #0dcaf0; border-color: #0dcaf0; color: #111; }
     .prod-card {
       background: #1c1c1c; border: 1px solid #333; border-radius: 12px;
       padding: 16px; cursor: pointer; font-size: 1.08rem;
@@ -643,12 +875,18 @@
 
   <div class="mesero-cuerpo">
   <div id="vistaMesas" class="vista visible p-3">
-    <input type="number" id="nuevaMesaMesero" class="form-control input-mesa-blanca mb-3" placeholder="N° de mesa" min="1" inputmode="numeric">
-    <div class="acciones-mesero">
-      <button class="accion-mesero accion-mesa btn-luz-segundo" type="button" onclick="crearMesaMesero()">
-        <i class="fas fa-utensils"></i>
-        <span>Abrir mesa</span>
-      </button>
+    <div class="inicio-acciones-mesero">
+      <div class="abrir-mesa-paso" id="abrirMesaPaso">
+        <label class="campo-nro-mesa" for="nuevaMesaMesero">
+          <span class="etiqueta-nro">N°</span>
+          <input type="number" id="nuevaMesaMesero" placeholder="—" min="1" inputmode="numeric" aria-label="Número de mesa" oninput="actualizarPasoAbrirMesa()" onkeydown="if(event.key==='Enter'){event.preventDefault();crearMesaMesero();}">
+        </label>
+        <span class="abrir-mesa-flecha" aria-hidden="true"><i class="fas fa-caret-right"></i></span>
+        <button class="accion-mesero accion-mesa btn-luz-segundo" type="button" id="btnAbrirMesaMesero" onclick="crearMesaMesero()">
+          <i class="fas fa-utensils"></i>
+          <span>Abrir mesa</span>
+        </button>
+      </div>
       <button class="accion-mesero accion-domicilio" type="button" onclick="abrirFormPedidoExternoMesero('domicilio')">
         <i class="fas fa-motorcycle"></i>
         <span>Domicilio</span>
@@ -667,34 +905,40 @@
   </div>
 
   <div id="vistaPedido" class="vista p-3">
-    <div class="d-flex gap-2 mb-2">
-      <button class="btn btn-outline-secondary flex-grow-1" type="button" onclick="volverAMesas()"><i class="fas fa-arrow-left me-1"></i>Pedidos</button>
-      <button class="btn btn-outline-warning flex-grow-1" type="button" id="btnCambioPedidoMesero" onclick="abrirCambioPedidoMesero()" style="display: none;">
-        <i class="fas fa-exchange-alt me-1"></i>Cambio de mesa
+    <div class="pedido-nav-mesero" id="pedidoNavMesero">
+      <button class="btn-volver-pedidos" type="button" onclick="volverAMesas()">
+        <i class="fas fa-arrow-left"></i>
+        <span>Volver a Pedidos</span>
+      </button>
+      <button class="btn-cambio-pedido-mesero" type="button" id="btnCambioPedidoMesero" onclick="abrirCambioPedidoMesero()" style="display: none;">
+        <i class="fas fa-exchange-alt"></i>
+        <span>Cambio de mesa</span>
       </button>
     </div>
     <div class="text-info fw-bold mb-3" id="tituloPedidoActual"></div>
     <div id="ordenMesero" class="mb-3"></div>
-    <div class="input-group buscador-producto-mesero mb-2">
-      <span class="input-group-text"><i class="fas fa-search"></i></span>
-      <input type="search" id="buscarProductoMesero" class="form-control input-mesa-blanca" placeholder="Buscar producto..." autocomplete="off" autocorrect="off" spellcheck="false" oninput="buscarProductosMesero()">
-      <button type="button" class="btn btn-limpiar-busqueda-mesero" onclick="limpiarBusquedaProductoMesero()" title="Limpiar búsqueda">
+    <div class="buscador-producto-mesero">
+      <i class="fas fa-search" aria-hidden="true"></i>
+      <input type="search" id="buscarProductoMesero" placeholder="Buscar producto..." autocomplete="off" autocorrect="off" spellcheck="false" oninput="buscarProductosMesero()" aria-label="Buscar producto">
+      <button type="button" class="btn-limpiar-busqueda-mesero" onclick="limpiarBusquedaProductoMesero()" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">
         <i class="fas fa-times"></i>
       </button>
     </div>
     <div id="mensajeBusquedaMesero" class="small mb-2" style="display: none;"></div>
-    <div id="categoriasMesero" class="d-flex flex-wrap gap-2 mb-3"></div>
+    <div id="categoriasMesero"></div>
     <div id="productosMesero" class="d-grid gap-2"></div>
   </div>
   </div>
 
   <div class="barra-enviar" id="barraEnviar" style="display: none;">
-    <div class="d-grid gap-2">
-      <button class="btn btn-info w-100 btn-lg" type="button" onclick="enviarPedidoCocinaMesero()">
-        <i class="fas fa-utensils me-1"></i>Enviar a cocina
+    <div class="acciones-pedido-mesero" id="accionesPedidoMesero">
+      <button class="btn-enviar-cocina-mesero" type="button" onclick="enviarPedidoCocinaMesero()">
+        <i class="fas fa-utensils"></i>
+        <span>Enviar a cocina</span>
       </button>
-      <button class="btn btn-outline-light w-100" type="button" onclick="imprimirPedidoMesero()">
-        <i class="fas fa-print me-1"></i>Imprimir ticket
+      <button class="btn-imprimir-ticket-mesero" type="button" onclick="imprimirPedidoMesero()">
+        <i class="fas fa-print"></i>
+        <span>Imprimir ticket</span>
       </button>
     </div>
   </div>
@@ -864,8 +1108,8 @@
   <script src="firebase-config.js?v=25"></script>
   <script src="firebase-init.js?v=34"></script>
   <script src="seguridad.js?v=27"></script>
-  <script src="mesero.js?v=39"></script>
-  <script src="ayuda.js?v=37"></script>
+  <script src="mesero.js?v=41"></script>
+  <script src="ayuda.js?v=39"></script>
   <script src="install.js?v=28"></script>
   <script>
     (function () {

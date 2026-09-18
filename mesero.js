@@ -258,18 +258,20 @@ function pintarListaMesas() {
 
 function actualizarBotonCambioMesero() {
   const btn = document.getElementById('btnCambioPedidoMesero');
+  const nav = document.getElementById('pedidoNavMesero');
   if (!btn) return;
   const id = mesaSeleccionada ? String(mesaSeleccionada) : '';
   const pedido = mesasActivas.get(id);
   const hay = !!(pedido && (pedido.items || []).length);
   btn.style.display = hay ? '' : 'none';
+  if (nav) nav.classList.toggle('con-cambio', hay);
   if (!hay) return;
   if (esDomicilioMesero(id, pedido)) {
-    btn.innerHTML = '<i class="fas fa-shopping-bag me-1"></i>Pasar a Recoger';
+    btn.innerHTML = '<i class="fas fa-shopping-bag"></i><span>Pasar a Recoger</span>';
   } else if (esRecogerMesero(id, pedido)) {
-    btn.innerHTML = '<i class="fas fa-motorcycle me-1"></i>Pasar a Domicilio';
+    btn.innerHTML = '<i class="fas fa-motorcycle"></i><span>Pasar a Domicilio</span>';
   } else {
-    btn.innerHTML = '<i class="fas fa-exchange-alt me-1"></i>Cambio de mesa';
+    btn.innerHTML = '<i class="fas fa-exchange-alt"></i><span>Cambio de mesa</span>';
   }
 }
 
@@ -315,8 +317,10 @@ function pintarOrden() {
   }).join('') + '<div class="fw-bold mt-2">Total: ' + formatearPrecioMesero(total) + '</div>';
   if (barra) {
     barra.style.display = 'block';
-    const btnEnviar = barra.querySelector('.btn-info');
+    const btnEnviar = barra.querySelector('.btn-enviar-cocina-mesero');
     if (btnEnviar) btnEnviar.style.display = pendientes ? '' : 'none';
+    const acciones = document.getElementById('accionesPedidoMesero');
+    if (acciones) acciones.classList.toggle('con-enviar', pendientes > 0);
   }
 }
 
@@ -331,7 +335,7 @@ function pintarCategorias() {
   if (!categoriaActual && lista.length) categoriaActual = lista[0];
   cont.innerHTML = lista.map(function (cat) {
     const activa = cat === categoriaActual ? ' active' : '';
-    return '<button type="button" class="btn btn-outline-info btn-sm cat-btn' + activa + '" onclick="elegirCategoriaMesero(this.dataset.cat)" data-cat="' + escaparHtml(cat) + '">' + escaparHtml(cat) + '</button>';
+    return '<button type="button" class="cat-chip-mesero' + activa + '" onclick="elegirCategoriaMesero(this.dataset.cat)" data-cat="' + escaparHtml(cat) + '">' + escaparHtml(cat) + '</button>';
   }).join('');
 }
 
@@ -415,21 +419,38 @@ function pintarMesero() {
   pintarNombreMeseroCabecera();
 }
 
+function actualizarPasoAbrirMesa() {
+  const input = document.getElementById('nuevaMesaMesero');
+  const paso = document.getElementById('abrirMesaPaso');
+  if (!paso) return;
+  const hayNumero = !!(input && String(input.value || '').trim());
+  paso.classList.toggle('con-numero', hayNumero);
+  if (hayNumero) paso.classList.remove('falta-numero');
+}
+
 function crearMesaMesero() {
   const input = document.getElementById('nuevaMesaMesero');
+  const paso = document.getElementById('abrirMesaPaso');
   const numero = input ? String(input.value || '').trim() : '';
   if (!numero) {
-    alert('Escribe el número de mesa');
+    if (input) input.focus();
+    if (paso) {
+      paso.classList.remove('falta-numero');
+      void paso.offsetWidth;
+      paso.classList.add('falta-numero');
+    }
     return;
   }
   if (mesasActivas.has(numero)) {
     abrirMesaMesero(numero);
     if (input) input.value = '';
+    actualizarPasoAbrirMesa();
     return;
   }
   mesasActivas.set(numero, crearPedidoMesero('mesa'));
   persistirMesero(true);
   if (input) input.value = '';
+  actualizarPasoAbrirMesa();
   abrirMesaMesero(numero);
 }
 
