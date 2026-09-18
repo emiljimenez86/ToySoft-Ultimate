@@ -1169,26 +1169,43 @@ function bytesEscPosTicketCocina(mesa, productos, opciones) {
   centro(true);
   ln('Gracias');
   centro(false);
-  add([0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x03]);
+  add([0x0A, 0x0A, 0x0A, 0x0A, 0x0A]);
+  add([0x1D, 0x56, 0x41, 0x10]);
+  add([0x1D, 0x56, 0x00]);
+  add([0x1B, 0x69]);
   return new Uint8Array(bytes);
 }
 
-function enviarTicketImpresoraRed(bytes) {
-  const cfg = configImpresoraCocinaMesero();
-  if (!cfg.ip) return Promise.resolve(false);
-  const url = 'http://' + cfg.ip + ':' + cfg.puerto + '/';
-  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 2500) : null;
-  const opts = {
-    method: 'POST',
-    mode: 'no-cors',
-    cache: 'no-store',
-    body: bytes
-  };
-  if (ctrl) opts.signal = ctrl.signal;
-  return fetch(url, opts).then(function () { return true; }).finally(function () {
-    if (timer) clearTimeout(timer);
-  });
+function bytesABase64Mesero(bytes) {
+  const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  let s = '';
+  const paso = 0x8000;
+  for (let i = 0; i < arr.length; i += paso) {
+    s += String.fromCharCode.apply(null, arr.subarray(i, i + paso));
+  }
+  return btoa(s);
+}
+
+function enviarTicketRawBT(bytes) {
+  if (!esAndroidMesero()) return false;
+  try {
+    const b64 = bytesABase64Mesero(bytes);
+    const tienda = 'https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter';
+    const href = 'intent:base64,' + encodeURIComponent(b64) +
+      '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.browser_fallback_url=' +
+      encodeURIComponent(tienda) + ';end';
+    const enlace = document.createElement('a');
+    enlace.href = href;
+    enlace.style.display = 'none';
+    document.body.appendChild(enlace);
+    enlace.click();
+    setTimeout(function () {
+      if (enlace.parentNode) enlace.parentNode.removeChild(enlace);
+    }, 2000);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function htmlCuerpoTicketCocinaMesero(mesa, productos, opciones) {
@@ -1234,7 +1251,40 @@ function htmlCuerpoTicketCocinaMesero(mesa, productos, opciones) {
     '</tbody></table><div class="text-center border-top">¡Gracias!</div>';
 }
 
+function esImpresionMovilMesero() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+}
+
+function esAndroidMesero() {
+  return /Android/i.test(navigator.userAgent || '');
+}
+
+function restaurarElementosOcultosImpresionMesero() {
+  Array.prototype.forEach.call(document.body.children, function (el) {
+    if (!el.hasAttribute('data-print-prev-display')) return;
+    const prev = el.getAttribute('data-print-prev-display');
+    el.removeAttribute('data-print-prev-display');
+    el.style.removeProperty('display');
+    el.style.removeProperty('visibility');
+    if (prev) el.style.display = prev;
+  });
+}
+
+function ocultarAppParaImpresionMesero() {
+  const capa = document.getElementById('capaImpresionMesero');
+  Array.prototype.forEach.call(document.body.children, function (el) {
+    if (el === capa) return;
+    if (!el.hasAttribute('data-print-prev-display')) {
+      el.setAttribute('data-print-prev-display', el.style.display || '');
+    }
+    el.style.setProperty('display', 'none', 'important');
+    el.style.setProperty('visibility', 'hidden', 'important');
+  });
+  document.body.classList.add('imprimiendo-mesero');
+}
+
 function cerrarCapaImpresionMesero() {
+  restaurarElementosOcultosImpresionMesero();
   const capa = document.getElementById('capaImpresionMesero');
   if (capa) {
     capa.hidden = true;
@@ -1244,22 +1294,30 @@ function cerrarCapaImpresionMesero() {
 }
 
 function confirmarImpresionMesero() {
-  try { window.print(); } catch (e) {}
+  lanzarImpresionTicketMesero();
 }
 
 function imprimirTicketCocinaMesero(mesa, productos, opciones) {
   const cfg = configImpresoraCocinaMesero();
-  if (cfg.ip) {
+  if (cfg.ip && esAndroidMesero()) {
     const bytes = bytesEscPosTicketCocina(mesa, productos, opciones);
-    enviarTicketImpresoraRed(bytes).then(function (ok) {
-      if (ok) avisoMesero('Ticket enviado a la impresora de cocina');
-      else imprimirTicketCocinaEnCelular(mesa, productos, opciones);
-    }).catch(function () {
-      imprimirTicketCocinaEnCelular(mesa, productos, opciones);
-    });
-    return;
+    if (enviarTicketRawBT(bytes)) {
+      avisoMesero('Enviando a la impresora de cocina…');
+      return;
+    }
   }
   imprimirTicketCocinaEnCelular(mesa, productos, opciones);
+}
+
+function lanzarImpresionTicketMesero() {
+  document.body.classList.add('capturando-ticket');
+  const esperaPintado = esImpresionMovilMesero() ? 400 : 50;
+  setTimeout(function () {
+    try { window.print(); } catch (e) {}
+    setTimeout(function () {
+      document.body.classList.remove('capturando-ticket');
+    }, esImpresionMovilMesero() ? 1500 : 100);
+  }, esperaPintado);
 }
 
 function imprimirTicketCocinaEnCelular(mesa, productos, opciones) {
@@ -1270,13 +1328,15 @@ function imprimirTicketCocinaEnCelular(mesa, productos, opciones) {
     contenido.innerHTML = ticket;
     capa.hidden = false;
     capa.classList.add('visible');
-    document.body.classList.add('imprimiendo-mesero');
-    const alTerminar = function () {
-      window.removeEventListener('afterprint', alTerminar);
-      cerrarCapaImpresionMesero();
-    };
-    window.addEventListener('afterprint', alTerminar);
-    try { window.print(); } catch (e) {}
+    ocultarAppParaImpresionMesero();
+    if (!esImpresionMovilMesero()) {
+      const alTerminar = function () {
+        window.removeEventListener('afterprint', alTerminar);
+        cerrarCapaImpresionMesero();
+      };
+      window.addEventListener('afterprint', alTerminar);
+    }
+    lanzarImpresionTicketMesero();
     return;
   }
   try { window.print(); } catch (e) {}

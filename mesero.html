@@ -987,20 +987,75 @@
     #contenidoImpresionMesero .header { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 8px; text-align: center; }
     #contenidoImpresionMesero .cliente-info { border: 1px solid #000; padding: 6px; margin: 8px 0; }
     #contenidoImpresionMesero .border-top { border-top: 1px dashed #000; margin-top: 8px; padding-top: 8px; text-align: center; }
+    /* En celular el diálogo de impresión suele capturar la pantalla actual
+       e ignora @media print. Hay que ocultar la app ya en pantalla. */
+    body.imprimiendo-mesero,
+    body.pagina-mesero.imprimiendo-mesero,
+    html:has(body.imprimiendo-mesero) {
+      display: block !important;
+      height: auto !important;
+      max-height: none !important;
+      min-height: 0 !important;
+      overflow: visible !important;
+      background: #fff !important;
+      color: #000 !important;
+    }
+    body.imprimiendo-mesero #loginMesero,
+    body.imprimiendo-mesero #appMesero,
+    body.imprimiendo-mesero #appMesero.app-visible,
+    body.imprimiendo-mesero #btnAyudaFlotante,
+    body.imprimiendo-mesero .mesero-chrome-inferior,
+    body.imprimiendo-mesero > *:not(#capaImpresionMesero) {
+      display: none !important;
+      visibility: hidden !important;
+    }
+    body.imprimiendo-mesero.capturando-ticket .capa-impresion-acciones {
+      display: none !important;
+      visibility: hidden !important;
+    }
+    body.imprimiendo-mesero .capa-impresion-mesero,
+    body.imprimiendo-mesero #capaImpresionMesero {
+      display: block !important;
+      visibility: visible !important;
+      position: static !important;
+      inset: auto !important;
+      overflow: visible !important;
+      padding: 8px !important;
+      background: #fff !important;
+      color: #000 !important;
+    }
     @media print {
-      @page { margin: 0; }
-      #loginMesero, #appMesero, #btnAyudaFlotante, .capa-impresion-acciones, .mesero-chrome-inferior {
-        display: none !important;
-      }
-      .capa-impresion-mesero {
+      @page { margin: 5mm; size: auto; }
+      html, body, body.pagina-mesero, body.imprimiendo-mesero {
         display: block !important;
-        position: static !important;
-        inset: auto;
-        overflow: visible;
-        padding: 0;
-        background: #fff;
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        background: #fff !important;
+        color: #000 !important;
       }
-      #contenidoImpresionMesero { max-width: 57mm; font-size: 14px; }
+      #loginMesero,
+      #appMesero,
+      #appMesero.app-visible,
+      #btnAyudaFlotante,
+      .capa-impresion-acciones,
+      .mesero-chrome-inferior,
+      body > *:not(#capaImpresionMesero) {
+        display: none !important;
+        visibility: hidden !important;
+      }
+      .capa-impresion-mesero,
+      #capaImpresionMesero {
+        display: block !important;
+        visibility: visible !important;
+        position: static !important;
+        inset: auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        background: #fff !important;
+      }
+      #contenidoImpresionMesero { max-width: 57mm; font-size: 14px; color: #000; }
     }
   </style>
 </head>
@@ -1299,8 +1354,8 @@
   <script src="firebase-config.js?v=25"></script>
   <script src="firebase-init.js?v=34"></script>
   <script src="seguridad.js?v=27"></script>
-  <script src="mesero.js?v=44"></script>
-  <script src="ayuda.js?v=40"></script>
+  <script src="mesero.js?v=47"></script>
+  <script src="ayuda.js?v=42"></script>
   <script src="install.js?v=28"></script>
   <script>
     (function () {

@@ -533,8 +533,21 @@
                 </div>
 
                 <div class="border border-secondary rounded p-3 mb-3">
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="usarImpresoraCocinaMesero" onchange="actualizarVisibilidadImpresoraMesero()">
+                        <label class="form-check-label" for="usarImpresoraCocinaMesero">Imprimir desde el celular del mesero (opcional)</label>
+                        <small class="text-muted d-block mt-1">Solo si el negocio usa la app de mesero y una térmica de red en cocina. Si todo se toma en caja, déjalo apagado: la IP no hace falta.</small>
+                    </div>
+                    <div id="cajaImpresoraCocinaMesero" style="display: none;">
                     <h6 class="text-info mb-2"><i class="fas fa-print me-1"></i>Impresora térmica de cocina (red)</h6>
-                    <p class="text-muted small mb-2">El mesero envía el ticket desde el celular a esta impresora. En caja ya no se abre el diálogo de imprimir.</p>
+                    <p class="text-muted small mb-2">El celular no puede hablar solo con el puerto 9100. En Android se usa la app <strong>RawBT</strong> (gratis) como puente. El ticket incluye el corte de papel.</p>
+                    <ol class="small text-muted mb-3 ps-3">
+                        <li class="mb-1">Instala <a href="https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter" target="_blank" rel="noopener">RawBT</a> en el celular del mesero.</li>
+                        <li class="mb-1">En RawBT: agregar impresora → <strong>WiFi / Ethernet</strong> → IP de la térmica → puerto <strong>9100</strong>. Déjala como predeterminada.</li>
+                        <li class="mb-1">En RawBT activa impresión sin vista previa si quieres que salga de una.</li>
+                        <li class="mb-1">Pon la misma IP aquí abajo y guarda.</li>
+                        <li>El celular tiene que estar en la <strong>misma WiFi</strong> que la impresora.</li>
+                    </ol>
                     <div class="row g-2">
                         <div class="col-12 col-md-7">
                             <label class="form-label small" for="impresoraCocinaIp">IP de la impresora</label>
@@ -545,6 +558,7 @@
                             <input type="number" id="impresoraCocinaPuerto" class="form-control bg-dark text-white border-secondary" value="9100" min="1" max="65535">
                             <small class="text-muted">Normalmente 9100</small>
                         </div>
+                    </div>
                     </div>
                 </div>
                 
@@ -1002,8 +1016,8 @@
     <script src="firebase-config.js?v=25"></script>
     <script src="firebase-init.js?v=34"></script>
     <script src="seguridad.js?v=27"></script>
-    <script src="ayuda.js?v=35"></script>
+    <script src="ayuda.js?v=42"></script>
     <script src="gastos-modelo.js"></script>
-    <script src="admon.js?v=31"></script>
+    <script src="admon.js?v=32"></script>
 </body>
 </html> 

@@ -885,6 +885,12 @@ async function eliminarMeseroEquipo(uid) {
   }
 }
 
+function actualizarVisibilidadImpresoraMesero() {
+  const chk = document.getElementById('usarImpresoraCocinaMesero');
+  const caja = document.getElementById('cajaImpresoraCocinaMesero');
+  if (caja) caja.style.display = (chk && chk.checked) ? '' : 'none';
+}
+
 // Funciones para configuración de Pantalla de Cocina
 function cargarConfigPantallaCocina() {
   const activada = localStorage.getItem('pantallaCocinaActivada') === 'true'; // Por defecto desactivada
@@ -903,6 +909,8 @@ function cargarConfigPantallaCocina() {
   const inputIntervalo = document.getElementById('cocinaIntervaloActualizacion');
   const inputIp = document.getElementById('impresoraCocinaIp');
   const inputPuerto = document.getElementById('impresoraCocinaPuerto');
+  const chkMesero = document.getElementById('usarImpresoraCocinaMesero');
+  const ipGuardada = String(localStorage.getItem('impresoraCocinaIp') || '').trim();
   
   if (chkActivada) chkActivada.checked = activada;
   if (chkSonido) chkSonido.checked = sonido;
@@ -910,8 +918,10 @@ function cargarConfigPantallaCocina() {
     inputIntervalo.value = intervalo;
     console.log('✅ Intervalo cargado en el campo:', intervalo);
   }
-  if (inputIp) inputIp.value = localStorage.getItem('impresoraCocinaIp') || '';
+  if (inputIp) inputIp.value = ipGuardada;
   if (inputPuerto) inputPuerto.value = localStorage.getItem('impresoraCocinaPuerto') || '9100';
+  if (chkMesero) chkMesero.checked = !!ipGuardada;
+  actualizarVisibilidadImpresoraMesero();
 }
 
 function guardarConfigPantallaCocina() {
@@ -935,12 +945,16 @@ function guardarConfigPantallaCocina() {
   
   console.log('Guardando intervalo de actualización:', intervalo, 'segundos');
 
+  const chkMesero = document.getElementById('usarImpresoraCocinaMesero');
   const inputIp = document.getElementById('impresoraCocinaIp');
   const inputPuerto = document.getElementById('impresoraCocinaPuerto');
-  const ip = String((inputIp && inputIp.value) || '').trim();
-  if (ip && !/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
-    alert('La IP de la impresora no es válida. Ejemplo: 192.168.1.87');
-    return;
+  let ip = '';
+  if (chkMesero && chkMesero.checked) {
+    ip = String((inputIp && inputIp.value) || '').trim();
+    if (ip && !/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+      alert('La IP de la impresora no es válida. Ejemplo: 192.168.1.87');
+      return;
+    }
   }
   let puerto = parseInt(inputPuerto && inputPuerto.value, 10);
   if (!Number.isFinite(puerto) || puerto < 1 || puerto > 65535) puerto = 9100;
