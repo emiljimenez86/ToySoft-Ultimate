@@ -1397,14 +1397,20 @@ function mostrarLoginMesero() {
   const login = document.getElementById('loginMesero');
   const app = document.getElementById('appMesero');
   if (login) login.style.display = 'flex';
-  if (app) app.style.display = 'none';
+  if (app) {
+    app.style.display = 'none';
+    app.classList.remove('app-visible');
+  }
 }
 
 function mostrarAppMesero() {
   const login = document.getElementById('loginMesero');
   const app = document.getElementById('appMesero');
   if (login) login.style.display = 'none';
-  if (app) app.style.display = 'flex';
+  if (app) {
+    app.style.display = 'flex';
+    app.classList.add('app-visible');
+  }
 }
 
 async function iniciarSesionMesero() {

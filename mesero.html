@@ -19,32 +19,38 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="styles.css">
   <style>
-    html, body {
+    html, body.pagina-mesero {
       display: flex !important;
       flex-direction: column !important;
       align-items: stretch !important;
       justify-content: flex-start !important;
       width: 100% !important;
       max-width: 100% !important;
-      min-height: 100vh;
-      min-height: 100dvh;
-      height: 100%;
-      height: 100dvh;
-      max-height: 100dvh;
-      overflow: hidden;
+      min-height: 0 !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      height: 100svh !important;
+      max-height: 100vh !important;
+      max-height: 100dvh !important;
+      max-height: 100svh !important;
+      overflow: hidden !important;
     }
     body { background: #111; color: #fff; padding-bottom: 0; font-size: 18px; }
     #appMesero, #loginMesero { width: 100%; max-width: 100%; }
     #loginMesero { flex: 1; overflow-y: auto; min-height: 0; }
     #appMesero {
-      flex: 1 1 auto;
+      flex: 1 1 0;
       display: none;
       flex-direction: column;
       align-items: stretch;
       min-height: 0;
-      max-height: 100%;
+      height: auto;
+      max-height: none;
       overflow: hidden;
       width: 100%;
+    }
+    #appMesero.app-visible {
+      display: flex !important;
     }
     .mesero-top {
       position: relative;
@@ -527,7 +533,7 @@
       margin-top: 0;
       background: #141414;
       border-top: 1px solid #2c2c2c;
-      padding: 10px 16px max(12px, env(safe-area-inset-bottom));
+      padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
       width: 100%;
       z-index: 25;
     }
@@ -535,8 +541,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
-      margin: 0 auto 10px;
+      gap: 6px;
+      margin: 0 auto 4px;
       max-width: 480px;
     }
     .btn-ayuda-mesero {
@@ -585,12 +591,14 @@
     .mesero-footer {
       display: block !important;
       visibility: visible !important;
+      opacity: 1 !important;
+      height: auto !important;
       text-align: center;
       color: #8b9aa3;
-      font-size: 0.78rem;
-      line-height: 1.4;
-      margin: 8px 0 0 !important;
-      padding: 6px 8px 0 !important;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      margin: 4px 0 0 !important;
+      padding: 4px 8px 0 !important;
       background: transparent !important;
       border: none !important;
     }
@@ -1135,6 +1143,7 @@
       <div class="autor">Emil Jiménez Ortiz - Ing. de Software</div>
     </footer>
   </div>
+  </div>
 
   <div class="modal fade" id="modalPedidoExternoMesero" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -1290,7 +1299,7 @@
   <script src="firebase-config.js?v=25"></script>
   <script src="firebase-init.js?v=34"></script>
   <script src="seguridad.js?v=27"></script>
-  <script src="mesero.js?v=43"></script>
+  <script src="mesero.js?v=44"></script>
   <script src="ayuda.js?v=40"></script>
   <script src="install.js?v=28"></script>
   <script>
