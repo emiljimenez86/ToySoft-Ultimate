@@ -22,14 +22,30 @@ function abrirModalEstatico(elementOrId, extraOptions = {}) {
     console.warn('Modal no encontrado:', elementOrId);
     return null;
   }
-  const existente = bootstrap.Modal.getInstance(el);
-  if (existente) existente.dispose();
-  const modal = new bootstrap.Modal(el, {
+  if (typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+    console.error('Bootstrap no está disponible para abrir', elementOrId);
+    return null;
+  }
+  try {
+    if (el.parentNode !== document.body) document.body.appendChild(el);
+  } catch (e) {}
+  const opciones = Object.assign({
     backdrop: 'static',
-    keyboard: false,
-    ...extraOptions
-  });
+    keyboard: false
+  }, extraOptions || {});
+  let modal = null;
+  try {
+    modal = bootstrap.Modal.getInstance(el);
+  } catch (e) {}
+  if (!modal) {
+    modal = new bootstrap.Modal(el, opciones);
+  }
+  el.style.zIndex = '2000';
   modal.show();
+  setTimeout(function () {
+    const backs = document.querySelectorAll('.modal-backdrop');
+    if (backs.length) backs[backs.length - 1].style.zIndex = '1990';
+  }, 0);
   return modal;
 }
 
@@ -1576,8 +1592,12 @@ function moduloPinDeAccion(accion) {
 }
 
 async function pinModuloLocal(modulo, pin) {
-  if (window.ToySoftFirebase && typeof ToySoftFirebase.pinCorrecto === 'function') {
-    return ToySoftFirebase.pinCorrecto(modulo, pin);
+  try {
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.pinCorrecto === 'function') {
+      return await ToySoftFirebase.pinCorrecto(modulo, pin);
+    }
+  } catch (error) {
+    console.warn('No se pudo validar el PIN', error);
   }
   return false;
 }
@@ -14003,85 +14023,116 @@ function mostrarModalNuevaCotizacion() {
 
 // Función para mostrar el modal de PIN
 function mostrarModalPin(accion) {
-  accionPendiente = accion;
-  const pinInput = document.getElementById('pinAcceso');
-  const mensajeError = document.getElementById('mensajeErrorPin');
-  if (pinInput) pinInput.value = '';
-  if (mensajeError) mensajeError.style.display = 'none';
+  try {
+    accionPendiente = accion;
+    const pinInput = document.getElementById('pinAcceso');
+    const mensajeError = document.getElementById('mensajeErrorPin');
+    if (pinInput) pinInput.value = '';
+    if (mensajeError) mensajeError.style.display = 'none';
 
-  const titulos = {
-    'cierre-administrativo': 'Acceso restringido — Cierre administrativo',
-    balance: 'Acceso restringido — Balance',
-    inventario: 'Acceso restringido — Inventario',
-    historial: 'Acceso restringido — Historial',
-    gastos: 'Acceso restringido — Gastos',
-    'historial-admin': 'Acceso restringido — Cierres administrativos'
-  };
-  const tituloModal = document.getElementById('modalPinAccesoLabel');
-  if (tituloModal) {
-    tituloModal.dataset.tituloOriginal = titulos[accion] || 'Acceso restringido';
-    tituloModal.textContent = tituloModal.dataset.tituloOriginal;
+    const titulos = {
+      'cierre-administrativo': 'Acceso restringido — Cierre administrativo',
+      balance: 'Acceso restringido — Balance',
+      inventario: 'Acceso restringido — Inventario',
+      historial: 'Acceso restringido — Historial',
+      gastos: 'Acceso restringido — Gastos',
+      'historial-admin': 'Acceso restringido — Cierres administrativos'
+    };
+    const tituloModal = document.getElementById('modalPinAccesoLabel');
+    if (tituloModal) {
+      tituloModal.dataset.tituloOriginal = titulos[accion] || 'Acceso restringido';
+      tituloModal.textContent = tituloModal.dataset.tituloOriginal;
+    }
+
+    if (typeof prepararUiPin === 'function') prepararUiPin();
+    const modal = abrirModalEstatico('modalPinAcceso');
+    if (!modal) {
+      alert('No se pudo abrir el PIN. Recarga la página.');
+      return;
+    }
+    setTimeout(function () {
+      if (pinInput && typeof pinAccesoBloqueado === 'function' && !pinAccesoBloqueado()) pinInput.focus();
+    }, 250);
+  } catch (error) {
+    console.error('Error al abrir el PIN', error);
+    alert('No se pudo abrir el acceso con PIN. Recarga la página.');
   }
-
-  if (typeof prepararUiPin === 'function') prepararUiPin();
-  abrirModalEstatico('modalPinAcceso');
-  setTimeout(function () {
-    if (pinInput && typeof pinAccesoBloqueado === 'function' && !pinAccesoBloqueado()) pinInput.focus();
-  }, 250);
 }
 
-async function verificarPinAcceso() {
-  if (typeof pinAccesoBloqueado === 'function' && pinAccesoBloqueado()) {
-    if (typeof prepararUiPin === 'function') prepararUiPin();
-    return;
-  }
-  const pinIngresado = document.getElementById('pinAcceso').value;
-  const mensajeError = document.getElementById('mensajeErrorPin');
-  const modulo = moduloPinDeAccion(accionPendiente);
-  const ok = await pinModuloLocal(modulo, pinIngresado);
-  if (!ok) {
-    const n = typeof registrarPinFallido === 'function' ? registrarPinFallido() : 1;
-    if (mensajeError) {
-      mensajeError.textContent = typeof mensajeIntentoPin === 'function'
-        ? mensajeIntentoPin(n)
-        : 'PIN incorrecto. Intente nuevamente.';
-      mensajeError.style.display = 'block';
-    }
-    document.getElementById('pinAcceso').value = '';
-    if (navigator.vibrate) navigator.vibrate(n >= 3 ? [200, 80, 200, 80, 400] : 200);
-    if (n >= 3) {
-      alert(typeof avisoBloqueoPinTexto === 'function'
-        ? avisoBloqueoPinTexto()
-        : 'ÚLTIMO AVISO: el sistema se va a bloquear.');
-      if (typeof prepararUiPin === 'function') prepararUiPin();
-    }
-    return;
-  }
-  if (typeof limpiarIntentosPin === 'function') limpiarIntentosPin();
-
-  const modal = bootstrap.Modal.getInstance(document.getElementById('modalPinAcceso'));
-  if (modal) modal.hide();
-
-  if (accionPendiente === 'balance') {
+function ejecutarAccionTrasPin(accion) {
+  if (accion === 'balance') {
     mostrarModalBalance();
-  } else if (accionPendiente === 'inventario') {
+  } else if (accion === 'inventario') {
     window.location.href = 'inventario.html';
-  } else if (accionPendiente === 'cierre-administrativo') {
+  } else if (accion === 'cierre-administrativo') {
     mostrarModalCierreDiario();
-  } else if (accionPendiente === 'historial') {
+  } else if (accion === 'historial') {
     localStorage.setItem('usuarioActual', 'historial');
     window.location.href = 'historial.html';
-  } else if (accionPendiente === 'gastos') {
+  } else if (accion === 'gastos') {
     window.location.href = 'gastos.html';
-  } else if (accionPendiente === 'historial-admin') {
+  } else if (accion === 'historial-admin') {
     const tabCierresAdmin = document.getElementById('cierres-admin-tab');
     if (tabCierresAdmin) {
       const tab = new bootstrap.Tab(tabCierresAdmin);
       tab.show();
     }
   }
+}
 
-  accionPendiente = null;
+async function verificarPinAcceso() {
+  try {
+    if (typeof pinAccesoBloqueado === 'function' && pinAccesoBloqueado()) {
+      if (typeof prepararUiPin === 'function') prepararUiPin();
+      return;
+    }
+    const pinInput = document.getElementById('pinAcceso');
+    const pinIngresado = pinInput ? pinInput.value : '';
+    const mensajeError = document.getElementById('mensajeErrorPin');
+    const modulo = moduloPinDeAccion(accionPendiente);
+    const ok = await pinModuloLocal(modulo, pinIngresado);
+    if (!ok) {
+      const n = typeof registrarPinFallido === 'function' ? registrarPinFallido() : 1;
+      if (mensajeError) {
+        mensajeError.textContent = typeof mensajeIntentoPin === 'function'
+          ? mensajeIntentoPin(n)
+          : 'PIN incorrecto. Intente nuevamente.';
+        mensajeError.style.display = 'block';
+      }
+      if (pinInput) pinInput.value = '';
+      if (navigator.vibrate) navigator.vibrate(n >= 3 ? [200, 80, 200, 80, 400] : 200);
+      if (n >= 3) {
+        alert(typeof avisoBloqueoPinTexto === 'function'
+          ? avisoBloqueoPinTexto()
+          : 'ÚLTIMO AVISO: el sistema se va a bloquear.');
+        if (typeof prepararUiPin === 'function') prepararUiPin();
+      }
+      return;
+    }
+    if (typeof limpiarIntentosPin === 'function') limpiarIntentosPin();
+
+    const accion = accionPendiente;
+    const el = document.getElementById('modalPinAcceso');
+    const modal = el && bootstrap.Modal.getInstance(el);
+    const abreOtroModal = accion === 'balance' || accion === 'cierre-administrativo' || accion === 'historial-admin';
+    const continuar = function () {
+      ejecutarAccionTrasPin(accion);
+    };
+    accionPendiente = null;
+    if (modal && abreOtroModal) {
+      el.addEventListener('hidden.bs.modal', function handler() {
+        el.removeEventListener('hidden.bs.modal', handler);
+        continuar();
+      });
+      modal.hide();
+      return;
+    }
+    if (modal) modal.hide();
+    continuar();
+  } catch (error) {
+    console.error('Error al verificar el PIN', error);
+    alert('No se pudo validar el PIN. Recarga la página e inténtalo de nuevo.');
+  }
 }
 
 // Modificar el botón de balance en el HTML para usar el PIN

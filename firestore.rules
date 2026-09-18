@@ -125,7 +125,22 @@ service cloud.firestore {
       }
       match /datos/{docId} {
         allow read: if sameNegocioStaff(negocioId);
-        allow write: if sameNegocioAdmin(negocioId);
+        allow create: if sameNegocioAdmin(negocioId) || (
+          sameNegocioStaff(negocioId)
+          && request.resource.data.keys().hasOnly(['clientes', 'actualizadoEn'])
+          && request.resource.data.clientes is list
+        );
+        allow update: if sameNegocioAdmin(negocioId) || (
+          sameNegocioStaff(negocioId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['clientes', 'actualizadoEn'])
+          && request.resource.data.clientes is list
+          && (
+            !('clientes' in resource.data)
+            || request.resource.data.clientes.size() >= resource.data.clientes.size()
+          )
+        );
+        allow delete: if sameNegocioAdmin(negocioId);
       }
       match /config/{docId} {
         allow read, write: if sameNegocioAdmin(negocioId);

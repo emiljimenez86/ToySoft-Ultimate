@@ -5,6 +5,7 @@ let categorias = [];
 let productos = [];
 let mesaSeleccionada = null;
 let categoriaActual = '';
+let busquedaProductoMesero = '';
 let productoPendiente = null;
 let hashOperacion = '';
 let persistiendo = false;
@@ -336,20 +337,67 @@ function pintarCategorias() {
 
 function pintarProductos() {
   const cont = document.getElementById('productosMesero');
+  const msg = document.getElementById('mensajeBusquedaMesero');
   if (!cont) return;
-  const lista = productos.filter(function (p) {
-    if (!categoriaActual) return true;
-    return p.categoria === categoriaActual;
-  });
+  const query = normalizarTextoClienteMesero(busquedaProductoMesero);
+  const lista = query
+    ? productos.filter(function (p) { return productoCoincideBusquedaMesero(p, query); })
+    : productos.filter(function (p) {
+      if (!categoriaActual) return true;
+      return p.categoria === categoriaActual;
+    });
+  if (msg) {
+    if (query) {
+      msg.style.display = 'block';
+      if (!lista.length) {
+        msg.className = 'small mb-2 text-warning';
+        msg.textContent = 'No se encontraron productos con "' + busquedaProductoMesero + '".';
+      } else {
+        msg.className = 'small mb-2 text-success';
+        msg.textContent = lista.length + ' producto' + (lista.length === 1 ? '' : 's') + ' encontrado' + (lista.length === 1 ? '' : 's') + '.';
+      }
+    } else {
+      msg.style.display = 'none';
+      msg.textContent = '';
+    }
+  }
   if (!lista.length) {
-    cont.innerHTML = '<div class="text-muted">No hay productos en esta categoría.</div>';
+    cont.innerHTML = query
+      ? '<div class="text-muted">Prueba con otro nombre o categoría.</div>'
+      : '<div class="text-muted">No hay productos en esta categoría.</div>';
     return;
   }
   cont.innerHTML = lista.map(function (p) {
+    const extra = query && p.categoria
+      ? '<div class="small text-white-50">' + escaparHtml(p.categoria) + '</div>'
+      : '';
     return '<div class="prod-card" onclick="abrirProductoMesero(\'' + String(p.id).replace(/'/g, '') + '\')">' +
       '<div class="fw-bold">' + escaparHtml(p.nombre) + '</div>' +
+      extra +
       '<div class="text-info">' + formatearPrecioMesero(p.precio) + '</div></div>';
   }).join('');
+}
+
+function productoCoincideBusquedaMesero(producto, query) {
+  const texto = normalizarTextoClienteMesero([
+    producto.nombre, producto.categoria, producto.codigo
+  ].filter(Boolean).join(' '));
+  const palabras = String(query || '').split(/\s+/).filter(Boolean);
+  if (!palabras.length) return true;
+  return palabras.every(function (palabra) { return texto.indexOf(palabra) !== -1; });
+}
+
+function buscarProductosMesero() {
+  const input = document.getElementById('buscarProductoMesero');
+  busquedaProductoMesero = input ? String(input.value || '').trim() : '';
+  pintarProductos();
+}
+
+function limpiarBusquedaProductoMesero() {
+  const input = document.getElementById('buscarProductoMesero');
+  if (input) input.value = '';
+  busquedaProductoMesero = '';
+  pintarProductos();
 }
 
 function pintarMesero() {
@@ -507,7 +555,9 @@ function guardarClienteNuevoMesero(nombre, telefono, direccion) {
   };
   lista.push(nuevo);
   localStorage.setItem('clientes', JSON.stringify(lista));
-  if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirClientes === 'function') {
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirAltaCliente === 'function') {
+    ToySoftFirebase.persistirAltaCliente(nuevo);
+  } else if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirClientes === 'function') {
     ToySoftFirebase.persistirClientes(lista);
   }
   return nuevo;
@@ -578,6 +628,9 @@ function abrirMesaMesero(id) {
 
 function volverAMesas() {
   mesaSeleccionada = null;
+  const input = document.getElementById('buscarProductoMesero');
+  if (input) input.value = '';
+  busquedaProductoMesero = '';
   pintarMesero();
 }
 
@@ -813,6 +866,9 @@ function procesarCambioTipoMesero() {
 
 function elegirCategoriaMesero(cat) {
   categoriaActual = cat;
+  const input = document.getElementById('buscarProductoMesero');
+  if (input) input.value = '';
+  busquedaProductoMesero = '';
   pintarCategorias();
   pintarProductos();
 }
@@ -1304,6 +1360,12 @@ async function asegurarNombreMeseroSesion() {
   } catch (e) {
     console.warn('No se pudo guardar el nombre del mesero', e);
   }
+}
+
+function actualizarPaginaMesero() {
+  const btn = document.getElementById('btnActualizarMesero');
+  if (btn) btn.classList.add('girando');
+  window.location.reload();
 }
 
 function mostrarLoginMesero() {

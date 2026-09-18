@@ -1047,6 +1047,55 @@
     }
   }
 
+  const CLAVE_CLIENTES_PENDIENTES = 'clientesPendientesAlta';
+
+  function idDeCliente(cliente) {
+    if (!cliente || cliente.id == null || cliente.id === '') return '';
+    return String(cliente.id);
+  }
+
+  function fusionarClientesAditivo(base, extras) {
+    const mapa = new Map();
+    (Array.isArray(base) ? base : []).forEach(function (cliente) {
+      if (!cliente || typeof cliente !== 'object') return;
+      const id = idDeCliente(cliente);
+      if (id) mapa.set(id, cliente);
+    });
+    (Array.isArray(extras) ? extras : []).forEach(function (cliente) {
+      if (!cliente || typeof cliente !== 'object') return;
+      const id = idDeCliente(cliente);
+      if (id && !mapa.has(id)) mapa.set(id, cliente);
+    });
+    return Array.from(mapa.values());
+  }
+
+  function leerClientesPendientes() {
+    return parseListaLocal(CLAVE_CLIENTES_PENDIENTES);
+  }
+
+  function guardarClientesPendientes(lista) {
+    localStorage.setItem(CLAVE_CLIENTES_PENDIENTES, JSON.stringify(Array.isArray(lista) ? lista : []));
+  }
+
+  function registrarClientesPendientes(lista) {
+    guardarClientesPendientes(fusionarClientesAditivo(leerClientesPendientes(), lista));
+  }
+
+  function limpiarClientesPendientesEn(lista) {
+    const ids = {};
+    (Array.isArray(lista) ? lista : []).forEach(function (cliente) {
+      const id = idDeCliente(cliente);
+      if (id) ids[id] = true;
+    });
+    guardarClientesPendientes(leerClientesPendientes().filter(function (cliente) {
+      return !ids[idDeCliente(cliente)];
+    }));
+  }
+
+  function aplicarPendientesAClientes(clientes) {
+    return fusionarClientesAditivo(clientes, leerClientesPendientes());
+  }
+
   function idDeVenta(venta) {
     if (venta && venta.id != null && venta.id !== '') return String(venta.id);
     return String(Date.now());
@@ -1530,7 +1579,7 @@
 
   function escribirDatosLocal(datos) {
     const d = datos || {};
-    const clientes = Array.isArray(d.clientes) ? d.clientes : [];
+    const clientes = aplicarPendientesAClientes(Array.isArray(d.clientes) ? d.clientes : []);
     const recordatorios = Array.isArray(d.recordatorios) ? d.recordatorios : [];
     const cotizaciones = Array.isArray(d.cotizaciones) ? d.cotizaciones : [];
     localStorage.setItem('clientes', JSON.stringify(clientes));
@@ -1556,13 +1605,12 @@
 
   async function guardarDatosNube(datos) {
     if (!negocioIdActual) await asegurarNegocio();
-    const limpio = datosLimpios(datos);
-    escribirDatosLocal(limpio);
-    if (!negocioIdActual) return limpio;
-    await refDatos().set(Object.assign({}, limpio, {
+    const escrito = escribirDatosLocal(datosLimpios(datos));
+    if (!negocioIdActual) return escrito;
+    await refDatos().set(Object.assign({}, escrito, {
       actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
     }), { merge: true });
-    return limpio;
+    return escrito;
   }
 
   let datosTimer = null;
@@ -1577,16 +1625,39 @@
   }
 
   function persistirClientes(lista) {
-    const clientes = Array.isArray(lista) ? lista : parseListaLocal('clientes');
-    localStorage.setItem('clientes', JSON.stringify(clientes));
-    if (!estaListo() || !negocioIdActual) return Promise.resolve(clientes);
-    return refDatos().set({
-      clientes: clientes,
-      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true }).then(function () { return clientes; }).catch(function (error) {
+    const locales = Array.isArray(lista) ? lista : parseListaLocal('clientes');
+    localStorage.setItem('clientes', JSON.stringify(locales));
+    if (!estaListo() || !negocioIdActual) return Promise.resolve(locales);
+    return db().runTransaction(function (transaction) {
+      const ref = refDatos();
+      return transaction.get(ref).then(function (snap) {
+        const data = snap.exists ? (snap.data() || {}) : {};
+        const nube = Array.isArray(data.clientes) ? data.clientes : [];
+        const fusionados = fusionarClientesAditivo(nube, locales);
+        transaction.set(ref, {
+          clientes: fusionados,
+          actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return fusionados;
+      });
+    }).then(function (fusionados) {
+      limpiarClientesPendientesEn(fusionados);
+      const conPendientes = aplicarPendientesAClientes(fusionados);
+      localStorage.setItem('clientes', JSON.stringify(conPendientes));
+      return conPendientes;
+    }).catch(function (error) {
       console.warn('No se pudieron guardar los clientes en la nube', error);
-      return clientes;
+      return locales;
     });
+  }
+
+  function persistirAltaCliente(cliente) {
+    if (!cliente || typeof cliente !== 'object') {
+      return persistirClientes();
+    }
+    registrarClientesPendientes([cliente]);
+    const lista = fusionarClientesAditivo(parseListaLocal('clientes'), [cliente]);
+    return persistirClientes(lista);
   }
 
   async function sincronizarDatos() {
@@ -1597,13 +1668,19 @@
     if (snap.exists) {
       const data = snap.data() || {};
       delete data.actualizadoEn;
-      const nube = datosLimpios(data);
-      escribirDatosLocal(nube);
-      return nube;
+      return escribirDatosLocal(datosLimpios(data));
     }
     if (local.clientes.length || local.recordatorios.length || local.cotizaciones.length) {
-      await guardarDatosNube(local);
-      return datosLimpios(local);
+      try {
+        await guardarDatosNube(local);
+      } catch (error) {
+        if (local.clientes.length) {
+          await persistirClientes(local.clientes);
+        } else {
+          console.warn('Clientes, recordatorios o cotizaciones no se guardaron en la nube', error);
+        }
+      }
+      return datosLimpios(snapshotDatosLocal());
     }
     return datosLimpios(local);
   }
@@ -1619,9 +1696,8 @@
       if (!snap.exists) return;
       const data = snap.data() || {};
       delete data.actualizadoEn;
-      const nube = datosLimpios(data);
-      escribirDatosLocal(nube);
-      if (typeof callback === 'function') callback(nube);
+      const local = escribirDatosLocal(datosLimpios(data));
+      if (typeof callback === 'function') callback(local);
     }, function (error) {
       console.warn('No se pudieron escuchar clientes/recordatorios/cotizaciones', error);
     });
@@ -2106,6 +2182,7 @@
     inventarioDesdeLocal: inventarioDesdeLocal,
     persistirDatosDebounced: persistirDatosDebounced,
     persistirClientes: persistirClientes,
+    persistirAltaCliente: persistirAltaCliente,
     sincronizarDatos: sincronizarDatos,
     escucharDatos: escucharDatos,
     persistirExtras: persistirExtras,

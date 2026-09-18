@@ -45,6 +45,7 @@
       width: 100%;
     }
     .mesero-top {
+      position: relative;
       flex-shrink: 0;
       z-index: 20;
       background: #1a1a1a;
@@ -55,6 +56,41 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+    }
+    .btn-actualizar-mesero {
+      position: absolute;
+      top: 12px;
+      left: max(10px, env(safe-area-inset-left));
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid rgba(13, 202, 240, 0.45);
+      border-radius: 50%;
+      background: linear-gradient(180deg, rgba(13, 202, 240, 0.22), rgba(255, 255, 255, 0.06));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
+      line-height: 1;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(13, 202, 240, 0.08);
+      cursor: pointer;
+      z-index: 22;
+      -webkit-appearance: none;
+      appearance: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-actualizar-mesero i { pointer-events: none; }
+    .btn-actualizar-mesero:active {
+      transform: scale(0.94);
+      color: #0dcaf0;
+      background: rgba(13, 202, 240, 0.18);
+    }
+    .btn-actualizar-mesero.girando i {
+      animation: girarActualizarMesero 0.65s linear infinite;
+    }
+    @keyframes girarActualizarMesero {
+      to { transform: rotate(360deg); }
     }
     .mesero-brand {
       display: flex;
@@ -104,7 +140,8 @@
       margin-right: auto;
     }
     .input-mesa-blanca,
-    #nuevaMesaMesero {
+    #nuevaMesaMesero,
+    #buscarProductoMesero {
       background: #fff !important;
       color: #111 !important;
       border: 1px solid #e6e6e6 !important;
@@ -113,13 +150,42 @@
       font-size: 1.08rem;
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
     }
-    #nuevaMesaMesero::placeholder { color: #6c757d; }
-    #nuevaMesaMesero:focus {
+    #nuevaMesaMesero::placeholder,
+    #buscarProductoMesero::placeholder { color: #6c757d; }
+    #nuevaMesaMesero:focus,
+    #buscarProductoMesero:focus {
       background: #fff !important;
       color: #111 !important;
       border-color: #0dcaf0 !important;
       box-shadow: 0 0 0 3px rgba(13, 202, 240, 0.28);
     }
+    .buscador-producto-mesero {
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .buscador-producto-mesero .input-group-text {
+      background: #fff;
+      border: 1px solid #e6e6e6;
+      color: #6c757d;
+      min-height: 52px;
+      padding-left: 14px;
+      padding-right: 10px;
+    }
+    .buscador-producto-mesero #buscarProductoMesero {
+      box-shadow: none;
+      border-radius: 0 !important;
+      border-left: none !important;
+      border-right: none !important;
+    }
+    .buscador-producto-mesero .btn-limpiar-busqueda-mesero {
+      background: #fff;
+      border: 1px solid #e6e6e6;
+      color: #333;
+      min-height: 52px;
+      min-width: 48px;
+    }
+    #buscarProductoMesero::-webkit-search-cancel-button { display: none; }
     .acciones-mesero {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 96px));
@@ -564,6 +630,9 @@
 
   <div id="appMesero" style="display: none;">
   <div class="mesero-top">
+    <button type="button" class="btn-actualizar-mesero" id="btnActualizarMesero" onclick="actualizarPaginaMesero()" title="Actualizar" aria-label="Actualizar página">
+      <i class="fas fa-arrow-rotate-right"></i>
+    </button>
     <div class="mesero-brand">
       <img src="image/logo-ToySoft.png" alt="ToySoft" class="logo-mesero-top">
       <div class="mesero-marca">ToySoft</div>
@@ -606,6 +675,14 @@
     </div>
     <div class="text-info fw-bold mb-3" id="tituloPedidoActual"></div>
     <div id="ordenMesero" class="mb-3"></div>
+    <div class="input-group buscador-producto-mesero mb-2">
+      <span class="input-group-text"><i class="fas fa-search"></i></span>
+      <input type="search" id="buscarProductoMesero" class="form-control input-mesa-blanca" placeholder="Buscar producto..." autocomplete="off" autocorrect="off" spellcheck="false" oninput="buscarProductosMesero()">
+      <button type="button" class="btn btn-limpiar-busqueda-mesero" onclick="limpiarBusquedaProductoMesero()" title="Limpiar búsqueda">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div id="mensajeBusquedaMesero" class="small mb-2" style="display: none;"></div>
     <div id="categoriasMesero" class="d-flex flex-wrap gap-2 mb-3"></div>
     <div id="productosMesero" class="d-grid gap-2"></div>
   </div>
@@ -785,10 +862,10 @@
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js?v=25"></script>
-  <script src="firebase-init.js?v=33"></script>
+  <script src="firebase-init.js?v=34"></script>
   <script src="seguridad.js?v=27"></script>
-  <script src="mesero.js?v=36"></script>
-  <script src="ayuda.js?v=35"></script>
+  <script src="mesero.js?v=39"></script>
+  <script src="ayuda.js?v=37"></script>
   <script src="install.js?v=28"></script>
   <script>
     (function () {
