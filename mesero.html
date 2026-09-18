@@ -29,18 +29,20 @@
       min-height: 100vh;
       min-height: 100dvh;
       height: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
       overflow: hidden;
     }
     body { background: #111; color: #fff; padding-bottom: 0; font-size: 18px; }
     #appMesero, #loginMesero { width: 100%; max-width: 100%; }
     #loginMesero { flex: 1; overflow-y: auto; min-height: 0; }
     #appMesero {
-      flex: 1;
+      flex: 1 1 auto;
       display: none;
       flex-direction: column;
       align-items: stretch;
       min-height: 0;
-      height: 100%;
+      max-height: 100%;
       overflow: hidden;
       width: 100%;
     }
@@ -128,7 +130,7 @@
       margin-top: 1px;
     }
     .mesero-cuerpo {
-      flex: 1 1 auto;
+      flex: 1 1 0;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       min-height: 0;
@@ -142,19 +144,18 @@
     }
     .inicio-acciones-mesero {
       display: flex;
+      flex-direction: column;
       align-items: stretch;
-      justify-content: center;
-      gap: 8px;
+      gap: 12px;
       width: 100%;
       margin-bottom: 1.15rem;
     }
     .abrir-mesa-paso {
       display: flex;
       align-items: center;
-      gap: 4px;
-      flex: 2.15 1 0;
-      min-width: 0;
-      padding: 4px;
+      gap: 6px;
+      width: 100%;
+      padding: 6px;
       border: 1.5px dashed rgba(255, 193, 7, 0.72);
       border-radius: 18px;
       background: linear-gradient(180deg, rgba(255, 193, 7, 0.16), rgba(255, 140, 0, 0.06));
@@ -177,34 +178,40 @@
     .campo-nro-mesa {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: stretch;
       justify-content: center;
-      flex: 0 0 56px;
-      width: 56px;
+      flex: 1 1 auto;
+      min-width: 0;
       min-height: 86px;
-      padding: 8px 2px 8px;
+      padding: 8px 12px 10px;
       background: #fff;
       border-radius: 14px;
       box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
     }
     .campo-nro-mesa .etiqueta-nro {
-      color: #0798b5;
-      font-size: 1.08rem;
-      font-weight: 900;
+      color: #5b6b72;
+      font-size: 0.92rem;
+      font-weight: 700;
       letter-spacing: 0.01em;
-      line-height: 1;
-      margin-bottom: 6px;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+    .campo-nro-mesa .nro-resaltado {
+      color: #0798b5;
+      font-size: 1.12rem;
+      font-weight: 900;
     }
     .slot-nro {
       position: relative;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       width: 100%;
-      min-height: 28px;
+      min-height: 30px;
     }
     .slot-nro-vacio {
       position: absolute;
+      left: 2px;
       width: 22px;
       height: 22px;
       border: 2px dashed #7fd4e6;
@@ -222,7 +229,7 @@
     }
     .campo-nro-mesa #nuevaMesaMesero {
       width: 100%;
-      min-height: 28px;
+      min-height: 30px;
       margin: 0;
       padding: 0;
       background: transparent !important;
@@ -231,9 +238,9 @@
       box-shadow: none !important;
       color: #111 !important;
       caret-color: #0dcaf0;
-      font-size: 1.4rem;
+      font-size: 1.45rem;
       font-weight: 900;
-      text-align: center;
+      text-align: left;
       -webkit-appearance: none;
       appearance: textfield;
     }
@@ -265,14 +272,18 @@
       50% { transform: translateX(3px); opacity: 1; }
     }
     .abrir-mesa-paso .accion-mesa {
-      flex: 1 1 0;
-      width: auto;
-      min-width: 72px;
+      flex: 0 0 108px;
+      width: 108px;
+      min-width: 108px;
     }
-    .inicio-acciones-mesero > .accion-mesero {
-      flex: 1 1 0;
-      width: auto;
-      min-width: 0;
+    .acciones-extra-mesero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      width: 100%;
+    }
+    .acciones-extra-mesero .accion-mesero {
+      width: 100%;
     }
     .abrir-mesa-paso.con-numero .accion-mesa {
       box-shadow: 0 0 0 2px #ffe08a, 0 8px 18px rgba(255, 140, 0, 0.45);
@@ -517,12 +528,13 @@
     .accion-recoger { background: linear-gradient(160deg, #3d9bff, #0d6efd); }
     .accion-mesero:active { transform: scale(0.97); }
     .mesero-chrome-inferior {
-      flex-shrink: 0;
-      margin-top: auto;
+      flex: 0 0 auto;
+      margin-top: 0;
       background: #141414;
       border-top: 1px solid #2c2c2c;
-      padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+      padding: 10px 16px max(12px, env(safe-area-inset-bottom));
       width: 100%;
+      z-index: 25;
     }
     .mesero-bottom-actions {
       display: flex;
@@ -573,13 +585,17 @@
       font-weight: 700;
       border-radius: 18px;
     }
+    .pagina-mesero footer.mesero-footer,
+    #appMesero footer.mesero-footer,
     .mesero-footer {
+      display: block !important;
+      visibility: visible !important;
       text-align: center;
       color: #8b9aa3;
-      font-size: 0.72rem;
-      line-height: 1.35;
-      margin: 0 !important;
-      padding: 4px 8px 0 !important;
+      font-size: 0.78rem;
+      line-height: 1.4;
+      margin: 8px 0 0 !important;
+      padding: 6px 8px 0 !important;
       background: transparent !important;
       border: none !important;
     }
@@ -1042,7 +1058,7 @@
     <div class="inicio-acciones-mesero">
       <div class="abrir-mesa-paso" id="abrirMesaPaso">
         <label class="campo-nro-mesa" for="nuevaMesaMesero">
-          <span class="etiqueta-nro">N°</span>
+          <span class="etiqueta-nro"><span class="nro-resaltado">N°</span> de mesa</span>
           <span class="slot-nro">
             <span class="slot-nro-vacio" aria-hidden="true"></span>
             <input type="number" id="nuevaMesaMesero" min="1" inputmode="numeric" aria-label="Número de mesa" oninput="actualizarPasoAbrirMesa()" onkeydown="if(event.key==='Enter'){event.preventDefault();crearMesaMesero();}">
@@ -1054,14 +1070,16 @@
           <span>Abrir mesa</span>
         </button>
       </div>
-      <button class="accion-mesero accion-domicilio" type="button" onclick="abrirFormPedidoExternoMesero('domicilio')">
-        <i class="fas fa-motorcycle"></i>
-        <span>Domicilio</span>
-      </button>
-      <button class="accion-mesero accion-recoger" type="button" onclick="abrirFormPedidoExternoMesero('recoger')">
-        <i class="fas fa-shopping-bag"></i>
-        <span>Recoger</span>
-      </button>
+      <div class="acciones-extra-mesero">
+        <button class="accion-mesero accion-domicilio" type="button" onclick="abrirFormPedidoExternoMesero('domicilio')">
+          <i class="fas fa-motorcycle"></i>
+          <span>Domicilio</span>
+        </button>
+        <button class="accion-mesero accion-recoger" type="button" onclick="abrirFormPedidoExternoMesero('recoger')">
+          <i class="fas fa-shopping-bag"></i>
+          <span>Recoger</span>
+        </button>
+      </div>
     </div>
     <h6 class="text-white-50 small text-uppercase mb-2">Mesas</h6>
     <div id="listaMesasMesero" class="mesas-container"></div>
