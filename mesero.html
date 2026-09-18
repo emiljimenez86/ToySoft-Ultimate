@@ -146,9 +146,9 @@
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      gap: 12px;
+      gap: 8px;
       width: 100%;
-      margin-bottom: 1.15rem;
+      margin-bottom: 0.7rem;
     }
     .abrir-mesa-paso {
       display: flex;
@@ -180,10 +180,12 @@
       flex-direction: column;
       align-items: stretch;
       justify-content: center;
-      flex: 1 1 auto;
-      min-width: 0;
+      flex: 0 0 128px;
+      width: 128px;
+      min-width: 128px;
+      max-width: 128px;
       min-height: 86px;
-      padding: 8px 12px 10px;
+      padding: 8px 10px 10px;
       background: #fff;
       border-radius: 14px;
       box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
@@ -208,24 +210,6 @@
       justify-content: flex-start;
       width: 100%;
       min-height: 30px;
-    }
-    .slot-nro-vacio {
-      position: absolute;
-      left: 2px;
-      width: 22px;
-      height: 22px;
-      border: 2px dashed #7fd4e6;
-      border-radius: 8px;
-      pointer-events: none;
-      animation: pulsoSlotNro 1.6s ease-in-out infinite;
-    }
-    @keyframes pulsoSlotNro {
-      0%, 100% { opacity: 0.4; transform: scale(0.96); }
-      50% { opacity: 1; transform: scale(1); }
-    }
-    .abrir-mesa-paso.con-numero .slot-nro-vacio,
-    .campo-nro-mesa:focus-within .slot-nro-vacio {
-      display: none;
     }
     .campo-nro-mesa #nuevaMesaMesero {
       width: 100%;
@@ -272,18 +256,29 @@
       50% { transform: translateX(3px); opacity: 1; }
     }
     .abrir-mesa-paso .accion-mesa {
-      flex: 0 0 108px;
-      width: 108px;
-      min-width: 108px;
+      flex: 1 1 auto;
+      width: auto;
+      min-width: 0;
     }
     .acciones-extra-mesero {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 8px;
       width: 100%;
     }
     .acciones-extra-mesero .accion-mesero {
       width: 100%;
+      min-height: 44px;
+      height: 44px;
+      padding: 6px 8px;
+      gap: 6px;
+      flex-direction: row;
+      border-radius: 12px;
+      font-size: 0.82rem;
+    }
+    .acciones-extra-mesero .accion-mesero i {
+      font-size: 0.95rem;
+      margin: 0;
     }
     .abrir-mesa-paso.con-numero .accion-mesa {
       box-shadow: 0 0 0 2px #ffe08a, 0 8px 18px rgba(255, 140, 0, 0.45);
@@ -1060,7 +1055,6 @@
         <label class="campo-nro-mesa" for="nuevaMesaMesero">
           <span class="etiqueta-nro"><span class="nro-resaltado">N°</span> de mesa</span>
           <span class="slot-nro">
-            <span class="slot-nro-vacio" aria-hidden="true"></span>
             <input type="number" id="nuevaMesaMesero" min="1" inputmode="numeric" aria-label="Número de mesa" oninput="actualizarPasoAbrirMesa()" onkeydown="if(event.key==='Enter'){event.preventDefault();crearMesaMesero();}">
           </span>
         </label>
