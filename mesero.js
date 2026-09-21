@@ -201,6 +201,13 @@ function etiquetaPedidoMesero(id, pedido) {
   return clave ? ('Mesa ' + clave) : 'Pedidos';
 }
 
+function tituloTicketCocinaMesero(mesa, pedido) {
+  const clave = String(mesa || '');
+  if (esDomicilioMesero(clave, pedido)) return 'Domicilio: ' + clave.replace(/^DOM-/, '');
+  if (esRecogerMesero(clave, pedido)) return 'Recoger: ' + clave.replace(/^REC-/, '');
+  return clave ? ('Mesa: ' + clave) : 'Pedidos';
+}
+
 function leerContadorMesero(clave) {
   return parseInt(localStorage.getItem(clave) || '0', 10) || 0;
 }
@@ -1175,13 +1182,16 @@ function bytesEscPosTicketCocina(mesa, productos, opciones) {
   const fechaTicket = new Date().toLocaleString();
   const rondaTicket = Number(opciones.ronda) || rondaDeItem((productos || [])[0]) || 1;
   const nombreMeseroTicket = String(opciones.nombreMesero || pedido.nombreMesero || nombreMeseroSesion() || '').trim();
-  const titulo = etiquetaPedidoMesero(mesa, pedido);
+  const titulo = tituloTicketCocinaMesero(mesa, pedido);
   const cfg = configImpresoraCocinaMesero();
-  const ancho = cfg.anchoMm === '58' ? 32 : 48;
-  const puntos = cfg.anchoMm === '58' ? 384 : 576;
+  const papel58 = cfg.anchoMm === '58';
+  const ancho = papel58 ? 32 : 48;
+  const puntos = papel58 ? 384 : 576;
+  const colsItem = papel58 ? 32 : 24;
+  const colCant = 4;
   const bytes = [
     0x1B, 0x40,
-    0x1B, 0x32,
+    0x1B, 0x33, 0x3C,
     0x1B, 0x4D, 0x00,
     0x1D, 0x4C, 0x00, 0x00,
     0x1D, 0x57, puntos & 0xFF, (puntos >> 8) & 0xFF,
@@ -1192,29 +1202,41 @@ function bytesEscPosTicketCocina(mesa, productos, opciones) {
   function ln(s) { if (s) txt(s); add([0x0A]); }
   function sep() { ln(new Array(ancho + 1).join('-').slice(0, ancho)); }
   function centro(on) { add([0x1B, 0x61, on ? 1 : 0]); }
-  function grande(on) { add([0x1D, 0x21, on ? 0x11 : 0x00]); }
+  function negrita(on) { add([0x1B, 0x45, on ? 1 : 0]); }
+  function tamano(w, h) { add([0x1D, 0x21, ((Math.max(1, w) - 1) << 4) | (Math.max(1, h) - 1)]); }
+  function padDer(s, n) {
+    s = String(s || '');
+    while (s.length < n) s += ' ';
+    return s.slice(0, n);
+  }
 
   centro(true);
-  grande(true);
+  negrita(true);
+  tamano(2, 2);
   ln('COCINA');
-  grande(false);
   ln(titulo);
   ln('Ronda: ' + rondaTicket);
+  tamano(1, 1);
   if (nombreMeseroTicket) ln(etiquetaRolMeseroSesion(pedido, opciones) + ': ' + nombreMeseroTicket);
+  negrita(false);
   ln(fechaTicket);
   centro(false);
   sep();
   if (pedido.cambioMesa) {
     const info = textoCambioPedidoMesero(pedido.cambioMesa);
     centro(true);
+    negrita(true);
     ln(info.titulo);
+    negrita(false);
     ln(info.linea);
     if (pedido.cambioMesa.fecha) ln(pedido.cambioMesa.fecha);
     centro(false);
     sep();
   }
   if (pedido.cliente) {
+    negrita(true);
     ln('Cliente: ' + pedido.cliente);
+    negrita(false);
     if (pedido.telefono) ln('Tel: ' + pedido.telefono);
     if (esDomicilioMesero(mesa, pedido) && pedido.direccion) {
       envolverTextoTicket('Dir: ' + pedido.direccion, ancho).forEach(ln);
@@ -1222,18 +1244,34 @@ function bytesEscPosTicketCocina(mesa, productos, opciones) {
     if (esRecogerMesero(mesa, pedido) && pedido.horaRecoger) ln('Hora: ' + pedido.horaRecoger);
     sep();
   }
-  ln('Cant  Producto');
+  negrita(true);
+  ln(padDer('Cant', colCant) + 'Producto');
+  negrita(false);
   (productos || []).forEach(function (item) {
     const cant = String(item.cantidad || 1);
     const nombre = String(item.nombre || '');
-    const prefijo = cant + ' x ';
-    envolverTextoTicket(prefijo + nombre, ancho).forEach(ln);
-    if (item.detalles) envolverTextoTicket('  ' + item.detalles, ancho).forEach(ln);
+    tamano(papel58 ? 1 : 2, 2);
+    negrita(true);
+    const anchoNombre = colsItem - colCant;
+    const lineasNom = envolverTextoTicket(nombre, Math.max(8, anchoNombre));
+    lineasNom.forEach(function (lineaNom, i) {
+      ln(padDer(i === 0 ? cant : '', colCant) + lineaNom);
+    });
+    tamano(1, 1);
+    negrita(false);
+    if (item.detalles) {
+      envolverTextoTicket('Detalle: ' + item.detalles, ancho).forEach(function (lineaDet, i) {
+        ln(i === 0 ? lineaDet : ('        ' + lineaDet));
+      });
+    }
   });
   sep();
   centro(true);
-  ln('Gracias');
+  negrita(true);
+  ln('¡Gracias!');
+  negrita(false);
   centro(false);
+  add([0x1B, 0x32]);
   add([0x0A, 0x0A, 0x0A, 0x0A, 0x0A]);
   add([0x1D, 0x56, 0x41, 0x10]);
   add([0x1D, 0x56, 0x00]);
@@ -1270,7 +1308,7 @@ function htmlCuerpoTicketCocinaMesero(mesa, productos, opciones) {
   const fechaTicket = new Date().toLocaleString();
   const rondaTicket = Number(opciones.ronda) || rondaDeItem((productos || [])[0]) || 1;
   const nombreMeseroTicket = String(opciones.nombreMesero || pedido.nombreMesero || nombreMeseroSesion() || '').trim();
-  const titulo = etiquetaPedidoMesero(mesa, pedido);
+  const titulo = tituloTicketCocinaMesero(mesa, pedido);
   let infoCliente = '';
   if (pedido.cliente) {
     const esDom = esDomicilioMesero(mesa, pedido);
