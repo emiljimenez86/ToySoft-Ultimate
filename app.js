@@ -3,6 +3,13 @@ window.ultimaHoraCierre = null;
 let productos = [];
 let categorias = [];
 let mesasActivas = new Map(); // Almacena las órdenes por mesa
+window.ToysoftSnapshotMesas = function () {
+  try {
+    return Array.from(mesasActivas.entries());
+  } catch (e) {
+    return [];
+  }
+};
 let mesaSeleccionada = null; // Mesa actualmente seleccionada
 let ordenesCocina = new Map(); // Almacena las órdenes enviadas a cocina
 let clientes = []; // Almacena los clientes frecuentes
@@ -3339,10 +3346,6 @@ function imprimirTicketCocinaDesdeListaMesero(ordenId) {
   }
   imprimirTicketCocinaDeOrden(orden);
 }
-  const t = Date.parse(orden && orden.fecha);
-  if (!Number.isFinite(t)) return false;
-  return (Date.now() - t) <= 45 * 60 * 1000;
-}
 
 function ordenCocinaMeseroReciente(orden) {
   const t = Date.parse(orden && orden.fecha);
@@ -3369,7 +3372,7 @@ function marcarOrdenCocinaImpresaEnCaja(orden) {
   (historialCocina || []).forEach(function (h) {
     if (String(h.id) === id) h.impresoEnCaja = true;
   });
-  if (typeof guardarHistorialCocina === 'function') guardarHistorialCocina();
+  localStorage.setItem('historialCocina', JSON.stringify(historialCocina));
 }
 
 function procesarPedidoNuevoDeMesero(orden, opciones) {
@@ -3429,12 +3432,15 @@ function aplicarOperacionEnPOS(datos) {
   window._operacionPOSHash = hash;
 
   try {
-    mesasActivas = new Map();
-    (Array.isArray(datos.mesasActivas) ? datos.mesasActivas : []).forEach(function (par) {
-      if (!Array.isArray(par) || par.length < 2 || par[0] == null) return;
-      const mesaId = String(par[0]);
-      mesasActivas.set(mesaId, typeof normalizarPedidoMesa === 'function' ? normalizarPedidoMesa(par[1]) : par[1]);
-    });
+    const entradas = Array.isArray(datos.mesasActivas) ? datos.mesasActivas : [];
+    if (entradas.length || mesasActivas.size === 0) {
+      mesasActivas = new Map();
+      entradas.forEach(function (par) {
+        if (!Array.isArray(par) || par.length < 2 || par[0] == null) return;
+        const mesaId = String(par[0]);
+        mesasActivas.set(mesaId, typeof normalizarPedidoMesa === 'function' ? normalizarPedidoMesa(par[1]) : par[1]);
+      });
+    }
   } catch (error) {
     console.warn('No se pudieron aplicar mesas de la nube', error);
   }

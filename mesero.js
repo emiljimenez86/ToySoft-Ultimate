@@ -1,4 +1,11 @@
 let mesasActivas = new Map();
+window.ToysoftSnapshotMesas = function () {
+  try {
+    return Array.from(mesasActivas.entries());
+  } catch (e) {
+    return [];
+  }
+};
 let ordenesCocina = new Map();
 let historialCocina = [];
 let categorias = [];
@@ -167,7 +174,10 @@ function aplicarOperacionNube(datos) {
     purgarMesasCobradasMesero(true);
     return;
   }
-  mesasActivas = mapDesdeEntradas(datos.mesasActivas);
+  const nuevas = mapDesdeEntradas(datos.mesasActivas);
+  if (nuevas.size || mesasActivas.size === 0) {
+    mesasActivas = nuevas;
+  }
   ordenesCocina = mapDesdeEntradas(datos.ordenesCocina);
   historialCocina = Array.isArray(datos.historialCocina) ? datos.historialCocina : [];
   mesasActivas.forEach(function (pedido, id) {

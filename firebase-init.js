@@ -873,10 +873,29 @@
     });
   }
 
+  function noPisarMesasVacias(nuevasEntradas, actualesEntradas) {
+    const nuevas = Array.isArray(nuevasEntradas) ? nuevasEntradas : [];
+    const actuales = Array.isArray(actualesEntradas) ? actualesEntradas : [];
+    if (nuevas.length > 0) return nuevas;
+    if (!actuales.length) return nuevas;
+    const vivas = filtrarEntradasMesasCobradas(actuales, leerSesionesCobradas());
+    return vivas.length ? vivas : nuevas;
+  }
+
+  function leerMesasMemoriaOLocal() {
+    try {
+      if (typeof window.ToysoftSnapshotMesas === 'function') {
+        const mem = window.ToysoftSnapshotMesas();
+        if (Array.isArray(mem)) return mem;
+      }
+    } catch (e) { /* ignore */ }
+    return parseJsonLocal('mesasActivas', []);
+  }
+
   function snapshotOperacionLocal() {
     const sesiones = leerSesionesCobradas();
     return Object.assign({
-      mesasActivas: filtrarEntradasMesasCobradas(parseJsonLocal('mesasActivas', []), sesiones),
+      mesasActivas: filtrarEntradasMesasCobradas(leerMesasMemoriaOLocal(), sesiones),
       ordenesCocina: parseJsonLocal('ordenesCocina', []),
       historialCocina: parseJsonLocal('historialCocina', []),
       pedidosCocinaListos: parseJsonLocal('pedidosCocinaListos', []),
@@ -938,6 +957,7 @@
 
   function escribirOperacionLocal(datos) {
     const local = operacionParaLocal(datos || {});
+    local.mesasActivas = noPisarMesasVacias(local.mesasActivas, parseJsonLocal('mesasActivas', []));
     localStorage.setItem('mesasActivas', JSON.stringify(local.mesasActivas));
     localStorage.setItem('ordenesCocina', JSON.stringify(local.ordenesCocina));
     localStorage.setItem('historialCocina', JSON.stringify(local.historialCocina));
@@ -997,34 +1017,34 @@
     try {
     if (!negocioIdActual) await asegurarNegocio();
     const limpio = operacionLimpia(datos || snapshotOperacionLocal());
-    escribirOperacionLocal(limpio);
+    const escrito = escribirOperacionLocal(limpio);
     const payload = {
-      mesasActivas: limpio.mesasActivas,
-      ordenesCocina: limpio.ordenesCocina,
-      historialCocina: limpio.historialCocina,
-      pedidosCocinaListos: limpio.pedidosCocinaListos,
-      contadorDomicilios: limpio.contadorDomicilios,
-      contadorRecoger: limpio.contadorRecoger,
+      mesasActivas: entradasAObjetos(escrito.mesasActivas),
+      ordenesCocina: entradasAObjetos(escrito.ordenesCocina),
+      historialCocina: escrito.historialCocina,
+      pedidosCocinaListos: escrito.pedidosCocinaListos,
+      contadorDomicilios: escrito.contadorDomicilios,
+      contadorRecoger: escrito.contadorRecoger,
       actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
     };
     if (!esMesero()) {
-      payload.ultimaFechaContadores = limpio.ultimaFechaContadores;
-      payload.nombresDomiciliarios = limpio.nombresDomiciliarios;
-      payload.pantallaCocinaActivada = limpio.pantallaCocinaActivada;
-      payload.cocinaSonidoActivado = limpio.cocinaSonidoActivado;
-      payload.cocinaIntervaloActualizacion = limpio.cocinaIntervaloActualizacion;
-      payload.impresoraCocinaIp = limpio.impresoraCocinaIp || '';
-      payload.impresoraCocinaPuerto = limpio.impresoraCocinaPuerto || '9100';
-      payload.impresoraCocinaAncho = limpio.impresoraCocinaAncho || '80';
-      payload.posMostrarGastos = limpio.posMostrarGastos;
-      payload.posMostrarInventario = limpio.posMostrarInventario;
-      payload.posMostrarCierreAdmin = limpio.posMostrarCierreAdmin;
-      payload.posMostrarBalance = limpio.posMostrarBalance;
-      payload.posBotonesDefaultsVersion = limpio.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION;
-      payload.sesionesCobradas = unirSesionesCobradas(limpio);
+      payload.ultimaFechaContadores = escrito.ultimaFechaContadores;
+      payload.nombresDomiciliarios = escrito.nombresDomiciliarios;
+      payload.pantallaCocinaActivada = escrito.pantallaCocinaActivada;
+      payload.cocinaSonidoActivado = escrito.cocinaSonidoActivado;
+      payload.cocinaIntervaloActualizacion = escrito.cocinaIntervaloActualizacion;
+      payload.impresoraCocinaIp = escrito.impresoraCocinaIp || '';
+      payload.impresoraCocinaPuerto = escrito.impresoraCocinaPuerto || '9100';
+      payload.impresoraCocinaAncho = escrito.impresoraCocinaAncho || '80';
+      payload.posMostrarGastos = escrito.posMostrarGastos;
+      payload.posMostrarInventario = escrito.posMostrarInventario;
+      payload.posMostrarCierreAdmin = escrito.posMostrarCierreAdmin;
+      payload.posMostrarBalance = escrito.posMostrarBalance;
+      payload.posBotonesDefaultsVersion = escrito.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION;
+      payload.sesionesCobradas = unirSesionesCobradas(escrito);
     }
     await refOperacion().set(payload, { merge: true });
-    return operacionParaLocal(limpio);
+    return escrito;
     } finally {
       liberarPersistiendoOperacion();
     }
