@@ -66,12 +66,27 @@ function cargarInventario() {
     }
 }
 
+function recortarAjustesInventario(lista) {
+    (Array.isArray(lista) ? lista : []).forEach(function (item) {
+        if (item && Array.isArray(item.ajustes) && item.ajustes.length > 200) {
+            item.ajustes = item.ajustes.slice(-200);
+        }
+    });
+}
+
 // Función para guardar el inventario
-function guardarInventario() {
+function guardarInventario(inmediato) {
     try {
+        recortarAjustesInventario(inventario);
         localStorage.setItem('inventario', JSON.stringify(inventario));
         window._inventarioHash = JSON.stringify(inventario);
-        if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirInventarioDebounced === 'function') {
+        if (!window.ToySoftFirebase) return;
+        try { window._inventarioPersistiendo = true; } catch (e) { /* ignore */ }
+        if (inmediato && typeof ToySoftFirebase.persistirInventarioInmediato === 'function') {
+            ToySoftFirebase.persistirInventarioInmediato();
+            return;
+        }
+        if (typeof ToySoftFirebase.persistirInventarioDebounced === 'function') {
             ToySoftFirebase.persistirInventarioDebounced();
         }
     } catch (error) {
@@ -514,17 +529,21 @@ function guardarProducto() {
     };
 
     if (productoSeleccionado) {
-        // Actualizar producto existente
+        // Actualizar producto existente sin perder historial de ajustes
         const index = inventario.findIndex(p => p.codigo === producto.codigo);
         if (index !== -1) {
-            inventario[index] = producto;
+            const anterior = inventario[index] || {};
+            inventario[index] = Object.assign({}, anterior, producto);
+            if (Array.isArray(anterior.ajustes)) {
+                inventario[index].ajustes = anterior.ajustes;
+            }
         }
     } else {
         // Agregar nuevo producto
         inventario.push(producto);
     }
 
-    guardarInventario();
+    guardarInventario(true);
     mostrarInventario();
     cargarProductosPOS(); // Actualizar vista de productos del POS
     bootstrap.Modal.getInstance(document.getElementById('modalProducto')).hide();
@@ -539,7 +558,7 @@ function editarProducto(codigo) {
 function eliminarProducto(codigo) {
     if (confirm('¿Está seguro que desea eliminar este producto?')) {
         inventario = inventario.filter(p => p.codigo !== codigo);
-        guardarInventario();
+        guardarInventario(true);
         mostrarInventario();
         cargarProductosPOS(); // Actualizar vista de productos del POS
     }
@@ -597,7 +616,7 @@ function procesarAjusteStock() {
             inventario[index].ajustes.push(ajuste);
             inventario[index].ultimaActualizacion = new Date().toISOString();
 
-            guardarInventario();
+            guardarInventario(true);
             mostrarInventario();
             bootstrap.Modal.getInstance(document.getElementById('modalAjusteStock')).hide();
         }
@@ -757,8 +776,11 @@ function actualizarInventarioDesdeVenta(itemsVenta) {
     try {
         console.log('Actualizando inventario desde venta:', itemsVenta);
         
-        // Cargar inventario actual
-        const inventarioGuardado = localStorage.getItem('inventario');
+        // Cargar inventario actual (localStorage o memoria si la nube aún no escribe)
+        let inventarioGuardado = localStorage.getItem('inventario');
+        if (!inventarioGuardado && Array.isArray(inventario) && inventario.length) {
+            inventarioGuardado = JSON.stringify(inventario);
+        }
         if (!inventarioGuardado) {
             console.warn('No hay inventario configurado');
             return { success: false, message: 'No hay inventario configurado' };
@@ -890,7 +912,7 @@ function actualizarInventarioDesdeVenta(itemsVenta) {
             }
         });
         
-        guardarInventario();
+        guardarInventario(true);
         
         // Mostrar notificaciones si es necesario
         if (productosNoEncontrados.length > 0) {
@@ -986,8 +1008,9 @@ function verificarDisponibilidadProducto(nombreProducto, cantidadSolicitada) {
         }
         
         const inventario = JSON.parse(inventarioGuardado);
+        const nombreBuscado = String(nombreProducto || '').toLowerCase().trim();
         const producto = inventario.find(p => 
-            p.nombre.toLowerCase() === nombreProducto.toLowerCase()
+            String(p.nombre || '').toLowerCase().trim() === nombreBuscado
         );
         
         // Si el producto no está en inventario, permitir la venta normalmente
@@ -1068,7 +1091,7 @@ function sincronizarProductosPOS() {
         // Agregar productos nuevos al inventario
         if (productosNuevos.length > 0) {
             inventario = inventarioLocal.concat(productosNuevos);
-            guardarInventario();
+            guardarInventario(true);
             console.log(`${productosNuevos.length} productos nuevos agregados al inventario`);
         }
         
@@ -1663,7 +1686,7 @@ function agregarProductoAInventario(nombre, categoria, precio) {
         
         // Agregar al inventario
         inventario.push(nuevoProducto);
-        guardarInventario();
+        guardarInventario(true);
         mostrarInventario();
         
         // Recargar productos del POS para actualizar la vista
@@ -1733,7 +1756,7 @@ function agregarTodosProductosFaltantes() {
             productosAgregados++;
         });
         
-        guardarInventario();
+        guardarInventario(true);
         mostrarInventario();
         cargarProductosPOS();
         
@@ -2060,6 +2083,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 function aplicarInventarioEnMemoria(lista) {
+    if (window._inventarioPersistiendo) return;
     const items = Array.isArray(lista) ? lista : [];
     const hash = JSON.stringify(items);
     if (hash === window._inventarioHash) return;

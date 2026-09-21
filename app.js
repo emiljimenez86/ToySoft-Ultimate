@@ -477,6 +477,18 @@ function parseFechaSeguro(valor) {
     if (valor instanceof Date) {
         return isNaN(valor.getTime()) ? null : valor;
     }
+    if (valor && typeof valor === 'object') {
+        if (typeof valor.toDate === 'function') {
+            try {
+                const dTs = valor.toDate();
+                return isNaN(dTs.getTime()) ? null : dTs;
+            } catch (e) { /* ignore */ }
+        }
+        if (typeof valor.seconds === 'number') {
+            const dSec = new Date(valor.seconds * 1000);
+            return isNaN(dSec.getTime()) ? null : dSec;
+        }
+    }
     if (typeof valor !== 'string') {
         if (typeof valor === 'number' && Number.isFinite(valor)) {
             const dNum = new Date(valor);
@@ -548,20 +560,54 @@ function fechaLocalISO(valor = new Date()) {
     return `${y}-${m}-${day}`;
 }
 
-// Fecha "de hoy" para cierre y ventas del día. Si está activa la opción
-// "Operar después de medianoche", el día laboral termina a la hora configurada
-// (ej: 4 AM), así que entre 00:00 y 3:59 se sigue considerando "ayer".
-function getFechaHoyParaCierre() {
-    const activo = localStorage.getItem('operarDespuesMedianoche') === 'true';
-    if (!activo) return new Date();
-    const ahora = new Date();
-    const horaFin = parseInt(localStorage.getItem('horaFinDiaLaboral') || '4', 10);
-    const hora = ahora.getHours();
-    if (hora < horaFin) {
-        const ayer = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1, 12, 0, 0);
-        return ayer;
+function operaPasadaMedianoche() {
+    return localStorage.getItem('operarDespuesMedianoche') === 'true';
+}
+
+function horaFinDiaLaboralConfigurada() {
+    const h = parseInt(localStorage.getItem('horaFinDiaLaboral') || '4', 10);
+    return Number.isFinite(h) ? Math.min(23, Math.max(0, h)) : 4;
+}
+
+function fechaLaboralDe(fechaValor) {
+    const d = parseFechaSeguro(fechaValor);
+    if (!d) return null;
+    if (!operaPasadaMedianoche()) {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
     }
-    return new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 12, 0, 0);
+    if (d.getHours() < horaFinDiaLaboralConfigurada()) {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1, 12, 0, 0);
+    }
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+}
+
+// Fecha "de hoy" para cierre, balance y ventas del día.
+// Si la opción de Administración está APAGADA, el día es el calendario (cambia a medianoche).
+// Si está ENCENDIDA, el día laboral termina a la hora configurada (ej: 4 AM).
+function getFechaHoyParaCierre() {
+    if (!operaPasadaMedianoche()) return new Date();
+    return fechaLaboralDe(new Date()) || new Date();
+}
+
+function aplicarEtiquetasHorarioOperacion() {
+    const activo = operaPasadaMedianoche();
+    const etFecha = document.getElementById('etiquetaFechaBalance');
+    if (etFecha) etFecha.textContent = activo ? 'Fecha del día laboral' : 'Fecha';
+    const etRango = document.getElementById('etiquetaRangoTodoDia');
+    if (etRango) etRango.textContent = activo ? 'Todo el día laboral' : 'Todo el día';
+}
+
+function textoHorarioLaboral(fechaRef, tipo) {
+    if (!operaPasadaMedianoche()) return '';
+    const hora = horaFinDiaLaboralConfigurada();
+    if (tipo === 'diario' && fechaRef) {
+        const { inicio, fin } = inicioFinDiaLaboral(fechaRef);
+        const fmt = (d) => d.toLocaleString('es-CO', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+        return `Día laboral (Administración): ${fmt(inicio)} → ${fmt(fin)}. Antes de las ${hora}:00 cuenta en el día anterior.`;
+    }
+    return `Según Administración, el día laboral cierra a las ${String(hora).padStart(2, '0')}:00. Las ventas de madrugada cuentan en el día anterior.`;
 }
 
 function obtenerUltimoCierreAdministrativo() {
@@ -601,8 +647,9 @@ function cierresAdministrativosEnPeriodo(fechaSeleccionada, tipoBalance, inicioP
     return historial.filter(cierre => {
         const fecha = fechaCierreAdministrativo(cierre);
         if (!fecha) return false;
-        if (tipoBalance === 'diario') return esMismaFechaLocal(fecha, fechaSeleccionada);
-        const iso = fechaLocalISO(fecha);
+        const laboral = fechaLaboralDe(fecha) || fecha;
+        if (tipoBalance === 'diario') return esMismaFechaLocal(laboral, fechaSeleccionada);
+        const iso = fechaLocalISO(laboral);
         return iso >= inicioPeriodoStr && iso <= finPeriodoStr;
     }).sort((a, b) => {
         const fa = fechaCierreAdministrativo(a);
@@ -655,10 +702,9 @@ function obtenerMarcaUltimoCierre() {
 }
 
 function inicioFinDiaLaboral(refDate) {
-    const activo = localStorage.getItem('operarDespuesMedianoche') === 'true';
-    const horaFin = parseInt(localStorage.getItem('horaFinDiaLaboral') || '4', 10);
     const ref = parseFechaSeguro(refDate) || getFechaHoyParaCierre();
-    if (activo) {
+    if (operaPasadaMedianoche()) {
+        const horaFin = horaFinDiaLaboralConfigurada();
         const inicio = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), horaFin, 0, 0, 0);
         const fin = new Date(inicio.getTime() + 24 * 60 * 60 * 1000);
         return { inicio, fin };
@@ -843,8 +889,15 @@ function pintarResumenCierreModal(resumen) {
         } else if (resumen.rango === 'ultimoCierre') {
             indicadorRango.textContent = `Mostrando turno abierto, incluye anoche si no hubo cierre (${ventas.length} ventas)`;
         } else {
-            indicadorRango.textContent = `Mostrando el día laboral (${ventas.length} ventas)`;
+            indicadorRango.textContent = operaPasadaMedianoche()
+                ? `Mostrando el día laboral hasta las ${horaFinDiaLaboralConfigurada()}:00 (${ventas.length} ventas)`
+                : `Mostrando el día laboral (${ventas.length} ventas)`;
         }
+    }
+
+    const notaHorarioCierre = document.getElementById('notaHorarioLaboralCierre');
+    if (notaHorarioCierre) {
+        notaHorarioCierre.textContent = textoHorarioLaboral(getFechaHoyParaCierre(), 'diario');
     }
 
     const aviso = document.getElementById('avisoRangoCierre');
@@ -1129,6 +1182,7 @@ function reiniciarSistemaCompleto() {
         console.log('🪑 Reiniciando estado de mesas...');
         localStorage.setItem('mesasActivas', '[]');
         localStorage.setItem('estadoMesas', '[]');
+        try { window._operacionPersistiendo = true; } catch (e) { /* ignore */ }
         
         // 5. Reiniciar órdenes de cocina
         console.log('👨‍🍳 Reiniciando órdenes de cocina...');
@@ -1770,12 +1824,32 @@ function reiniciarContadoresDomRec() {
   localStorage.setItem('ultimaFechaContadores', ultimaFechaContadores);
   // Limpiar clave antigua errónea (admon usaba "contadorDelivery")
   localStorage.removeItem('contadorDelivery');
+  localStorage.removeItem('sesionesCobradasHoy');
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.limpiarSesionesCobradas === 'function') {
+    ToySoftFirebase.limpiarSesionesCobradas();
+  }
   notificarOperacionNube(true);
   console.log('🔁 Contadores DOM/REC reiniciados → próximo D1 / R1');
 }
 
 // Función para guardar historial de ventas
 function registrarVentaUnificada(factura) {
+  if (!factura) return;
+  const sesionId = factura.sesionId ? String(factura.sesionId) : '';
+  if (sesionId) marcarSesionPedidoCobrada(sesionId);
+
+  if (typeof historialVentas !== 'undefined' && Array.isArray(historialVentas) && sesionId) {
+    const ya = historialVentas.some(function (v) { return v && String(v.sesionId) === sesionId; });
+    if (ya) return;
+  }
+
+  if (typeof historialVentas !== 'undefined' && Array.isArray(historialVentas)) {
+    const id = String(factura.id);
+    const idx = historialVentas.findIndex(function (v) { return v && String(v.id) === id; });
+    if (idx >= 0) historialVentas[idx] = factura;
+    else historialVentas.push(factura);
+  }
+
   if (window.ToySoftFirebase && typeof ToySoftFirebase.guardarVenta === 'function') {
     ToySoftFirebase.guardarVenta(factura).then(function (guardada) {
       if (typeof historialVentas !== 'undefined' && Array.isArray(historialVentas)) {
@@ -1791,16 +1865,18 @@ function registrarVentaUnificada(factura) {
   }
   let historialActual = JSON.parse(localStorage.getItem('historialVentas') || '[]');
   if (!Array.isArray(historialActual)) historialActual = [];
+  if (sesionId && historialActual.some(function (v) { return v && String(v.sesionId) === sesionId; })) {
+    return;
+  }
   historialActual.push(factura);
   localStorage.setItem('historialVentas', JSON.stringify(historialActual));
-  if (typeof historialVentas !== 'undefined' && Array.isArray(historialVentas)) {
-    historialVentas.push(factura);
-  }
 }
 
 function aplicarVentasEnPOS(lista) {
+  if (window._ventasPersistiendo) return;
   historialVentas = Array.isArray(lista) ? lista : [];
   window.ventas = historialVentas;
+  if (typeof refrescarBalanceSiAbierto === 'function') refrescarBalanceSiAbierto();
 }
 
 async function cargarVentasDesdeNube() {
@@ -1824,7 +1900,12 @@ async function cargarFinanzasDesdeNube() {
     const user = await ToySoftFirebase.esperarAuth();
     if (!user) return;
     await ToySoftFirebase.sincronizarFinanzas();
-    await ToySoftFirebase.escucharFinanzas();
+    ToySoftFirebase.escucharFinanzas({
+      gastos: refrescarBalanceSiAbierto,
+      cierres: refrescarBalanceSiAbierto,
+      configCaja: refrescarBalanceSiAbierto
+    });
+    if (typeof refrescarBalanceSiAbierto === 'function') refrescarBalanceSiAbierto();
   } catch (error) {
     console.warn('No se pudieron cargar gastos y cierres de Firebase', error);
   }
@@ -3177,15 +3258,24 @@ function imprimirPedidosNuevosDeMesero(lista) {
 }
 
 function aplicarOperacionEnPOS(datos) {
+  if (window._operacionPersistiendo) return;
   if (!datos) return;
   const hash = hashOperacionLocal(datos);
-  if (hash === window._operacionPOSHash) return;
+  if (hash === window._operacionPOSHash) {
+    if (purgarMesasCobradas()) {
+      persistirOperacionTrasCobro();
+      if (typeof actualizarMesasActivas === 'function') actualizarMesasActivas();
+    }
+    return;
+  }
   window._operacionPOSHash = hash;
 
   try {
-    mesasActivas = new Map(Array.isArray(datos.mesasActivas) ? datos.mesasActivas : []);
-    mesasActivas.forEach((pedido, mesaId) => {
-      mesasActivas.set(mesaId, typeof normalizarPedidoMesa === 'function' ? normalizarPedidoMesa(pedido) : pedido);
+    mesasActivas = new Map();
+    (Array.isArray(datos.mesasActivas) ? datos.mesasActivas : []).forEach(function (par) {
+      if (!Array.isArray(par) || par.length < 2 || par[0] == null) return;
+      const mesaId = String(par[0]);
+      mesasActivas.set(mesaId, typeof normalizarPedidoMesa === 'function' ? normalizarPedidoMesa(par[1]) : par[1]);
     });
   } catch (error) {
     console.warn('No se pudieron aplicar mesas de la nube', error);
@@ -3205,9 +3295,16 @@ function aplicarOperacionEnPOS(datos) {
   contadorRecoger = parseInt(datos.contadorRecoger, 10) || 0;
   if (datos.ultimaFechaContadores) ultimaFechaContadores = datos.ultimaFechaContadores;
 
+  const mesaAntes = mesaSeleccionada;
+  if (purgarMesasCobradas()) persistirOperacionTrasCobro();
+
   if (typeof actualizarMesasActivas === 'function') actualizarMesasActivas();
-  if (mesaSeleccionada && mesasActivas.has(mesaSeleccionada) && typeof actualizarVistaOrden === 'function') {
-    actualizarVistaOrden(mesaSeleccionada);
+  if (mesaSeleccionada && mesaEstaActiva(mesaSeleccionada) && typeof actualizarVistaOrden === 'function') {
+    if (typeof hayEdicionOrdenActiva !== 'function' || !hayEdicionOrdenActiva()) {
+      actualizarVistaOrden(mesaSeleccionada);
+    }
+  } else if (mesaAntes && !mesaEstaActiva(mesaAntes)) {
+    limpiarVistaOrdenSiPedidoLibre(mesaAntes);
   }
   if (typeof actualizarPanelCocina === 'function') actualizarPanelCocina();
   if (typeof actualizarBadgeCocina === 'function') actualizarBadgeCocina();
@@ -3304,11 +3401,17 @@ function normalizarPedidoMesa(pedido) {
 function encontrarItemPedido(pedido, id, ronda) {
   if (!pedido || !Array.isArray(pedido.items)) return undefined;
   const rondaNum = ronda == null || ronda === '' ? null : Number(ronda);
+  const idBuscado = String(id);
   return pedido.items.find(item => {
-    if (item.id !== id) return false;
+    if (String(item.id) !== idBuscado) return false;
     if (rondaNum == null || !Number.isFinite(rondaNum)) return true;
     return rondaDeItem(item) === rondaNum;
   });
+}
+
+function hayEdicionOrdenActiva() {
+  const el = document.activeElement;
+  return !!(el && el.classList && el.classList.contains('input-detalles-orden'));
 }
 
 function acumularOrdenesCocina(mesaId, productosNuevos) {
@@ -3334,12 +3437,92 @@ function limpiarCocinaDeMesa(mesaId) {
 
 function sesionMesaYaCobrada(sesionId) {
   if (!sesionId) return false;
+  const id = String(sesionId);
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.sesionYaCobrada === 'function') {
+    if (ToySoftFirebase.sesionYaCobrada(id)) return true;
+  }
+  try {
+    const arr = JSON.parse(localStorage.getItem('sesionesCobradasHoy') || '[]');
+    if (Array.isArray(arr) && arr.indexOf(id) !== -1) return true;
+  } catch (e) { /* ignore */ }
+  if (typeof historialVentas !== 'undefined' && Array.isArray(historialVentas)) {
+    if (historialVentas.some(function (venta) { return venta && String(venta.sesionId) === id; })) return true;
+  }
   try {
     const historial = JSON.parse(localStorage.getItem('historialVentas') || '[]');
-    return Array.isArray(historial) && historial.some(venta => venta && venta.sesionId === sesionId);
+    return Array.isArray(historial) && historial.some(function (venta) { return venta && String(venta.sesionId) === id; });
   } catch (e) {
     return false;
   }
+}
+
+function marcarSesionPedidoCobrada(sesionId) {
+  const id = String(sesionId || '');
+  if (!id) return;
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.marcarSesionCobrada === 'function') {
+    ToySoftFirebase.marcarSesionCobrada(id);
+    return;
+  }
+  try {
+    const arr = JSON.parse(localStorage.getItem('sesionesCobradasHoy') || '[]');
+    const lista = Array.isArray(arr) ? arr : [];
+    if (lista.indexOf(id) === -1) {
+      lista.push(id);
+      localStorage.setItem('sesionesCobradasHoy', JSON.stringify(lista));
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function purgarMesasCobradas() {
+  const aBorrar = [];
+  mesasActivas.forEach(function (pedido, mesaId) {
+    const sesion = pedido && pedido.sesionId;
+    if (sesion && sesionMesaYaCobrada(sesion)) aBorrar.push({ mesaId: mesaId, sesion: sesion });
+  });
+  aBorrar.forEach(function (item) {
+    marcarOrdenesCocinaCobradas(String(item.mesaId), item.sesion);
+    limpiarCocinaDeMesa(item.mesaId);
+    mesasActivas.delete(item.mesaId);
+  });
+  return aBorrar.length > 0;
+}
+
+function persistirOperacionTrasCobro() {
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
+    ToySoftFirebase.persistirOperacionInmediato();
+  }
+}
+
+function limpiarVistaOrdenSiPedidoLibre(mesaId) {
+  if (mesaSeleccionada && mesaId && String(mesaSeleccionada) !== String(mesaId) && mesaEstaActiva(mesaSeleccionada)) {
+    return;
+  }
+  const cuerpo = document.getElementById('ordenCuerpo');
+  if (cuerpo) cuerpo.innerHTML = '';
+  const propina = document.getElementById('propina');
+  if (propina) propina.value = '';
+  const descuento = document.getElementById('descuento');
+  if (descuento) descuento.value = '';
+  const valorDom = document.getElementById('valorDomicilio');
+  if (valorDom) valorDom.value = '';
+  const total = document.getElementById('totalOrden');
+  if (total) total.textContent = '$ 0';
+  const desglose = document.getElementById('desgloseTotal');
+  if (desglose) desglose.innerHTML = '';
+  const mesaActual = document.getElementById('mesaActual');
+  if (mesaActual) mesaActual.textContent = '-';
+  if (mesaId && String(mesaSeleccionada) === String(mesaId)) mesaSeleccionada = null;
+  if (typeof actualizarBotonCambioPedido === 'function') actualizarBotonCambioPedido();
+}
+
+function pedidoDeMesa(id) {
+  if (id == null || id === '') return undefined;
+  return mesasActivas.get(id) || mesasActivas.get(String(id));
+}
+
+function mesaEstaActiva(id) {
+  if (id == null || id === '') return false;
+  return mesasActivas.has(id) || mesasActivas.has(String(id));
 }
 
 function marcarOrdenesCocinaCobradas(mesaId, sesionId) {
@@ -3362,6 +3545,7 @@ function liberarMesaTrasCobro(mesaId, sesionId) {
   const id = String(mesaId);
   const pedido = mesasActivas.get(mesaId) || mesasActivas.get(id);
   const sesion = sesionId || (pedido && pedido.sesionId) || null;
+  if (sesion) marcarSesionPedidoCobrada(sesion);
   marcarOrdenesCocinaCobradas(id, sesion);
   limpiarCocinaDeMesa(mesaId);
   limpiarCocinaDeMesa(id);
@@ -3371,6 +3555,7 @@ function liberarMesaTrasCobro(mesaId, sesionId) {
     }
   });
   guardarMesas();
+  persistirOperacionTrasCobro();
 }
 
 function restaurarItemsMesaDesdeCocina(mesasObjetivo) {
@@ -3727,10 +3912,10 @@ function actualizarMesasActivas() {
 // Función para seleccionar una mesa
 function seleccionarMesa(mesa) {
   console.log('Seleccionando mesa:', mesa);
-  mesaSeleccionada = mesa;
-  document.getElementById('mesaActual').textContent = mesa;
+  mesaSeleccionada = mesa == null ? null : String(mesa);
+  document.getElementById('mesaActual').textContent = mesaSeleccionada;
   actualizarMesasActivas();
-  actualizarVistaOrden(mesa);
+  actualizarVistaOrden(mesaSeleccionada);
   actualizarBotonCambioPedido();
 }
 
@@ -4310,7 +4495,7 @@ function confirmarAgregarProducto() {
     // Continuar con la venta si hay error en la verificación
   }
 
-  let pedido = normalizarPedidoMesa(mesasActivas.get(mesaSeleccionada));
+  let pedido = normalizarPedidoMesa(pedidoDeMesa(mesaSeleccionada));
   mesasActivas.set(mesaSeleccionada, pedido);
 
   if (!pedido.items) {
@@ -4574,6 +4759,8 @@ function aplicarCamposDomicilioEnVista(mesa, pedido) {
 function actualizarVistaOrden(mesa) {
   console.log('Actualizando vista de orden para mesa:', mesa);
   const ordenCuerpo = document.getElementById('ordenCuerpo');
+  if (!ordenCuerpo) return;
+  if (hayEdicionOrdenActiva() && String(mesa) === String(mesaSeleccionada)) return;
   ordenCuerpo.innerHTML = '';
 
   if (!mesasActivas.has(mesa)) {
@@ -4649,18 +4836,27 @@ function actualizarVistaOrden(mesa) {
         </td>
         <td style="width: 12%">${formatearPrecio(item.precio)}</td>
         <td style="width: 12%">${formatearPrecio(item.precio * item.cantidad)}</td>
-        <td style="width: 31%">
-          <input type='text' class='form-control form-control-sm bg-dark text-white border-light' 
-                 value='${item.detalles || ''}' 
-                 placeholder='Ej: Sin lechuga, sin salsa...'
-                 onchange='actualizarDetalles(this, ${item.id}, "${mesa}", ${rondaItem})' />
-        </td>
+        <td class="celda-detalles-orden" style="width: 31%"></td>
         <td style="width: 3%">
           <button class='btn btn-danger btn-sm' onclick='eliminarProductoOrden(this, "${mesa}", ${item.id}, ${rondaItem})'>
             <i class="fas fa-trash"></i>
           </button>
         </td>
       `;
+      const inputDetalles = document.createElement('input');
+      inputDetalles.type = 'text';
+      inputDetalles.className = 'form-control form-control-sm bg-dark text-white border-light input-detalles-orden';
+      inputDetalles.value = item.detalles || '';
+      inputDetalles.placeholder = 'Ej: Sin lechuga, sin salsa...';
+      inputDetalles.title = 'Haz clic para modificar los detalles';
+      inputDetalles.autocomplete = 'off';
+      inputDetalles.addEventListener('input', function () {
+        actualizarDetalles(this, item.id, mesa, rondaItem);
+      });
+      inputDetalles.addEventListener('change', function () {
+        actualizarDetalles(this, item.id, mesa, rondaItem);
+      });
+      fila.querySelector('.celda-detalles-orden').appendChild(inputDetalles);
       ordenCuerpo.appendChild(fila);
     });
   });
@@ -4705,7 +4901,7 @@ function actualizarCantidad(input, id, mesa, ronda) {
 
 // Función para actualizar detalles del producto
 function actualizarDetalles(input, id, mesa, ronda) {
-  const detalles = input.value.trim();
+  const detalles = String((input && input.value) || '').trim();
   const pedido = mesasActivas.get(mesa);
   
   if (!pedido || !pedido.items) return;
@@ -4784,12 +4980,12 @@ function actualizarTotal(mesa) {
 
 // Función para enviar a cocina
 function enviarACocina() {
-  if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
+  if (!mesaSeleccionada || !mesaEstaActiva(mesaSeleccionada)) {
     alert('Por favor, seleccione una mesa con productos');
     return;
   }
 
-  const pedido = normalizarPedidoMesa(mesasActivas.get(mesaSeleccionada));
+  const pedido = normalizarPedidoMesa(pedidoDeMesa(mesaSeleccionada));
   mesasActivas.set(mesaSeleccionada, pedido);
   if (!pedido.items || pedido.items.length === 0) {
     alert('No hay productos para enviar a cocina');
@@ -5008,12 +5204,12 @@ function mostrarToastCambioPedido(titulo, mensaje, extra) {
 
 // Función para mostrar el modal de cambio de mesa
 function mostrarModalCambioMesa() {
-  if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
+  if (!mesaSeleccionada || !mesaEstaActiva(mesaSeleccionada)) {
     alert('Por favor, seleccione una mesa con productos');
     return;
   }
 
-  const pedido = mesasActivas.get(mesaSeleccionada);
+  const pedido = pedidoDeMesa(mesaSeleccionada);
   if (!pedido || !pedido.items || pedido.items.length === 0) {
     alert('No hay productos para cambiar de mesa');
     return;
@@ -5043,12 +5239,12 @@ function mostrarModalCambioMesa() {
 }
 
 function mostrarModalCambioTipoPedido(tipoDestino) {
-  if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
+  if (!mesaSeleccionada || !mesaEstaActiva(mesaSeleccionada)) {
     alert('Por favor, seleccione un domicilio o un pedido para recoger');
     return;
   }
 
-  const pedido = mesasActivas.get(mesaSeleccionada);
+  const pedido = pedidoDeMesa(mesaSeleccionada);
   if (!pedido || !pedido.items || pedido.items.length === 0) {
     alert('No hay productos en este pedido');
     return;
@@ -5103,7 +5299,7 @@ function mostrarModalCambioTipoPedido(tipoDestino) {
 }
 
 function procesarCambioTipoPedido() {
-  if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
+  if (!mesaSeleccionada || !mesaEstaActiva(mesaSeleccionada)) {
     alert('Error: no hay un pedido seleccionado');
     return;
   }
@@ -6469,7 +6665,25 @@ function calcularCambioVentaRapida() {
 }
 
 // Función para confirmar venta rápida desde modal
+let ventaRapidaEnCurso = false;
+function botonConfirmarVentaRapida() {
+  return document.getElementById('btnConfirmarVentaRapida');
+}
+
+function desbloquearVentaRapida() {
+  ventaRapidaEnCurso = false;
+  const btn = botonConfirmarVentaRapida();
+  if (btn) {
+    btn.disabled = false;
+    if (btn.dataset.textoOriginal) {
+      btn.innerHTML = btn.dataset.textoOriginal;
+      delete btn.dataset.textoOriginal;
+    }
+  }
+}
+
 function confirmarVentaRapida() {
+  if (ventaRapidaEnCurso) return;
   if (!window.datosVentaRapida) {
     alert('Error: No hay datos de venta rápida');
     return;
@@ -6533,17 +6747,34 @@ function confirmarVentaRapida() {
   } catch (error) {
     console.error('Error al validar stock antes de procesar venta rápida:', error);
   }
+
+  ventaRapidaEnCurso = true;
+  const btnVR = botonConfirmarVentaRapida();
+  if (btnVR) {
+    btnVR.disabled = true;
+    btnVR.dataset.textoOriginal = btnVR.innerHTML;
+    btnVR.innerHTML = 'Procesando...';
+  }
   
   // Marcar items: cocina opcional o listos
   const enviarACocina = !!document.getElementById('enviarCocinaVentaRapida')?.checked;
   window.datosVentaRapida.enviarACocina = enviarACocina;
+  if (!window.datosVentaRapida.sesionId) {
+    window.datosVentaRapida.sesionId = crearIdSesionMesa();
+  }
   window.datosVentaRapida.pedido.items.forEach(item => {
     item.estado = enviarACocina ? 'en_cocina' : 'listo';
   });
   
   // Procesar venta rápida con método de pago seleccionado
   window._ventaRapidaVentaCompletada = true;
-  procesarVentaRapida(window.datosVentaRapida.pedido, total, metodoPago, montoRecibido);
+  try {
+    procesarVentaRapida(window.datosVentaRapida.pedido, total, metodoPago, montoRecibido);
+  } catch (error) {
+    console.error('Error al procesar venta rápida:', error);
+    desbloquearVentaRapida();
+    return;
+  }
   
   // Cerrar modal
   const modal = bootstrap.Modal.getInstance(document.getElementById('modalVentaRapida'));
@@ -6552,6 +6783,7 @@ function confirmarVentaRapida() {
   // Limpiar datos
   window.datosVentaRapida = null;
   window.pedidoVentaRapida = null;
+  desbloquearVentaRapida();
 }
 
 // Función para procesar venta rápida (actualizada)
@@ -6570,6 +6802,12 @@ function procesarVentaRapida(pedido, total, metodoPago = 'efectivo', montoRecibi
   const subtotal = (pedido.items || []).reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
   
   // Crear objeto de venta
+  const sesionVentaRapida = (window.datosVentaRapida && window.datosVentaRapida.sesionId)
+    ? window.datosVentaRapida.sesionId
+    : crearIdSesionMesa();
+  if (window.datosVentaRapida) window.datosVentaRapida.sesionId = sesionVentaRapida;
+  if (sesionMesaYaCobrada(sesionVentaRapida)) return;
+
   const venta = {
     id: Date.now(),
     mesa: etiquetaMesaVentaRapida(datosCanal.canal, datosCanal.numeroMesa),
@@ -6596,7 +6834,8 @@ function procesarVentaRapida(pedido, total, metodoPago = 'efectivo', montoRecibi
     origen: 'caja_rapida',
     canal: datosCanal.canal,
     estado: 'completada',
-    enviadoACocina: !!(window.datosVentaRapida && window.datosVentaRapida.enviarACocina)
+    enviadoACocina: !!(window.datosVentaRapida && window.datosVentaRapida.enviarACocina),
+    sesionId: sesionVentaRapida
   };
 
   registrarVentaUnificada(venta);
@@ -6644,16 +6883,7 @@ function procesarVentaRapida(pedido, total, metodoPago = 'efectivo', montoRecibi
     console.error('Error al actualizar inventario desde venta rápida:', error);
   }
 
-  // Solo limpiar mesa si no es venta directa
-  if (pedido.tipo !== 'venta_rapida' && mesaSeleccionada) {
-    limpiarCocinaDeMesa(mesaSeleccionada);
-    mesasActivas.delete(mesaSeleccionada);
-    guardarMesas();
-    actualizarVistaOrden(mesaSeleccionada);
-    actualizarVistaMesas();
-  }
-
-  // Limpiar pedido de venta rápida
+  // La venta rápida no debe tocar mesas activas
   window.pedidoVentaRapida = null;
 
   // Sin cocina: abrir recibo del cliente de inmediato
@@ -6747,7 +6977,8 @@ function enviarVentaRapidaACocina(venta, alCerrarTicket) {
       tipo: 'venta_rapida',
       esVentaRapida: true,
       ronda: 1,
-      ventaId: venta.id
+      ventaId: venta.id,
+      sesionId: venta.sesionId || null
     };
 
     if (!Array.isArray(historialCocina)) {
@@ -6945,7 +7176,7 @@ function obtenerVentanaImpresion() {
 
 // Función para mostrar vista previa del ticket de cocina
 function mostrarVistaPreviaPedido() {
-  if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
+  if (!mesaSeleccionada || !mesaEstaActiva(mesaSeleccionada)) {
     alert('Por favor, seleccione una mesa con productos');
     return;
   }
@@ -7573,12 +7804,12 @@ function mostrarModalPago() {
 
   // Mostrar el modal de pago inmediatamente después de generar el recibo
   // setTimeout(() => {
-    if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
+    if (!mesaSeleccionada || !mesaEstaActiva(mesaSeleccionada)) {
       alert('Por favor, seleccione una mesa con productos');
       return;
     }
 
-    const pedido = mesasActivas.get(mesaSeleccionada);
+    const pedido = pedidoDeMesa(mesaSeleccionada);
     if (!pedido || !pedido.items || pedido.items.length === 0) {
       alert('No hay productos para generar recibo');
       return;
@@ -7769,7 +8000,7 @@ function seleccionarClientePagoPorId(clienteId) {
 
 // Función para seleccionar un cliente en el pago
 function seleccionarClientePago(cliente) {
-  const pedido = mesasActivas.get(mesaSeleccionada);
+  const pedido = pedidoDeMesa(mesaSeleccionada);
   if (pedido) {
     pedido.cliente = nombreCompletoCliente(cliente);
     pedido.telefono = cliente.telefono;
@@ -8075,15 +8306,15 @@ function crearPedidoRecoger() {
 
 // Función para crear nueva mesa
 function crearNuevaMesa() {
-  const numeroMesa = document.getElementById('nuevaMesa').value.trim();
+  const numeroMesa = String(document.getElementById('nuevaMesa').value || '').trim();
   
   if (!numeroMesa) {
     alert('Por favor, ingrese un número de mesa');
     return;
   }
 
-  if (mesasActivas.has(numeroMesa)) {
-    const pedidoExistente = mesasActivas.get(numeroMesa);
+  if (mesaEstaActiva(numeroMesa)) {
+    const pedidoExistente = pedidoDeMesa(numeroMesa);
     if (sesionMesaYaCobrada(pedidoExistente && pedidoExistente.sesionId)) {
       liberarMesaTrasCobro(numeroMesa, pedidoExistente && pedidoExistente.sesionId);
     } else {
@@ -8152,13 +8383,52 @@ function eliminarPedido() {
 }
 
 // Función para procesar el pago
+let pagoEnCurso = false;
+function botonConfirmarPago() {
+  return document.querySelector('#modalPago .btn-primary[onclick*="procesarPago"], #btnConfirmarPago');
+}
+
+function desbloquearPago() {
+  pagoEnCurso = false;
+  const btnPago = botonConfirmarPago();
+  if (btnPago) {
+    btnPago.disabled = false;
+    if (btnPago.dataset.textoOriginal) {
+      btnPago.innerHTML = btnPago.dataset.textoOriginal;
+      delete btnPago.dataset.textoOriginal;
+    }
+  }
+}
+
 function procesarPago() {
+  if (pagoEnCurso) return;
+  const btnPago = botonConfirmarPago();
   const metodoPago = document.getElementById('metodoPago').value;
-  const pedido = mesasActivas.get(mesaSeleccionada);
+  const pedido = pedidoDeMesa(mesaSeleccionada);
   
   if (!pedido || !pedido.items || pedido.items.length === 0) {
     alert('No hay productos en la orden');
     return;
+  }
+
+  const sesionActual = pedido.sesionId || null;
+  if (sesionActual && sesionMesaYaCobrada(sesionActual)) {
+    const mesaCobrada = mesaSeleccionada;
+    liberarMesaTrasCobro(mesaCobrada, sesionActual);
+    try {
+      const modalPago = bootstrap.Modal.getInstance(document.getElementById('modalPago'));
+      if (modalPago) modalPago.hide();
+    } catch (e) { /* ignore */ }
+    actualizarMesasActivas();
+    limpiarVistaOrdenSiPedidoLibre(mesaCobrada);
+    return;
+  }
+
+  pagoEnCurso = true;
+  if (btnPago) {
+    btnPago.disabled = true;
+    btnPago.dataset.textoOriginal = btnPago.innerHTML;
+    btnPago.innerHTML = 'Procesando...';
   }
 
   // ========================================
@@ -8187,6 +8457,7 @@ function procesarPago() {
         ).join('\n');
         
         alert(`⚠️ No se puede procesar la venta. Los siguientes productos no tienen stock suficiente:\n\n${mensaje}\n\nPor favor, ajusta las cantidades o elimina estos productos de la orden.`);
+        desbloquearPago();
         return; // Bloquear el procesamiento de la venta
       }
     }
@@ -8198,6 +8469,7 @@ function procesarPago() {
   // Validar que haya cliente seleccionado para crédito
   if (metodoPago === 'credito' && !pedido.cliente) {
     alert('Debe seleccionar un cliente para realizar un pago a crédito');
+    desbloquearPago();
     return;
   }
 
@@ -8217,6 +8489,7 @@ function procesarPago() {
 
     if (totalMixto !== total) {
       alert('La suma de los montos en efectivo y transferencia debe ser igual al total');
+      desbloquearPago();
       return;
     }
   }
@@ -8427,6 +8700,7 @@ function procesarPago() {
     const ventana = obtenerVentanaImpresion();
     if (!ventana) {
       alert('La venta se registró y la mesa quedó libre. No se pudo abrir el recibo (revise el bloqueador de ventanas).');
+      desbloquearPago();
       return;
     }
     try { ventana.document.open(); } catch (e) { /* ignore */ }
@@ -8535,6 +8809,7 @@ function procesarPago() {
     console.error('Error al imprimir recibo de mesa:', error);
     alert('La venta se registró y la mesa quedó libre. Hubo un problema al imprimir el recibo.');
   }
+  desbloquearPago();
 }
 
 // Función para reimprimir ticket de cocina desde el historial
@@ -8685,6 +8960,7 @@ function reimprimirFactura(ventaId) {
 // Función simplificada para mostrar el modal de cierre diario
 function mostrarModalCierreDiario() {
     try {
+        aplicarEtiquetasHorarioOperacion();
         console.log('=== INICIANDO CIERRE ADMINISTRATIVO ===');
         const resumen = construirResumenCierre();
         pintarResumenCierreModal(resumen);
@@ -8713,7 +8989,10 @@ function mostrarModalCierreDiario() {
 }
 
 // ===== NUEVO CIERRE ADMINISTRATIVO MEJORADO =====
-function guardarCierreDiario() {
+let cierreAdministrativoEnCurso = false;
+async function guardarCierreDiario() {
+    if (cierreAdministrativoEnCurso) return;
+    const botonesCierre = document.querySelectorAll('#modalCierreDiario button.btn-primary');
     try {
         console.log('=== GUARDANDO CIERRE ADMINISTRATIVO ===');
         // 1. VALIDAR CAMPOS
@@ -8731,6 +9010,9 @@ function guardarCierreDiario() {
             alert('❌ Por favor, ingrese el nombre de quien recibe la caja');
             return;
         }
+
+        cierreAdministrativoEnCurso = true;
+        botonesCierre.forEach(function (btn) { btn.disabled = true; });
 
         // 2-5. Mismo criterio del modal: día laboral o desde el último cierre (puede incluir anoche)
         const hoy = getFechaHoyParaCierre();
@@ -8825,7 +9107,9 @@ function guardarCierreDiario() {
         historialCierres.push(cierre);
         localStorage.setItem('historialCierres', JSON.stringify(historialCierres));
         localStorage.setItem('ultimaBaseCaja', String(montoBaseCaja));
-        if (typeof guardarCierreEnNube === 'function') guardarCierreEnNube(cierre);
+        if (typeof guardarCierreEnNube === 'function') {
+            await Promise.resolve(guardarCierreEnNube(cierre));
+        }
 
         // 8. IMPRIMIR
         try {
@@ -8836,6 +9120,9 @@ function guardarCierreDiario() {
 
         // 9. REINICIAR SISTEMA
         const reinicioExitoso = reiniciarSistemaCompleto();
+        if (typeof persistirConfigCajaNube === 'function') {
+            await Promise.resolve(persistirConfigCajaNube());
+        }
         
         if (reinicioExitoso) {
             console.log('✅ Sistema reiniciado correctamente');
@@ -8908,6 +9195,9 @@ function guardarCierreDiario() {
     } catch (error) {
         console.error('ERROR EN CIERRE:', error);
         alert('❌ Error al guardar el cierre: ' + error.message);
+    } finally {
+        cierreAdministrativoEnCurso = false;
+        botonesCierre.forEach(function (btn) { btn.disabled = false; });
     }
 }
 
@@ -10739,12 +11029,12 @@ function guardarGasto() {
 
 // Función para mostrar vista previa del recibo
 function mostrarVistaPreviaRecibo() {
-  if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
+  if (!mesaSeleccionada || !mesaEstaActiva(mesaSeleccionada)) {
     alert('Por favor, seleccione una mesa con productos');
     return;
   }
 
-  const pedido = mesasActivas.get(mesaSeleccionada);
+  const pedido = pedidoDeMesa(mesaSeleccionada);
   if (!pedido || !pedido.items || pedido.items.length === 0) {
     alert('No hay productos para generar recibo');
     return;
@@ -10959,12 +11249,12 @@ function mostrarVistaPreviaRecibo() {
 
 // Función para generar recibo preliminar
 function generarReciboPreliminar() {
-  if (!mesaSeleccionada || !mesasActivas.has(mesaSeleccionada)) {
+  if (!mesaSeleccionada || !mesaEstaActiva(mesaSeleccionada)) {
     alert('Por favor, seleccione una mesa con productos');
     return;
   }
 
-  const pedido = mesasActivas.get(mesaSeleccionada);
+  const pedido = pedidoDeMesa(mesaSeleccionada);
   if (!pedido || !pedido.items || pedido.items.length === 0) {
     alert('No hay productos para generar recibo');
     return;
@@ -12834,16 +13124,43 @@ guardarCotizacion = function() {
   }
 }
 
+function fechaDesdeInputDate(valor) {
+  if (!valor) return null;
+  const partes = String(valor).split('-').map(Number);
+  if (partes.length < 3 || !partes[0] || !partes[1] || !partes[2]) return null;
+  const d = new Date(partes[0], partes[1] - 1, partes[2], 12, 0, 0, 0);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function fechaEnPeriodoBalance(fechaValor, tipoBalance, fechaSeleccionada, inicioPeriodoStr, finPeriodoStr) {
+  const fecha = parseFechaSeguro(fechaValor);
+  if (!fecha) return false;
+  if (tipoBalance === 'diario') {
+    const { inicio, fin } = inicioFinDiaLaboral(fechaSeleccionada);
+    const t = fecha.getTime();
+    return t >= inicio.getTime() && t < fin.getTime();
+  }
+  const laboral = fechaLaboralDe(fecha) || fecha;
+  const iso = fechaLocalISO(laboral);
+  if (!iso) return false;
+  return iso >= inicioPeriodoStr && iso <= finPeriodoStr;
+}
+
+function refrescarBalanceSiAbierto() {
+  const modal = document.getElementById('modalBalance');
+  if (!modal || !modal.classList.contains('show')) return;
+  if (!document.getElementById('tipoBalance') || !document.getElementById('fechaBalance')) return;
+  try { generarBalance(); } catch (e) { /* ignore */ }
+}
+
 // Función para mostrar el modal de balance
 function mostrarModalBalance() {
   try {
+    aplicarEtiquetasHorarioOperacion();
     const fechaBalanceEl = document.getElementById('fechaBalance');
     if (fechaBalanceEl) {
-      const hoy = new Date();
-      const y = hoy.getFullYear();
-      const m = String(hoy.getMonth() + 1).padStart(2, '0');
-      const d = String(hoy.getDate()).padStart(2, '0');
-      fechaBalanceEl.value = `${y}-${m}-${d}`;
+      const hoy = typeof getFechaHoyParaCierre === 'function' ? getFechaHoyParaCierre() : new Date();
+      fechaBalanceEl.value = fechaLocalISO(hoy);
     }
     // abrirModalEstatico ya hace .show(); no llamar modal.show() aparte
     abrirModalEstatico('modalBalance');
@@ -12857,8 +13174,12 @@ function mostrarModalBalance() {
 // Función para generar el balance
 function generarBalance() {
   try {
-    const tipoBalance = document.getElementById('tipoBalance').value;
-    const fechaInput = document.getElementById('fechaBalance').value;
+    aplicarEtiquetasHorarioOperacion();
+    const tipoEl = document.getElementById('tipoBalance');
+    const fechaEl = document.getElementById('fechaBalance');
+    if (!tipoEl || !fechaEl) return;
+    const tipoBalance = tipoEl.value;
+    const fechaInput = fechaEl.value;
     
     // Validar que haya una fecha seleccionada
     if (!fechaInput) {
@@ -12866,12 +13187,8 @@ function generarBalance() {
       return;
     }
     
-    // Parsear la fecha correctamente (el input date devuelve YYYY-MM-DD)
-    // Crear la fecha en hora local para evitar problemas de zona horaria
-    const [anio, mes, dia] = fechaInput.split('-').map(Number);
-    const fechaSeleccionada = new Date(anio, mes - 1, dia, 12, 0, 0, 0);
-    
-    if (isNaN(fechaSeleccionada.getTime())) {
+    const fechaSeleccionada = fechaDesdeInputDate(fechaInput);
+    if (!fechaSeleccionada) {
       console.error('Fecha inválida:', fechaInput);
       return;
     }
@@ -12879,127 +13196,55 @@ function generarBalance() {
     const ventas = (typeof obtenerTodasLasVentas === 'function')
       ? obtenerTodasLasVentas()
       : (JSON.parse(localStorage.getItem('historialVentas')) || []);
-    // Leer gastos de ambas fuentes y combinarlos (evitar duplicados)
-    const historialGastos = JSON.parse(localStorage.getItem('historialGastos')) || [];
-    const gastosDirectos = JSON.parse(localStorage.getItem('gastos')) || [];
-    
-    // Combinar ambos arrays, evitando duplicados por ID
-    const todosLosGastos = [...historialGastos];
-    gastosDirectos.forEach(g => {
-      if (!todosLosGastos.find(existing => existing.id === g.id)) {
-        todosLosGastos.push(g);
-      }
-    });
-    
-    const gastos = typeof obtenerGastosCombinados === 'function' ? obtenerGastosCombinados() : todosLosGastos;
-    console.log('[BALANCE] Gastos de historialGastos:', historialGastos.length);
-    console.log('[BALANCE] Gastos de gastos:', gastosDirectos.length);
+    const gastos = typeof obtenerGastosCombinados === 'function'
+      ? obtenerGastosCombinados()
+      : (JSON.parse(localStorage.getItem('historialGastos')) || []);
     console.log('[BALANCE] Total gastos combinados:', gastos.length);
-    console.log('[BALANCE] Primeros 3 gastos:', gastos.slice(0, 3).map(g => ({ id: g.id, fecha: g.fecha, descripcion: g.descripcion, monto: g.monto })));
     let ventasFiltradas = [];
     let gastosFiltrados = [];
     let inicioPeriodoStr = '', finPeriodoStr = '';
     switch (tipoBalance) {
-      case 'diario': {
-        // Balance diario: filtrar por el día específico seleccionado
-        // Usar esMismaFechaLocal para comparar solo año, mes y día (evita problemas de zona horaria)
-        // fechaSeleccionada ya está creada con hora 12:00 para evitar problemas de zona horaria
-        ventasFiltradas = ventas.filter(v => {
-          try {
-            return esMismaFechaLocal(v.fecha, fechaSeleccionada);
-          } catch (e) {
-            return false;
-          }
-        });
-        inicioPeriodoStr = soloFechaISO(fechaSeleccionada);
-        finPeriodoStr = soloFechaISO(fechaSeleccionada);
-        gastosFiltrados = gastos.filter(g => {
-          try {
-            return esMismaFechaLocal(g.fecha, fechaSeleccionada);
-          } catch (e) {
-            return false;
-          }
-        });
-        break;
-      }
       case 'semanal': {
-        const inicioSemana = new Date(fechaSeleccionada);
-        inicioSemana.setDate(fechaSeleccionada.getDate() - fechaSeleccionada.getDay());
-        const finSemana = new Date(inicioSemana);
-        finSemana.setDate(inicioSemana.getDate() + 6);
-        ventasFiltradas = ventas.filter(v => {
-          const fechaVenta = new Date(v.fecha);
-          return fechaVenta >= inicioSemana && fechaVenta <= finSemana;
-        });
-        inicioPeriodoStr = soloFechaISO(inicioSemana);
-        finPeriodoStr = soloFechaISO(finSemana);
-        gastosFiltrados = gastos.filter(g => {
-          const fechaGastoStr = soloFechaISO(g.fecha);
-          return fechaGastoStr >= inicioPeriodoStr && fechaGastoStr <= finPeriodoStr;
-        });
+        const inicioSemana = new Date(fechaSeleccionada.getFullYear(), fechaSeleccionada.getMonth(), fechaSeleccionada.getDate() - fechaSeleccionada.getDay());
+        const finSemana = new Date(inicioSemana.getFullYear(), inicioSemana.getMonth(), inicioSemana.getDate() + 6);
+        inicioPeriodoStr = fechaLocalISO(inicioSemana);
+        finPeriodoStr = fechaLocalISO(finSemana);
         break;
       }
       case 'mensual': {
-        const inicioMes = new Date(fechaSeleccionada.getFullYear(), fechaSeleccionada.getMonth(), 1);
-        const finMes = new Date(fechaSeleccionada.getFullYear(), fechaSeleccionada.getMonth() + 1, 0);
-        ventasFiltradas = ventas.filter(v => {
-          const fechaVenta = new Date(v.fecha);
-          return fechaVenta >= inicioMes && fechaVenta <= finMes;
-        });
-        inicioPeriodoStr = soloFechaISO(inicioMes);
-        finPeriodoStr = soloFechaISO(finMes);
-        gastosFiltrados = gastos.filter(g => {
-          const fechaGastoStr = soloFechaISO(g.fecha);
-          return fechaGastoStr >= inicioPeriodoStr && fechaGastoStr <= finPeriodoStr;
-        });
+        inicioPeriodoStr = fechaLocalISO(new Date(fechaSeleccionada.getFullYear(), fechaSeleccionada.getMonth(), 1));
+        finPeriodoStr = fechaLocalISO(new Date(fechaSeleccionada.getFullYear(), fechaSeleccionada.getMonth() + 1, 0));
         break;
       }
       case 'anual': {
-        const inicioAnio = new Date(fechaSeleccionada.getFullYear(), 0, 1);
-        const finAnio = new Date(fechaSeleccionada.getFullYear(), 11, 31);
-        ventasFiltradas = ventas.filter(v => {
-          const fechaVenta = new Date(v.fecha);
-          return fechaVenta >= inicioAnio && fechaVenta <= finAnio;
-        });
-        inicioPeriodoStr = soloFechaISO(inicioAnio);
-        finPeriodoStr = soloFechaISO(finAnio);
-        gastosFiltrados = gastos.filter(g => {
-          const fechaGastoStr = soloFechaISO(g.fecha);
-          return fechaGastoStr >= inicioPeriodoStr && fechaGastoStr <= finPeriodoStr;
-        });
+        inicioPeriodoStr = fechaLocalISO(new Date(fechaSeleccionada.getFullYear(), 0, 1));
+        finPeriodoStr = fechaLocalISO(new Date(fechaSeleccionada.getFullYear(), 11, 31));
         break;
       }
-    }
-    const predGastoPeriodo = (fechaValor) => {
-      if (!fechaValor) return false;
-      if (tipoBalance === 'diario') {
-        try {
-          return esMismaFechaLocal(fechaValor, fechaSeleccionada);
-        } catch (e) {
-          return false;
-        }
+      default: {
+        inicioPeriodoStr = fechaLocalISO(fechaSeleccionada);
+        finPeriodoStr = inicioPeriodoStr;
       }
-      const fechaStr = soloFechaISO(fechaValor);
-      return fechaStr >= inicioPeriodoStr && fechaStr <= finPeriodoStr;
-    };
-    gastosFiltrados = gastos.filter(g => predGastoPeriodo(g.fecha) || (g.fechaPago && predGastoPeriodo(g.fechaPago)));
+    }
+    const predGastoPeriodo = (fechaValor) => fechaEnPeriodoBalance(fechaValor, tipoBalance, fechaSeleccionada, inicioPeriodoStr, finPeriodoStr);
+    ventasFiltradas = ventas.filter(v => predGastoPeriodo(v && v.fecha));
+    const impactoBalance = typeof construirImpactoGastos === 'function'
+      ? construirImpactoGastos(gastos, predGastoPeriodo)
+      : null;
+    gastosFiltrados = impactoBalance
+      ? (impactoBalance.enBalance || [])
+      : gastos.filter(g => predGastoPeriodo(g.fecha) || (g.fechaPago && predGastoPeriodo(g.fechaPago)));
     // LOG de depuración
     console.log('--- DEPURACIÓN BALANCE ---');
     console.log('Tipo de balance:', tipoBalance);
     console.log('Rango de fechas:', inicioPeriodoStr, 'a', finPeriodoStr);
     console.log('Total ventas en historial:', ventas.length);
     console.log('Ventas filtradas:', ventasFiltradas.length);
-    if (tipoBalance === 'diario') {
-      console.log('Fecha seleccionada:', fechaSeleccionada);
-      console.log('Primeras 3 ventas del historial:', ventas.slice(0, 3).map(v => ({ fecha: v.fecha, total: v.total })));
-      console.log('Ventas filtradas (primeras 3):', ventasFiltradas.slice(0, 3).map(v => ({ fecha: v.fecha, total: v.total })));
-    }
     console.log('Gastos originales:', gastos.length);
     console.log('Gastos filtrados:', gastosFiltrados.length);
-    if (tipoBalance === 'diario') {
-      console.log('Fecha seleccionada para gastos:', fechaSeleccionada);
-      console.log('Primeros 3 gastos del historial:', gastos.slice(0, 3).map(g => ({ fecha: g.fecha, descripcion: g.descripcion, monto: g.monto })));
-      console.log('Gastos filtrados (primeros 3):', gastosFiltrados.slice(0, 3).map(g => ({ fecha: g.fecha, descripcion: g.descripcion, monto: g.monto })));
+    const notaHorario = document.getElementById('notaHorarioLaboralBalance');
+    if (notaHorario) {
+      notaHorario.textContent = textoHorarioLaboral(fechaSeleccionada, tipoBalance);
     }
     // ... resto del código ...
 
@@ -13209,7 +13454,9 @@ Object.entries(totalesPorCategoria).forEach(([categoria, monto]) => {
 });
 
 // Actualizar total de gastos (solo los que afectan el balance del periodo)
-const totalGastos = gastosFiltrados.reduce((sum, g) => {
+const totalGastos = impactoBalance
+  ? (impactoBalance.totalGastosBalance || 0)
+  : gastosFiltrados.reduce((sum, g) => {
   if (typeof gastoAfectaBalanceEnFecha === 'function') {
     return sum + (gastoAfectaBalanceEnFecha(g, predGastoPeriodo) ? (parseFloat(g.monto) || 0) : 0);
   }
@@ -13475,7 +13722,7 @@ function mostrarUtilidadEnBalance(utilidadPorProducto, totalUtilidad) {
 function imprimirBalance() {
   try {
     const tipoBalance = document.getElementById('tipoBalance').value;
-    const fechaSeleccionada = new Date(document.getElementById('fechaBalance').value);
+    const fechaSeleccionada = fechaDesdeInputDate(document.getElementById('fechaBalance').value) || new Date();
     const ventana = window.open('', 'ImpresionBalance', 'width=400,height=600,scrollbars=yes');
     
     if (!ventana) {
@@ -13545,6 +13792,10 @@ function imprimirBalance() {
     switch (tipoBalance) {
       case 'diario':
         tituloPeriodo = `Día ${fechaSeleccionada.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+        if (operaPasadaMedianoche()) {
+          const { inicio, fin } = inicioFinDiaLaboral(fechaSeleccionada);
+          tituloPeriodo += ` (${inicio.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })} a ${fin.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })})`;
+        }
         break;
       case 'semanal':
         const inicioSemana = new Date(fechaSeleccionada);

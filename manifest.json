@@ -1,7 +1,7 @@
 {
   "id": "./index.html",
-  "name": "ToySoft Ultimate Version - Sistema POS",
-  "short_name": "Ultimate Version",
+  "name": "ToySoft Ultimate",
+  "short_name": "ToySoft Ultimate",
   "description": "Sistema de Punto de Venta Ultimate Version para Restaurantes",
   "start_url": "./index.html",
   "display": "standalone",

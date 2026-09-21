@@ -249,18 +249,20 @@ function descripcionGastoParaCierre(gasto) {
 
 function persistirConfigCajaNube() {
     if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirConfigCaja === 'function') {
-        ToySoftFirebase.persistirConfigCaja().catch(function (error) {
+        return ToySoftFirebase.persistirConfigCaja().catch(function (error) {
             console.warn('Config de caja no se guardó en la nube', error);
         });
     }
+    return Promise.resolve();
 }
 
 function guardarCierreEnNube(cierre) {
     if (window.ToySoftFirebase && typeof ToySoftFirebase.guardarCierre === 'function') {
-        ToySoftFirebase.guardarCierre(cierre).catch(function (error) {
+        return ToySoftFirebase.guardarCierre(cierre).catch(function (error) {
             console.warn('Cierre no se guardó en la nube', error);
         });
     }
+    return Promise.resolve();
 }
 
 function guardarCierreOperativoEnNube(cierre) {

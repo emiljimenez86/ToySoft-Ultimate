@@ -29,7 +29,20 @@ function esGastoDelDiaLaboral(gasto, diaRef = getFechaHoyGastos()) {
         if (!gasto || !gasto.fecha) return false;
         const fechaGasto = new Date(gasto.fecha);
         if (isNaN(fechaGasto.getTime())) return false;
-        if (fechaLocalISOGastos(fechaGasto) !== fechaLocalISOGastos(diaRef)) return false;
+
+        const activo = localStorage.getItem('operarDespuesMedianoche') === 'true';
+        const horaFin = parseInt(localStorage.getItem('horaFinDiaLaboral') || '4', 10);
+        const ref = diaRef instanceof Date ? diaRef : new Date(diaRef);
+        let inicio;
+        let fin;
+        if (activo && !isNaN(horaFin)) {
+            inicio = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), horaFin, 0, 0, 0);
+            fin = new Date(inicio.getTime() + 24 * 60 * 60 * 1000);
+        } else {
+            inicio = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), 0, 0, 0, 0);
+            fin = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + 1, 0, 0, 0, 0);
+        }
+        if (fechaGasto.getTime() < inicio.getTime() || fechaGasto.getTime() >= fin.getTime()) return false;
 
         // Tras cierre administrativo, ultimaHoraCierre marca el corte del turno
         const ultimaHoraCierreStr = localStorage.getItem('ultimaHoraCierre');

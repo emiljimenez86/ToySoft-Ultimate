@@ -10,7 +10,7 @@ function claveInstalacion() {
 }
 
 function nombreAppInstalacion() {
-    return esPaginaMesero() ? 'ToySoft Mesero' : 'ToySoft POS';
+    return esPaginaMesero() ? 'ToySoft Mesero' : 'ToySoft Ultimate';
 }
 
 function appEstaInstalada() {

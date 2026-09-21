@@ -91,6 +91,7 @@ function leerOperacionLocal() {
   mesasActivas.forEach(function (pedido, id) {
     mesasActivas.set(id, normalizarPedido(pedido));
   });
+  purgarMesasCobradasMesero(false);
 }
 
 function hashDeOperacion() {
@@ -109,6 +110,7 @@ function persistirMesero(inmediato) {
   mesasActivas.forEach(function (pedido, id) {
     mesasActivas.set(id, normalizarPedido(pedido));
   });
+  if (typeof purgarMesasCobradasMesero === 'function') purgarMesasCobradasMesero(false);
   localStorage.setItem('mesasActivas', JSON.stringify(Array.from(mesasActivas.entries())));
   localStorage.setItem('ordenesCocina', JSON.stringify(Array.from(ordenesCocina.entries())));
   localStorage.setItem('historialCocina', JSON.stringify(historialCocina));
@@ -123,14 +125,55 @@ function persistirMesero(inmediato) {
   else fin();
 }
 
+function sesionCobradaMesero(sesionId) {
+  const id = String(sesionId || '');
+  if (!id) return false;
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.sesionYaCobrada === 'function') {
+    return ToySoftFirebase.sesionYaCobrada(id);
+  }
+  try {
+    const arr = JSON.parse(localStorage.getItem('sesionesCobradasHoy') || '[]');
+    return Array.isArray(arr) && arr.indexOf(id) !== -1;
+  } catch (e) {
+    return false;
+  }
+}
+
+function purgarMesasCobradasMesero(pintar) {
+  let cambio = false;
+  Array.from(mesasActivas.keys()).forEach(function (id) {
+    const pedido = mesasActivas.get(id);
+    if (pedido && pedido.sesionId && sesionCobradaMesero(pedido.sesionId)) {
+      mesasActivas.delete(id);
+      ordenesCocina.delete(id);
+      cambio = true;
+    }
+  });
+  if (cambio) {
+    localStorage.setItem('mesasActivas', JSON.stringify(Array.from(mesasActivas.entries())));
+    localStorage.setItem('ordenesCocina', JSON.stringify(Array.from(ordenesCocina.entries())));
+    hashOperacion = hashDeOperacion();
+    if (pintar !== false) pintarMesero();
+  }
+  return cambio;
+}
+
 function aplicarOperacionNube(datos) {
-  if (persistiendo || !datos) return;
+  if (!datos) return;
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.unirSesionesCobradas === 'function') {
+    ToySoftFirebase.unirSesionesCobradas(datos);
+  }
+  if (persistiendo) {
+    purgarMesasCobradasMesero(true);
+    return;
+  }
   mesasActivas = mapDesdeEntradas(datos.mesasActivas);
   ordenesCocina = mapDesdeEntradas(datos.ordenesCocina);
   historialCocina = Array.isArray(datos.historialCocina) ? datos.historialCocina : [];
   mesasActivas.forEach(function (pedido, id) {
     mesasActivas.set(id, normalizarPedido(pedido));
   });
+  purgarMesasCobradasMesero(false);
   const nuevo = hashDeOperacion();
   if (nuevo === hashOperacion) return;
   hashOperacion = nuevo;

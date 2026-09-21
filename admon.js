@@ -507,6 +507,9 @@ async function inicializarAdministracion() {
         ToySoftFirebase.escucharFinanzas({
           gastos: function () {
             if (typeof cargarGastos === 'function') cargarGastos();
+          },
+          configCaja: function () {
+            if (typeof cargarConfigHorarioOperacion === 'function') cargarConfigHorarioOperacion();
           }
         });
         const resto = await ToySoftFirebase.sincronizarResto();
@@ -1954,6 +1957,7 @@ function guardarCierreDiario() {
         const balanceFinal = totalVentas - totalGastos;
 
         // Crear objeto de cierre
+        const hoy = typeof getFechaHoyParaCierre === 'function' ? getFechaHoyParaCierre() : new Date();
         const cierreDiario = {
             id: Date.now(),
             fecha: hoy.toISOString(),
