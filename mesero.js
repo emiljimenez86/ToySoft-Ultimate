@@ -1254,20 +1254,10 @@ function bytesABase64Mesero(bytes) {
 function enviarTicketRawBT(bytes) {
   if (!esAndroidMesero()) return false;
   try {
-    const b64 = bytesABase64Mesero(bytes);
-    const tienda = 'https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter';
-    const href = 'intent:base64,' + encodeURIComponent(b64) +
-      '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;type=application/vnd.escpos;' +
-      'S.browser_fallback_url=' +
-      encodeURIComponent(tienda) + ';end';
-    const enlace = document.createElement('a');
-    enlace.href = href;
-    enlace.style.display = 'none';
-    document.body.appendChild(enlace);
-    enlace.click();
-    setTimeout(function () {
-      if (enlace.parentNode) enlace.parentNode.removeChild(enlace);
-    }, 2000);
+    const b64 = bytesABase64Mesero(bytes).replace(/\s+/g, '');
+    // Formato oficial de RawBT. Sin type ni Play Store: si no coinciden, Chrome te manda a la tienda aunque la app ya esté instalada.
+    const href = 'intent:base64,' + b64 + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end';
+    window.location.href = href;
     return true;
   } catch (e) {
     return false;
