@@ -1052,15 +1052,11 @@
   }
 
   function persistirOperacionInmediato() {
-    marcarPersistiendoOperacion();
     if (operacionTimer) {
       clearTimeout(operacionTimer);
       operacionTimer = null;
     }
-    if (!estaListo()) {
-      liberarPersistiendoOperacion();
-      return Promise.resolve();
-    }
+    if (!estaListo()) return Promise.resolve();
     return guardarOperacion(snapshotOperacionLocal()).catch(function (error) {
       console.warn('Operación no se guardó en la nube', error);
     });
@@ -1109,6 +1105,52 @@
     return operacionParaLocal(operacionLimpia(local));
   }
 
+  function payloadOperacionParaLocal(nube) {
+    return {
+      mesasActivas: entradasAObjetos(nube.mesasActivas),
+      ordenesCocina: entradasAObjetos(nube.ordenesCocina),
+      historialCocina: nube.historialCocina,
+      pedidosCocinaListos: nube.pedidosCocinaListos,
+      contadorDomicilios: nube.contadorDomicilios,
+      contadorRecoger: nube.contadorRecoger,
+      ultimaFechaContadores: nube.ultimaFechaContadores,
+      nombresDomiciliarios: nube.nombresDomiciliarios,
+      pantallaCocinaActivada: nube.pantallaCocinaActivada,
+      cocinaSonidoActivado: nube.cocinaSonidoActivado,
+      cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion,
+      impresoraCocinaIp: nube.impresoraCocinaIp,
+      impresoraCocinaPuerto: nube.impresoraCocinaPuerto,
+      impresoraCocinaAncho: nube.impresoraCocinaAncho,
+      sesionesCobradas: nube.sesionesCobradas,
+      posMostrarGastos: nube.posMostrarGastos,
+      posMostrarInventario: nube.posMostrarInventario,
+      posMostrarCierreAdmin: nube.posMostrarCierreAdmin,
+      posMostrarBalance: nube.posMostrarBalance,
+      posBotonesDefaultsVersion: nube.posBotonesDefaultsVersion
+    };
+  }
+
+  function aplicarOperacionDesdeNube(nube, callback, escribirLocal) {
+    if (!nube) return;
+    unirSesionesCobradas(nube);
+    if (escribirLocal !== false && !persistiendoOperacion) {
+      escribirOperacionLocal(payloadOperacionParaLocal(nube));
+    }
+    if (typeof callback === 'function') callback(nube);
+  }
+
+  async function refrescarOperacionDesdeNube() {
+    if (!negocioIdActual) return null;
+    const snap = await refOperacion().get();
+    if (!snap.exists) return null;
+    const nube = operacionDesdeSnap(snap);
+    unirSesionesCobradas(nube);
+    if (!persistiendoOperacion) {
+      escribirOperacionLocal(payloadOperacionParaLocal(nube));
+    }
+    return nube;
+  }
+
   let unsubOperacion = null;
   function escucharOperacion(callback) {
     if (unsubOperacion) {
@@ -1117,32 +1159,9 @@
     }
     if (!negocioIdActual) return function () {};
     unsubOperacion = refOperacion().onSnapshot(function (snap) {
-      if (persistiendoOperacion) return;
       if (!snap.exists) return;
       const nube = operacionDesdeSnap(snap);
-      escribirOperacionLocal({
-        mesasActivas: entradasAObjetos(nube.mesasActivas),
-        ordenesCocina: entradasAObjetos(nube.ordenesCocina),
-        historialCocina: nube.historialCocina,
-        pedidosCocinaListos: nube.pedidosCocinaListos,
-        contadorDomicilios: nube.contadorDomicilios,
-        contadorRecoger: nube.contadorRecoger,
-        ultimaFechaContadores: nube.ultimaFechaContadores,
-        nombresDomiciliarios: nube.nombresDomiciliarios,
-        pantallaCocinaActivada: nube.pantallaCocinaActivada,
-        cocinaSonidoActivado: nube.cocinaSonidoActivado,
-        cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion,
-        impresoraCocinaIp: nube.impresoraCocinaIp,
-        impresoraCocinaPuerto: nube.impresoraCocinaPuerto,
-        impresoraCocinaAncho: nube.impresoraCocinaAncho,
-        sesionesCobradas: nube.sesionesCobradas,
-        posMostrarGastos: nube.posMostrarGastos,
-        posMostrarInventario: nube.posMostrarInventario,
-        posMostrarCierreAdmin: nube.posMostrarCierreAdmin,
-        posMostrarBalance: nube.posMostrarBalance,
-        posBotonesDefaultsVersion: nube.posBotonesDefaultsVersion
-      });
-      if (typeof callback === 'function') callback(nube);
+      aplicarOperacionDesdeNube(nube, callback, !persistiendoOperacion);
     }, function (error) {
       console.warn('No se pudo escuchar la operación en vivo', error);
     });
@@ -2441,6 +2460,7 @@
     sincronizarOperacion: sincronizarOperacion,
     persistirOperacionDebounced: persistirOperacionDebounced,
     persistirOperacionInmediato: persistirOperacionInmediato,
+    refrescarOperacionDesdeNube: refrescarOperacionDesdeNube,
     escucharOperacion: escucharOperacion,
     marcarSesionCobrada: marcarSesionCobrada,
     sesionYaCobrada: sesionYaCobrada,
