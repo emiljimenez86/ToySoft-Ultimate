@@ -440,11 +440,11 @@ const ayudaContextual = {
                         <h5 class="text-info"><i class="fas fa-tv me-1"></i> Cocina, mesero e impresora</h5>
                         <ul>
                             <li><strong>Pantalla de cocina:</strong> actívala solo si vas a usarla. Puedes poner sonido y abrirla ya.</li>
-                            <li><strong>Imprimir desde el celular del mesero:</strong> es <strong>opcional</strong>. Si el negocio no usa meseros y todo se toma en caja, déjalo apagado: no hay que poner IP.</li>
+                            <li><strong>Imprimir desde el celular del mesero:</strong> es <strong>opcional</strong>. Si lo dejas apagado, el pedido del mesero se imprime en la caja principal, sin entrar a Historial. Si el negocio no usa meseros y todo se toma en caja, déjalo apagado: no hay que poner IP.</li>
                             <li>Si sí usan la app de mesero y una térmica de red en cocina, enciende esa opción, pon la <strong>IP</strong> (puerto casi siempre <strong>9100</strong>) y guarda.</li>
                             <li>En cada celular Android instala <strong>RawBT</strong> (gratis). En RawBT agrega la impresora por <strong>WiFi / Ethernet</strong> con la misma IP y déjala predeterminada. El ticket sale y <strong>corta el papel</strong>.</li>
                             <li>El celular y la térmica deben estar en la <strong>misma WiFi</strong>. Una Epson de escritorio (L4160 y similares) no es la térmica de cocina: esa sale por el diálogo de Android.</li>
-                            <li>Con la IP configurada, al enviar a cocina el ticket sale desde el celular. En caja ya no se abre imprimir.</li>
+                            <li>Con la IP configurada, al enviar a cocina el ticket sale desde el celular. Si no sale, en caja aparece <strong>Imprimir en esta caja</strong>. Sin IP, la caja imprime sola.</li>
                             <li><strong>Botones del POS:</strong> oculta Gastos, Inventario, Cierre administrativo o Balance si el cajero no los necesita.</li>
                         </ul>
 
@@ -1005,7 +1005,7 @@ const ayudaContextual = {
                 </ul>
                 <h5 class="text-success">Enviar e imprimir</h5>
                 <ul>
-                    <li><strong>Enviar a cocina:</strong> manda el pedido a caja. Si en Administración activaron la térmica de red, en Android abre RawBT y el ticket sale cortado. Si no hay IP, se usa el diálogo de imprimir del celular. En caja ya no se abre imprimir.</li>
+                    <li><strong>Enviar a cocina:</strong> manda el pedido a caja. Si en Administración activaron la térmica de red, en Android abre RawBT y el ticket sale cortado. Si no hay IP o el celular no puede imprimir, el ticket se abre en la caja principal.</li>
                     <li><strong>Imprimir ticket:</strong> aparece después de enviar a cocina, para reimprimir ese ticket.</li>
                 </ul>
                 <div class="alert alert-warning mb-0">

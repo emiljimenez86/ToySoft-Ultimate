@@ -364,7 +364,7 @@ function pintarOrden() {
     const btnEnviar = barra.querySelector('.btn-enviar-cocina-mesero');
     const btnImprimir = barra.querySelector('.btn-imprimir-ticket-mesero');
     if (btnEnviar) btnEnviar.style.display = pendientes ? '' : 'none';
-    if (btnImprimir) btnImprimir.style.display = hayEnCocina ? '' : 'none';
+    if (btnImprimir) btnImprimir.style.display = (hayEnCocina && puedeImprimirMeseroDesdeCelular()) ? '' : 'none';
     const acciones = document.getElementById('accionesPedidoMesero');
     if (acciones) acciones.classList.toggle('con-enviar', pendientes > 0 && hayEnCocina);
   }
@@ -814,7 +814,7 @@ function reubicarPedidoMesero(origen, destino, pedido) {
   });
   const enCocina = (pedido.items || []).filter(function (item) { return item.estado === 'en_cocina'; });
   if (enCocina.length) {
-    historialCocina.push({
+    historialCocina.push(registroCocinaMesero({
       id: Date.now(),
       fecha: new Date().toISOString(),
       fechaMostrar: (pedido.cambioMesa && pedido.cambioMesa.fecha) || new Date().toLocaleString(),
@@ -830,7 +830,7 @@ function reubicarPedidoMesero(origen, destino, pedido) {
       direccion: pedido.tipo === 'domicilio' ? (pedido.direccion || null) : null,
       horaRecoger: pedido.tipo === 'recoger' ? (pedido.horaRecoger || null) : null,
       cambioMesa: pedido.cambioMesa
-    });
+    }));
   }
   mesaSeleccionada = destino;
   persistirMesero(true);
@@ -1066,7 +1066,7 @@ function enviarPedidoCocinaMesero() {
     return item && item.sesionId === pedido.sesionId;
   });
   ordenesCocina.set(mesaSeleccionada, existentes.concat(nuevos));
-  historialCocina.push({
+  historialCocina.push(registroCocinaMesero({
     id: Date.now(),
     fecha: new Date().toISOString(),
     fechaMostrar: new Date().toLocaleString(),
@@ -1081,7 +1081,7 @@ function enviarPedidoCocinaMesero() {
     telefono: pedido.telefono || null,
     direccion: pedido.direccion || null,
     horaRecoger: pedido.horaRecoger || null
-  });
+  }));
   sincronizarRonda(pedido);
   anotarMeseroEnPedido(pedido);
   mesasActivas.set(mesaSeleccionada, pedido);
@@ -1119,7 +1119,20 @@ function configImpresoraCocinaMesero() {
   const ip = String(localStorage.getItem('impresoraCocinaIp') || '').trim();
   let puerto = parseInt(localStorage.getItem('impresoraCocinaPuerto') || '9100', 10);
   if (!Number.isFinite(puerto) || puerto < 1 || puerto > 65535) puerto = 9100;
-  return { ip: ip, puerto: puerto };
+  const anchoMm = String(localStorage.getItem('impresoraCocinaAncho') || '80') === '58' ? '58' : '80';
+  return { ip: ip, puerto: puerto, anchoMm: anchoMm };
+}
+
+function puedeImprimirMeseroDesdeCelular() {
+  return !!(configImpresoraCocinaMesero().ip && esAndroidMesero());
+}
+
+function registroCocinaMesero(base) {
+  const registro = base || {};
+  registro.origen = 'mesero';
+  registro.imprimirEnCaja = !puedeImprimirMeseroDesdeCelular();
+  registro.impresoEnCaja = false;
+  return registro;
 }
 
 function bytesLatinImpresora(texto) {
@@ -1163,12 +1176,21 @@ function bytesEscPosTicketCocina(mesa, productos, opciones) {
   const rondaTicket = Number(opciones.ronda) || rondaDeItem((productos || [])[0]) || 1;
   const nombreMeseroTicket = String(opciones.nombreMesero || pedido.nombreMesero || nombreMeseroSesion() || '').trim();
   const titulo = etiquetaPedidoMesero(mesa, pedido);
-  const ancho = 32;
-  const bytes = [0x1B, 0x40, 0x1B, 0x74, 0x02];
+  const cfg = configImpresoraCocinaMesero();
+  const ancho = cfg.anchoMm === '58' ? 32 : 48;
+  const puntos = cfg.anchoMm === '58' ? 384 : 576;
+  const bytes = [
+    0x1B, 0x40,
+    0x1B, 0x32,
+    0x1B, 0x4D, 0x00,
+    0x1D, 0x4C, 0x00, 0x00,
+    0x1D, 0x57, puntos & 0xFF, (puntos >> 8) & 0xFF,
+    0x1B, 0x74, 0x02
+  ];
   function add(arr) { Array.prototype.push.apply(bytes, arr); }
   function txt(s) { add(bytesLatinImpresora(s)); }
   function ln(s) { if (s) txt(s); add([0x0A]); }
-  function sep() { ln('--------------------------------'); }
+  function sep() { ln(new Array(ancho + 1).join('-').slice(0, ancho)); }
   function centro(on) { add([0x1B, 0x61, on ? 1 : 0]); }
   function grande(on) { add([0x1D, 0x21, on ? 0x11 : 0x00]); }
 
@@ -1235,7 +1257,8 @@ function enviarTicketRawBT(bytes) {
     const b64 = bytesABase64Mesero(bytes);
     const tienda = 'https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter';
     const href = 'intent:base64,' + encodeURIComponent(b64) +
-      '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;S.browser_fallback_url=' +
+      '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;type=application/vnd.escpos;' +
+      'S.browser_fallback_url=' +
       encodeURIComponent(tienda) + ';end';
     const enlace = document.createElement('a');
     enlace.href = href;
@@ -1341,15 +1364,14 @@ function confirmarImpresionMesero() {
 }
 
 function imprimirTicketCocinaMesero(mesa, productos, opciones) {
-  const cfg = configImpresoraCocinaMesero();
-  if (cfg.ip && esAndroidMesero()) {
+  if (puedeImprimirMeseroDesdeCelular()) {
     const bytes = bytesEscPosTicketCocina(mesa, productos, opciones);
     if (enviarTicketRawBT(bytes)) {
       avisoMesero('Enviando a la impresora de cocina…');
       return;
     }
   }
-  imprimirTicketCocinaEnCelular(mesa, productos, opciones);
+  avisoMesero('Pedido enviado. El ticket se imprime en la caja principal.');
 }
 
 function lanzarImpresionTicketMesero() {

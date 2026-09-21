@@ -805,7 +805,12 @@
     const ip = String((origen && origen.impresoraCocinaIp) || '').trim();
     let puerto = parseInt((origen && origen.impresoraCocinaPuerto), 10);
     if (!Number.isFinite(puerto) || puerto < 1 || puerto > 65535) puerto = 9100;
-    return { impresoraCocinaIp: ip, impresoraCocinaPuerto: String(puerto) };
+    const ancho = String((origen && origen.impresoraCocinaAncho) || '') === '58' ? '58' : '80';
+    return {
+      impresoraCocinaIp: ip,
+      impresoraCocinaPuerto: String(puerto),
+      impresoraCocinaAncho: ancho
+    };
   }
 
   function leerSesionesCobradas() {
@@ -885,7 +890,8 @@
       sesionesCobradas: sesiones
     }, camposImpresoraCocina({
       impresoraCocinaIp: localStorage.getItem('impresoraCocinaIp') || '',
-      impresoraCocinaPuerto: localStorage.getItem('impresoraCocinaPuerto') || '9100'
+      impresoraCocinaPuerto: localStorage.getItem('impresoraCocinaPuerto') || '9100',
+      impresoraCocinaAncho: localStorage.getItem('impresoraCocinaAncho') || '80'
     }), flagsBotonesPOSDesdeStorage());
   }
 
@@ -947,6 +953,7 @@
     localStorage.setItem('cocinaIntervaloActualizacion', local.cocinaIntervaloActualizacion);
     localStorage.setItem('impresoraCocinaIp', local.impresoraCocinaIp || '');
     localStorage.setItem('impresoraCocinaPuerto', local.impresoraCocinaPuerto || '9100');
+    localStorage.setItem('impresoraCocinaAncho', local.impresoraCocinaAncho || '80');
     escribirSesionesCobradas(local.sesionesCobradas || leerSesionesCobradas());
     FLAGS_BOTONES_POS.forEach(function (clave) {
       localStorage.setItem(clave, local[clave] ? 'true' : 'false');
@@ -1008,6 +1015,7 @@
       payload.cocinaIntervaloActualizacion = limpio.cocinaIntervaloActualizacion;
       payload.impresoraCocinaIp = limpio.impresoraCocinaIp || '';
       payload.impresoraCocinaPuerto = limpio.impresoraCocinaPuerto || '9100';
+      payload.impresoraCocinaAncho = limpio.impresoraCocinaAncho || '80';
       payload.posMostrarGastos = limpio.posMostrarGastos;
       payload.posMostrarInventario = limpio.posMostrarInventario;
       payload.posMostrarCierreAdmin = limpio.posMostrarCierreAdmin;
@@ -1070,6 +1078,7 @@
         cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion,
         impresoraCocinaIp: nube.impresoraCocinaIp,
         impresoraCocinaPuerto: nube.impresoraCocinaPuerto,
+        impresoraCocinaAncho: nube.impresoraCocinaAncho,
         sesionesCobradas: nube.sesionesCobradas,
         posMostrarGastos: nube.posMostrarGastos,
         posMostrarInventario: nube.posMostrarInventario,
@@ -1115,6 +1124,7 @@
         cocinaIntervaloActualizacion: nube.cocinaIntervaloActualizacion,
         impresoraCocinaIp: nube.impresoraCocinaIp,
         impresoraCocinaPuerto: nube.impresoraCocinaPuerto,
+        impresoraCocinaAncho: nube.impresoraCocinaAncho,
         sesionesCobradas: nube.sesionesCobradas,
         posMostrarGastos: nube.posMostrarGastos,
         posMostrarInventario: nube.posMostrarInventario,

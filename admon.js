@@ -912,6 +912,7 @@ function cargarConfigPantallaCocina() {
   const inputIntervalo = document.getElementById('cocinaIntervaloActualizacion');
   const inputIp = document.getElementById('impresoraCocinaIp');
   const inputPuerto = document.getElementById('impresoraCocinaPuerto');
+  const inputAncho = document.getElementById('impresoraCocinaAncho');
   const chkMesero = document.getElementById('usarImpresoraCocinaMesero');
   const ipGuardada = String(localStorage.getItem('impresoraCocinaIp') || '').trim();
   
@@ -923,6 +924,7 @@ function cargarConfigPantallaCocina() {
   }
   if (inputIp) inputIp.value = ipGuardada;
   if (inputPuerto) inputPuerto.value = localStorage.getItem('impresoraCocinaPuerto') || '9100';
+  if (inputAncho) inputAncho.value = localStorage.getItem('impresoraCocinaAncho') === '58' ? '58' : '80';
   if (chkMesero) chkMesero.checked = !!ipGuardada;
   actualizarVisibilidadImpresoraMesero();
 }
@@ -961,12 +963,15 @@ function guardarConfigPantallaCocina() {
   }
   let puerto = parseInt(inputPuerto && inputPuerto.value, 10);
   if (!Number.isFinite(puerto) || puerto < 1 || puerto > 65535) puerto = 9100;
+  const inputAncho = document.getElementById('impresoraCocinaAncho');
+  const ancho = (inputAncho && inputAncho.value) === '58' ? '58' : '80';
   
   localStorage.setItem('pantallaCocinaActivada', activada ? 'true' : 'false');
   localStorage.setItem('cocinaSonidoActivado', sonido ? 'true' : 'false');
   localStorage.setItem('cocinaIntervaloActualizacion', String(intervalo));
   localStorage.setItem('impresoraCocinaIp', ip);
   localStorage.setItem('impresoraCocinaPuerto', String(puerto));
+  localStorage.setItem('impresoraCocinaAncho', ancho);
   if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
     ToySoftFirebase.persistirOperacionInmediato();
   }

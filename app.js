@@ -2549,9 +2549,14 @@ function mostrarModalPedidosCocina() {
                 <h5 class="text-warning mb-1">${codigo}</h5>
                 <p class="text-muted mb-0"><small>Ronda ${rondaDeProductos(pedido.items, pedido.ronda)} - ${pedido.fechaMostrar || pedido.fecha || ''}</small></p>
               </div>
-              <button class="btn btn-success btn-lg" onclick="marcarPedidoListo(${pedido.id}); mostrarModalPedidosCocina();">
-                <i class="fas fa-check-circle"></i> Marcar como Listo
-              </button>
+              <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-info" onclick="reimprimirTicketCocina('${String(pedido.id).replace(/'/g, '')}')">
+                  <i class="fas fa-print"></i> Imprimir ticket
+                </button>
+                <button class="btn btn-success btn-lg" onclick="marcarPedidoListo(${pedido.id}); mostrarModalPedidosCocina();">
+                  <i class="fas fa-check-circle"></i> Marcar como Listo
+                </button>
+              </div>
             </div>
             ${infoCliente}
             <div class="mt-3">
@@ -3238,21 +3243,72 @@ function hashOperacionLocal(datos) {
   }
 }
 
-function imprimirPedidosNuevosDeMesero(lista) {
-  const actuales = Array.isArray(lista) ? lista : [];
-  if (!window._idsCocinaMeseroVistos) {
-    window._idsCocinaMeseroVistos = new Set(actuales.map(function (orden) { return String(orden && orden.id); }));
+function ordenCocinaMeseroReciente(orden) {
+  const t = Date.parse(orden && orden.fecha);
+  if (!Number.isFinite(t)) return false;
+  return (Date.now() - t) <= 45 * 60 * 1000;
+}
+
+function imprimirTicketCocinaDeOrden(orden, opciones) {
+  opciones = opciones || {};
+  if (!orden || typeof imprimirTicketCocina !== 'function') return;
+  imprimirTicketCocina(orden.mesa, orden.items, {
+    ronda: orden.ronda,
+    pedido: orden,
+    nombreMesero: orden.nombreMesero,
+    sexoMesero: orden.sexoMesero,
+    silencioso: !!opciones.silencioso
+  });
+}
+
+function marcarOrdenCocinaImpresaEnCaja(orden) {
+  if (!orden) return;
+  const id = String(orden.id);
+  orden.impresoEnCaja = true;
+  (historialCocina || []).forEach(function (h) {
+    if (String(h.id) === id) h.impresoEnCaja = true;
+  });
+  if (typeof guardarHistorialCocina === 'function') guardarHistorialCocina();
+}
+
+function procesarPedidoNuevoDeMesero(orden, opciones) {
+  opciones = opciones || {};
+  if (!orden || orden.origen !== 'mesero') return;
+  const pendienteCaja = !!orden.imprimirEnCaja && !orden.impresoEnCaja;
+  if (pendienteCaja) {
+    if (opciones.soloRecientes && !ordenCocinaMeseroReciente(orden)) return;
+    imprimirTicketCocinaDeOrden(orden, { silencioso: true });
+    marcarOrdenCocinaImpresaEnCaja(orden);
+    if (typeof mostrarAvisoTicketCocinaMesero === 'function') {
+      mostrarAvisoTicketCocinaMesero({
+        mesa: orden.mesa,
+        nombreMesero: orden.nombreMesero,
+        imprimiendoEnCaja: true,
+        orden: orden
+      });
+    }
     return;
   }
+  if (opciones.omitirAviso) return;
+  if (typeof mostrarAvisoTicketCocinaMesero !== 'function') return;
+  mostrarAvisoTicketCocinaMesero({
+    mesa: orden.mesa,
+    nombreMesero: orden.nombreMesero,
+    orden: orden
+  });
+}
+
+function imprimirPedidosNuevosDeMesero(lista) {
+  const actuales = Array.isArray(lista) ? lista : [];
+  const primeraVez = !window._idsCocinaMeseroVistos;
+  if (primeraVez) window._idsCocinaMeseroVistos = new Set();
   actuales.forEach(function (orden) {
     const id = String(orden && orden.id || '');
     if (!id || window._idsCocinaMeseroVistos.has(id)) return;
     window._idsCocinaMeseroVistos.add(id);
-    if (orden.origen !== 'mesero') return;
-    if (typeof mostrarAvisoTicketCocinaMesero !== 'function') return;
-    mostrarAvisoTicketCocinaMesero({
-      mesa: orden.mesa,
-      nombreMesero: orden.nombreMesero
+    procesarPedidoNuevoDeMesero(orden, {
+      soloRecientes: primeraVez,
+      omitirAviso: primeraVez && !(orden && orden.imprimirEnCaja && !orden.impresoEnCaja)
     });
   });
 }
@@ -7358,20 +7414,32 @@ function mostrarAvisoTicketCocinaMesero(datos) {
   aviso = document.createElement('div');
   aviso.id = 'avisoTicketMesero';
   aviso.className = 'alert alert-info position-fixed shadow';
-  aviso.style.cssText = 'top: 16px; right: 16px; z-index: 10050; max-width: 360px;';
+  aviso.style.cssText = 'top: 16px; right: 16px; z-index: 10050; max-width: 380px;';
   const mesa = String(datos.mesa || '');
   const mesero = datos.nombreMesero ? (' · ' + String(datos.nombreMesero)) : '';
-  window._htmlTicketMeseroPendiente = datos.html || '';
-    aviso.innerHTML =
-    '<div class="fw-bold">Pedido de mesero en cocina</div>' +
-    '<div class="mb-2">' + mesa + mesero + '. El ticket se imprime desde el celular a la impresora de cocina.</div>' +
-    '<button type="button" class="btn btn-outline-light btn-sm" id="btnCerrarAvisoTicketMesero">Cerrar</button>';
+  window._ordenCocinaMeseroPendiente = datos.orden || null;
+  const extraAuto = datos.imprimiendoEnCaja
+    ? ' Se mandó a imprimir en esta caja. Si no salió, usa el botón.'
+    : ' Si el celular no imprimió, usa este botón. No hace falta entrar a Historial.';
+  aviso.innerHTML =
+    '<div class="fw-bold">' + (datos.imprimiendoEnCaja ? 'Pedido de mesero' : 'Pedido de mesero en cocina') + '</div>' +
+    '<div class="mb-2">' + mesa + mesero + '.' + extraAuto + '</div>' +
+    '<div class="d-flex gap-2 flex-wrap">' +
+    '<button type="button" class="btn btn-info btn-sm" id="btnImprimirAvisoTicketMesero">Imprimir en esta caja</button>' +
+    '<button type="button" class="btn btn-outline-light btn-sm" id="btnCerrarAvisoTicketMesero">Cerrar</button>' +
+    '</div>';
   document.body.appendChild(aviso);
   const btnCerrar = document.getElementById('btnCerrarAvisoTicketMesero');
   if (btnCerrar) btnCerrar.onclick = function () { if (aviso.parentNode) aviso.remove(); };
+  const btnPrint = document.getElementById('btnImprimirAvisoTicketMesero');
+  if (btnPrint) {
+    btnPrint.onclick = function () {
+      if (window._ordenCocinaMeseroPendiente) imprimirTicketCocinaDeOrden(window._ordenCocinaMeseroPendiente);
+    };
+  }
   setTimeout(function () {
     if (aviso && aviso.parentNode) aviso.remove();
-  }, 20000);
+  }, 25000);
 }
 
 function entregarDocumentoImpresionCocina(html, opciones) {
@@ -7380,11 +7448,6 @@ function entregarDocumentoImpresionCocina(html, opciones) {
   const silencioso = !!opciones.silencioso;
   if (silencioso) {
     imprimirHtmlEnIframe(html);
-    mostrarAvisoTicketCocinaMesero({
-      mesa: opciones.mesa,
-      nombreMesero: opciones.nombreMesero,
-      html: html
-    });
     if (alCerrar) {
       try { alCerrar(null); } catch (e) { /* ignore */ }
     }
@@ -8814,10 +8877,9 @@ function procesarPago() {
 
 // Función para reimprimir ticket de cocina desde el historial
 function reimprimirTicketCocina(ordenId) {
-  const orden = historialCocina.find(o => o.id === ordenId);
-  if (orden) {
-    imprimirTicketCocina(orden.mesa, orden.items, { ronda: orden.ronda, pedido: orden });
-  }
+  const id = String(ordenId);
+  const orden = (historialCocina || []).find(function (o) { return String(o.id) === id; });
+  if (orden) imprimirTicketCocinaDeOrden(orden);
 }
 
 // Función para reimprimir factura desde el historial

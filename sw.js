@@ -1,4 +1,4 @@
-const CACHE_NAME = 'toysoft-pos-v45';
+const CACHE_NAME = 'toysoft-pos-v47';
 const urlsToCache = [
     './',
     './index.html',

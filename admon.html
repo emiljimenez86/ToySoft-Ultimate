@@ -536,11 +536,11 @@
                     <div class="form-check form-switch mb-2">
                         <input class="form-check-input" type="checkbox" id="usarImpresoraCocinaMesero" onchange="actualizarVisibilidadImpresoraMesero()">
                         <label class="form-check-label" for="usarImpresoraCocinaMesero">Imprimir desde el celular del mesero (opcional)</label>
-                        <small class="text-muted d-block mt-1">Solo si el negocio usa la app de mesero y una térmica de red en cocina. Si todo se toma en caja, déjalo apagado: la IP no hace falta.</small>
+                        <small class="text-muted d-block mt-1">Si lo dejas apagado, el pedido del mesero se imprime en la <strong>caja principal</strong>. No hay que entrar a Historial. Enciéndelo solo si el celular va a imprimir con RawBT.</small>
                     </div>
                     <div id="cajaImpresoraCocinaMesero" style="display: none;">
                     <h6 class="text-info mb-2"><i class="fas fa-print me-1"></i>Impresora térmica de cocina (red)</h6>
-                    <p class="text-muted small mb-2">El celular no puede hablar solo con el puerto 9100. En Android se usa la app <strong>RawBT</strong> (gratis) como puente. El ticket incluye el corte de papel.</p>
+                    <p class="text-muted small mb-2">El celular no puede hablar solo con el puerto 9100. En Android se usa la app <strong>RawBT</strong> (gratis) como puente. El ticket incluye el corte de papel. Si RawBT no sale, en caja aparece el aviso <strong>Imprimir en esta caja</strong>.</p>
                     <ol class="small text-muted mb-3 ps-3">
                         <li class="mb-1">Instala <a href="https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter" target="_blank" rel="noopener">RawBT</a> en el celular del mesero.</li>
                         <li class="mb-1">En RawBT: agregar impresora → <strong>WiFi / Ethernet</strong> → IP de la térmica → puerto <strong>9100</strong>. Déjala como predeterminada.</li>
@@ -557,6 +557,14 @@
                             <label class="form-label small" for="impresoraCocinaPuerto">Puerto</label>
                             <input type="number" id="impresoraCocinaPuerto" class="form-control bg-dark text-white border-secondary" value="9100" min="1" max="65535">
                             <small class="text-muted">Normalmente 9100</small>
+                        </div>
+                        <div class="col-12 col-md-7">
+                            <label class="form-label small" for="impresoraCocinaAncho">Ancho del papel</label>
+                            <select id="impresoraCocinaAncho" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                <option value="80">80 mm (el más común en cocina)</option>
+                                <option value="58">58 mm</option>
+                            </select>
+                            <small class="text-muted">Si el ticket del celular sale chiquito o corrido a un lado, usa 80 mm. En RawBT elige el mismo ancho.</small>
                         </div>
                     </div>
                     </div>
@@ -1014,10 +1022,10 @@
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js?v=25"></script>
-    <script src="firebase-init.js?v=37"></script>
+    <script src="firebase-init.js?v=38"></script>
     <script src="seguridad.js?v=27"></script>
-    <script src="ayuda.js?v=42"></script>
+    <script src="ayuda.js?v=43"></script>
     <script src="gastos-modelo.js"></script>
-    <script src="admon.js?v=33"></script>
+    <script src="admon.js?v=34"></script>
 </body>
 </html> 
