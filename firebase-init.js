@@ -873,15 +873,6 @@
     });
   }
 
-  function noPisarMesasVacias(nuevasEntradas, actualesEntradas) {
-    const nuevas = Array.isArray(nuevasEntradas) ? nuevasEntradas : [];
-    const actuales = Array.isArray(actualesEntradas) ? actualesEntradas : [];
-    if (nuevas.length > 0) return nuevas;
-    if (!actuales.length) return nuevas;
-    const vivas = filtrarEntradasMesasCobradas(actuales, leerSesionesCobradas());
-    return vivas.length ? vivas : nuevas;
-  }
-
   function leerMesasMemoriaOLocal() {
     try {
       if (typeof window.ToysoftSnapshotMesas === 'function') {
@@ -957,7 +948,6 @@
 
   function escribirOperacionLocal(datos) {
     const local = operacionParaLocal(datos || {});
-    local.mesasActivas = noPisarMesasVacias(local.mesasActivas, parseJsonLocal('mesasActivas', []));
     localStorage.setItem('mesasActivas', JSON.stringify(local.mesasActivas));
     localStorage.setItem('ordenesCocina', JSON.stringify(local.ordenesCocina));
     localStorage.setItem('historialCocina', JSON.stringify(local.historialCocina));

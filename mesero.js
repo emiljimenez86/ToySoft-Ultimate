@@ -175,9 +175,7 @@ function aplicarOperacionNube(datos) {
     return;
   }
   const nuevas = mapDesdeEntradas(datos.mesasActivas);
-  if (nuevas.size || mesasActivas.size === 0) {
-    mesasActivas = nuevas;
-  }
+  mesasActivas = nuevas;
   ordenesCocina = mapDesdeEntradas(datos.ordenesCocina);
   historialCocina = Array.isArray(datos.historialCocina) ? datos.historialCocina : [];
   mesasActivas.forEach(function (pedido, id) {

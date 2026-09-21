@@ -3433,14 +3433,12 @@ function aplicarOperacionEnPOS(datos) {
 
   try {
     const entradas = Array.isArray(datos.mesasActivas) ? datos.mesasActivas : [];
-    if (entradas.length || mesasActivas.size === 0) {
-      mesasActivas = new Map();
-      entradas.forEach(function (par) {
-        if (!Array.isArray(par) || par.length < 2 || par[0] == null) return;
-        const mesaId = String(par[0]);
-        mesasActivas.set(mesaId, typeof normalizarPedidoMesa === 'function' ? normalizarPedidoMesa(par[1]) : par[1]);
-      });
-    }
+    mesasActivas = new Map();
+    entradas.forEach(function (par) {
+      if (!Array.isArray(par) || par.length < 2 || par[0] == null) return;
+      const mesaId = String(par[0]);
+      mesasActivas.set(mesaId, typeof normalizarPedidoMesa === 'function' ? normalizarPedidoMesa(par[1]) : par[1]);
+    });
   } catch (error) {
     console.warn('No se pudieron aplicar mesas de la nube', error);
   }
