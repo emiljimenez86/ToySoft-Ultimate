@@ -543,7 +543,7 @@ const ayudaContextual = {
                             <li><strong>Filtros:</strong> Por fecha, método de pago, cliente</li>
                             <li><strong>Búsqueda:</strong> Por número de factura o cliente</li>
                             <li><strong>Detalles:</strong> Ver productos de cada venta</li>
-                            <li><strong>Reimprimir:</strong> Generar factura nuevamente</li>
+                            <li><strong>Cierres administrativos:</strong> piden el mismo PIN de Cierre administrativo.</li>
                         </ul>
                         
                         <h5 class="text-success">📊 Estadísticas</h5>

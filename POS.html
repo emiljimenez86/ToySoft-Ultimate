@@ -612,6 +612,10 @@
           </div>
           <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-md-end">
             <button class="btn btn-info" onclick="mostrarModalPin('historial')"><i class="fas fa-history"></i> Historial</button>
+            <button id="btnTicketsMeseroPOS" class="btn btn-outline-info position-relative" onclick="mostrarModalTicketsMesero()" title="Imprimir tickets de cocina que vienen de la app de mesero">
+              <i class="fas fa-mobile-alt"></i> Tickets mesero
+              <span id="badgeTicketsMeseroPOS" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style="display: none;">0</span>
+            </button>
             <button class="btn btn-outline-warning position-relative" onclick="mostrarModalRecordatorios()">
               <i class="fas fa-bell"></i> Recordatorios
               <span id="badgeRecordatoriosPOS" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">
@@ -2939,10 +2943,10 @@
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js?v=25"></script>
   <script src="firebase-init.js?v=38"></script>
-  <script src="ayuda.js?v=43"></script>
+  <script src="ayuda.js?v=44"></script>
   <script src="gastos-modelo.js?v=26"></script>
   <script src="inventario.js?v=26"></script>
-  <script src="app.js?v=40"></script>
+  <script src="app.js?v=42"></script>
   <script src="cotizaciones.js"></script>
   <script src="seguridad.js?v=27"></script>
   <script>
@@ -2999,6 +3003,9 @@
             actualizarVisibilidadBotonesPOS();
           }
         }, 500);
+      }
+      if (typeof actualizarBadgeTicketsMesero === 'function') {
+        actualizarBadgeTicketsMesero();
       }
       
       // Al cerrar el modal de productos: solo limpiar si no se pasa a pago / no se cancela a propósito

@@ -2388,11 +2388,13 @@ function inicializarSistemaCocina() {
     setInterval(() => {
       actualizarPanelCocina();
       actualizarBadgeCocina();
+      if (typeof actualizarBadgeTicketsMesero === 'function') actualizarBadgeTicketsMesero();
     }, intervaloMs);
     
     // Actualizar panel y badge inicial
     actualizarPanelCocina();
     actualizarBadgeCocina();
+    if (typeof actualizarBadgeTicketsMesero === 'function') actualizarBadgeTicketsMesero();
     
     // Escuchar cambios en el intervalo de actualización
     window.addEventListener('storage', (e) => {
@@ -3243,6 +3245,105 @@ function hashOperacionLocal(datos) {
   }
 }
 
+function pedidosCocinaDeMesero(horas) {
+  const limiteMs = (Number(horas) > 0 ? Number(horas) : 12) * 60 * 60 * 1000;
+  const limite = Date.now() - limiteMs;
+  return (historialCocina || []).filter(function (orden) {
+    if (!orden || orden.origen !== 'mesero') return false;
+    if (orden.cobrada) return false;
+    if (orden.sesionId && typeof sesionMesaYaCobrada === 'function' && sesionMesaYaCobrada(orden.sesionId)) return false;
+    const t = Date.parse(orden.fecha);
+    return Number.isFinite(t) ? t >= limite : true;
+  }).sort(function (a, b) {
+    return (Date.parse(b && b.fecha) || 0) - (Date.parse(a && a.fecha) || 0);
+  });
+}
+
+function actualizarBadgeTicketsMesero() {
+  const badge = document.getElementById('badgeTicketsMeseroPOS');
+  if (!badge) return;
+  const n = pedidosCocinaDeMesero(3).length;
+  if (n > 0) {
+    badge.textContent = String(n);
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function mostrarModalTicketsMesero() {
+  const pedidos = pedidosCocinaDeMesero(12);
+  let cuerpo = '';
+  if (!pedidos.length) {
+    cuerpo = '<div class="text-center p-4 text-muted">No hay tickets de mesero pendientes. Los ya cobrados se buscan en Historial.</div>';
+  } else {
+    cuerpo = pedidos.map(function (pedido) {
+      const id = String(pedido.id).replace(/'/g, '');
+      const codigo = typeof formatearCodigoPedidoCocina === 'function'
+        ? formatearCodigoPedidoCocina(pedido.mesa)
+        : String(pedido.mesa || '');
+      const mesero = pedido.nombreMesero ? String(pedido.nombreMesero) : '';
+      const hora = pedido.fechaMostrar || (pedido.fecha ? new Date(pedido.fecha).toLocaleString() : '');
+      const ronda = rondaDeProductos(pedido.items, pedido.ronda);
+      const productos = (pedido.items || []).map(function (item) {
+        const det = item.detalles ? ' <small class="text-white-50">(' + String(item.detalles) + ')</small>' : '';
+        return '<li>' + (item.cantidad || 1) + ' × ' + String(item.nombre || '') + det + '</li>';
+      }).join('');
+      return '<div class="card bg-dark border-secondary mb-3">' +
+        '<div class="card-body">' +
+        '<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">' +
+        '<div>' +
+        '<h5 class="text-info mb-1">' + codigo + '</h5>' +
+        '<div class="small text-white-50">Ronda ' + ronda + (mesero ? ' · ' + mesero : '') + '</div>' +
+        '<div class="small text-white-50">' + hora + '</div>' +
+        '</div>' +
+        '<button type="button" class="btn btn-info" onclick="imprimirTicketCocinaDesdeListaMesero(\'' + id + '\')">' +
+        '<i class="fas fa-print"></i> Imprimir en esta caja</button>' +
+        '</div>' +
+        '<ul class="mb-0 mt-3 ps-3">' + (productos || '<li class="text-muted">Sin productos</li>') + '</ul>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  let modal = document.getElementById('modalTicketsMesero');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modalTicketsMesero';
+    modal.className = 'modal fade';
+    modal.setAttribute('tabindex', '-1');
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML =
+    '<div class="modal-dialog modal-lg modal-dialog-scrollable">' +
+    '<div class="modal-content bg-dark text-white">' +
+    '<div class="modal-header border-secondary">' +
+    '<h5 class="modal-title"><i class="fas fa-mobile-alt me-2"></i>Tickets de mesero</h5>' +
+    '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>' +
+    '</div>' +
+    '<div class="modal-body">' +
+    '<p class="text-white-50 small">Solo lo que envió la app de mesero. Si se te pasó el aviso, imprímelo aquí.</p>' +
+    cuerpo +
+    '</div>' +
+    '<div class="modal-footer border-secondary">' +
+    '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>' +
+    '</div></div></div>';
+  bootstrap.Modal.getOrCreateInstance(modal).show();
+}
+
+function imprimirTicketCocinaDesdeListaMesero(ordenId) {
+  const id = String(ordenId);
+  const orden = (historialCocina || []).find(function (o) { return String(o.id) === id; });
+  if (!orden) {
+    alert('No se encontró ese ticket de mesero');
+    return;
+  }
+  imprimirTicketCocinaDeOrden(orden);
+}
+  const t = Date.parse(orden && orden.fecha);
+  if (!Number.isFinite(t)) return false;
+  return (Date.now() - t) <= 45 * 60 * 1000;
+}
+
 function ordenCocinaMeseroReciente(orden) {
   const t = Date.parse(orden && orden.fecha);
   if (!Number.isFinite(t)) return false;
@@ -3311,6 +3412,7 @@ function imprimirPedidosNuevosDeMesero(lista) {
       omitirAviso: primeraVez && !(orden && orden.imprimirEnCaja && !orden.impresoEnCaja)
     });
   });
+  if (typeof actualizarBadgeTicketsMesero === 'function') actualizarBadgeTicketsMesero();
 }
 
 function aplicarOperacionEnPOS(datos) {
@@ -3364,6 +3466,7 @@ function aplicarOperacionEnPOS(datos) {
   }
   if (typeof actualizarPanelCocina === 'function') actualizarPanelCocina();
   if (typeof actualizarBadgeCocina === 'function') actualizarBadgeCocina();
+  if (typeof actualizarBadgeTicketsMesero === 'function') actualizarBadgeTicketsMesero();
   if (typeof actualizarDatalistDomiciliarios === 'function') actualizarDatalistDomiciliarios();
   if (typeof actualizarVisibilidadBotónCocina === 'function') actualizarVisibilidadBotónCocina();
   if (typeof actualizarVisibilidadBotonesPOS === 'function') actualizarVisibilidadBotonesPOS();
@@ -3612,6 +3715,7 @@ function liberarMesaTrasCobro(mesaId, sesionId) {
   });
   guardarMesas();
   persistirOperacionTrasCobro();
+  if (typeof actualizarBadgeTicketsMesero === 'function') actualizarBadgeTicketsMesero();
 }
 
 function restaurarItemsMesaDesdeCocina(mesasObjetivo) {
@@ -7426,6 +7530,7 @@ function mostrarAvisoTicketCocinaMesero(datos) {
     '<div class="mb-2">' + mesa + mesero + '.' + extraAuto + '</div>' +
     '<div class="d-flex gap-2 flex-wrap">' +
     '<button type="button" class="btn btn-info btn-sm" id="btnImprimirAvisoTicketMesero">Imprimir en esta caja</button>' +
+    '<button type="button" class="btn btn-outline-light btn-sm" id="btnVerTicketsMesero">Ver todos</button>' +
     '<button type="button" class="btn btn-outline-light btn-sm" id="btnCerrarAvisoTicketMesero">Cerrar</button>' +
     '</div>';
   document.body.appendChild(aviso);
@@ -7435,6 +7540,13 @@ function mostrarAvisoTicketCocinaMesero(datos) {
   if (btnPrint) {
     btnPrint.onclick = function () {
       if (window._ordenCocinaMeseroPendiente) imprimirTicketCocinaDeOrden(window._ordenCocinaMeseroPendiente);
+    };
+  }
+  const btnVer = document.getElementById('btnVerTicketsMesero');
+  if (btnVer) {
+    btnVer.onclick = function () {
+      if (aviso.parentNode) aviso.remove();
+      if (typeof mostrarModalTicketsMesero === 'function') mostrarModalTicketsMesero();
     };
   }
   setTimeout(function () {

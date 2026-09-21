@@ -36,8 +36,9 @@
           <i class="fas fa-utensils"></i> Historial de Cocina
         </button>
       </li>
-      <li class="nav-item" role="presentation" id="tab-cierres-admin" style="display: none;">
+      <li class="nav-item" role="presentation" id="tab-cierres-admin">
         <button class="nav-link" id="cierres-admin-tab" data-bs-toggle="tab" data-bs-target="#cierres-admin" type="button" role="tab">
+          <i class="fas fa-lock" id="iconoLockCierresAdmin"></i>
           <i class="fas fa-calculator"></i> Cierres Administrativos
         </button>
       </li>
@@ -195,13 +196,54 @@
     </div>
   </div>
 
+  <div class="modal fade" id="modalPinAcceso" tabindex="-1" aria-labelledby="modalPinAccesoLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalPinAccesoLabel">Acceso restringido — Cierres administrativos</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="cuerpoPinAcceso">
+            <div class="mb-3">
+              <label for="pinAcceso" class="form-label">Ingrese el PIN de 4 dígitos</label>
+              <input type="password" class="form-control bg-dark text-white border-light" id="pinAcceso"
+                     maxlength="4" pattern="[0-9]*" inputmode="numeric"
+                     onkeydown="if(event.key==='Enter'){ event.preventDefault(); verificarPinCierresAdmin(); }"
+                     onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+            </div>
+            <div class="mb-3">
+              <small class="text-muted">Es el mismo PIN de Cierre administrativo. Lo puedes cambiar en Administración.</small>
+            </div>
+            <div id="mensajeErrorPin" class="text-danger" style="display: none;">
+              PIN incorrecto. Intente nuevamente.
+            </div>
+          </div>
+          <div id="capaBloqueoPinAcceso" class="text-center" style="display: none;">
+            <div class="text-danger mb-2" style="font-size: 2.2rem;"><i class="fas fa-shield-alt"></i></div>
+            <h5 class="text-danger fw-bold mb-2">ACCESO BLOQUEADO</h5>
+            <p class="mb-2">Se detectaron 3 intentos fallidos de PIN. Por seguridad, los módulos protegidos quedan bloqueados.</p>
+            <p class="text-warning fw-bold mb-2">El intento queda registrado. Avise al administrador.</p>
+            <p class="mb-0">Tiempo restante: <span class="fw-bold" data-tiempo-bloqueo-pin>15:00</span></p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btnVerificarPinAcceso" onclick="verificarPinCierresAdmin()">
+            <i class="fas fa-unlock"></i> Acceder
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js?v=25"></script>
   <script src="firebase-init.js?v=38"></script>
-  <script src="seguridad.js?v=25"></script>
+  <script src="seguridad.js?v=27"></script>
   <script>
     // VERSIÓN SÚPER SIMPLE - Solo lo esencial
     
@@ -246,7 +288,103 @@
         });
     }
 
-    // Función para obtener cierres administrativos
+    let cierresAdminDesbloqueados = false;
+
+    function pedirPinCierresAdmin() {
+        const pinInput = document.getElementById('pinAcceso');
+        const mensajeError = document.getElementById('mensajeErrorPin');
+        if (pinInput) pinInput.value = '';
+        if (mensajeError) mensajeError.style.display = 'none';
+        const titulo = document.getElementById('modalPinAccesoLabel');
+        if (titulo) {
+            titulo.dataset.tituloOriginal = 'Acceso restringido — Cierres administrativos';
+            titulo.textContent = titulo.dataset.tituloOriginal;
+        }
+        if (typeof prepararUiPin === 'function') {
+            try { prepararUiPin(); } catch (e) {}
+        }
+        const modalEl = document.getElementById('modalPinAcceso');
+        if (!modalEl) return;
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: 'static', keyboard: false });
+        modal.show();
+        setTimeout(function () {
+            if (pinInput && typeof pinAccesoBloqueado === 'function' && !pinAccesoBloqueado()) {
+                try { pinInput.focus(); } catch (e) {}
+            }
+        }, 250);
+    }
+
+    function desbloquearCierresAdmin() {
+        cierresAdminDesbloqueados = true;
+        const icono = document.getElementById('iconoLockCierresAdmin');
+        if (icono) icono.style.display = 'none';
+        mostrarCierresAdmin(obtenerCierresAdmin());
+        const modalEl = document.getElementById('modalPinAcceso');
+        const modal = modalEl && bootstrap.Modal.getInstance(modalEl);
+        const tabBtn = document.getElementById('cierres-admin-tab');
+        const continuar = function () {
+            if (tabBtn) bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+        };
+        if (modal && modalEl) {
+            modalEl.addEventListener('hidden.bs.modal', function handler() {
+                modalEl.removeEventListener('hidden.bs.modal', handler);
+                continuar();
+            });
+            modal.hide();
+            return;
+        }
+        continuar();
+    }
+
+    async function verificarPinCierresAdmin() {
+        try {
+            if (typeof pinAccesoBloqueado === 'function' && pinAccesoBloqueado()) {
+                if (typeof prepararUiPin === 'function') prepararUiPin();
+                return;
+            }
+            const pinInput = document.getElementById('pinAcceso');
+            const pinIngresado = pinInput ? pinInput.value : '';
+            const mensajeError = document.getElementById('mensajeErrorPin');
+            let ok = false;
+            if (window.ToySoftFirebase && typeof ToySoftFirebase.pinCorrecto === 'function') {
+                ok = await ToySoftFirebase.pinCorrecto('cierre-administrativo', pinIngresado);
+            }
+            if (!ok) {
+                const n = typeof registrarPinFallido === 'function' ? registrarPinFallido() : 1;
+                if (mensajeError) {
+                    mensajeError.textContent = typeof mensajeIntentoPin === 'function'
+                        ? mensajeIntentoPin(n)
+                        : 'PIN incorrecto. Intente nuevamente.';
+                    mensajeError.style.display = 'block';
+                }
+                if (pinInput) pinInput.value = '';
+                if (navigator.vibrate) navigator.vibrate(n >= 3 ? [200, 80, 200, 80, 400] : 200);
+                if (n >= 3) {
+                    alert(typeof avisoBloqueoPinTexto === 'function'
+                        ? avisoBloqueoPinTexto()
+                        : 'ÚLTIMO AVISO: el sistema se va a bloquear.');
+                    if (typeof prepararUiPin === 'function') prepararUiPin();
+                }
+                return;
+            }
+            if (typeof limpiarIntentosPin === 'function') limpiarIntentosPin();
+            desbloquearCierresAdmin();
+        } catch (error) {
+            console.error('Error al verificar el PIN', error);
+            alert('No se pudo validar el PIN. Recarga la página e inténtalo de nuevo.');
+        }
+    }
+
+    function instalarPinCierresAdmin() {
+        const tabBtn = document.getElementById('cierres-admin-tab');
+        if (!tabBtn || tabBtn.dataset.pinInstalado === '1') return;
+        tabBtn.dataset.pinInstalado = '1';
+        tabBtn.addEventListener('show.bs.tab', function (event) {
+            if (cierresAdminDesbloqueados) return;
+            event.preventDefault();
+            pedirPinCierresAdmin();
+        });
+    }
     function obtenerCierresAdmin() {
         const cierres = (window.ToySoftFirebase && typeof ToySoftFirebase.cierresDesdeLocal === 'function')
             ? ToySoftFirebase.cierresDesdeLocal()
@@ -845,6 +983,10 @@
     function mostrarCierresAdmin(cierres) {
         const tablaCierresAdmin = document.getElementById('tablaCierresAdmin');
         if (!tablaCierresAdmin) return;
+        if (!cierresAdminDesbloqueados) {
+            tablaCierresAdmin.innerHTML = '';
+            return;
+        }
         
         tablaCierresAdmin.innerHTML = '';
         cierres.forEach(cierre => {
@@ -891,13 +1033,8 @@
 
     // Función para reimprimir cierre administrativo
     async function reimprimirCierreAdmin(fechaCierre) {
-        const pin = prompt('Ingresa el PIN de cierre administrativo para reimprimir:');
-        let ok = false;
-        if (window.ToySoftFirebase && typeof ToySoftFirebase.pinCorrecto === 'function') {
-            ok = await ToySoftFirebase.pinCorrecto('cierre-administrativo', pin);
-        }
-        if (!ok) {
-            alert('PIN incorrecto. Usa el PIN de cierre administrativo.');
+        if (!cierresAdminDesbloqueados) {
+            pedirPinCierresAdmin();
             return;
         }
         
@@ -1164,7 +1301,7 @@
                     });
                     ToySoftFirebase.escucharFinanzas({
                         cierres: function () {
-                            mostrarCierresAdmin(obtenerCierresAdmin());
+                            if (cierresAdminDesbloqueados) mostrarCierresAdmin(obtenerCierresAdmin());
                         },
                         cierresOperativos: function () {
                             mostrarCierresOperativo(obtenerCierresOperativo());
@@ -1177,35 +1314,11 @@
         }
         mostrarVentas(obtenerVentas());
         mostrarCocina(obtenerCocina());
-        mostrarCierresAdmin(obtenerCierresAdmin());
         mostrarCierresOperativo(obtenerCierresOperativo());
-        
-        // Verificar rol después de cargar los datos
-        setTimeout(() => {
-          console.log('🔍 Verificando rol después de cargar datos...');
-          verificarRolUsuario();
-        }, 200);
+        instalarPinCierresAdmin();
     });
 
 
-    // Función para verificar el rol del usuario y mostrar/ocultar pestañas
-    function verificarRolUsuario() {
-      const tabCierresAdmin = document.getElementById('tab-cierres-admin');
-      if (tabCierresAdmin) tabCierresAdmin.style.display = 'block';
-    }
-
-    // Función para verificar rol con delay (para asegurar que window.usuarioActual esté disponible)
-    function verificarRolConDelay() {
-      setTimeout(() => {
-        verificarRolUsuario();
-      }, 100);
-    }
-
-    // Verificar rol al cargar la página y también con delay
-    verificarRolUsuario();
-    verificarRolConDelay();
-
-    // Hacer las funciones disponibles globalmente
     window.buscarVentas = buscarVentas;
     window.buscarCocina = buscarCocina;
     window.buscarCierresAdmin = buscarCierresAdmin;
@@ -1214,7 +1327,7 @@
     window.reimprimirCocina = reimprimirCocina;
     window.reimprimirCierreAdmin = reimprimirCierreAdmin;
     window.reimprimirCierreOperativo = reimprimirCierreOperativo;
-    window.verificarRolUsuario = verificarRolUsuario;
+    window.verificarPinCierresAdmin = verificarPinCierresAdmin;
   </script>
 </body>
 </html> 
