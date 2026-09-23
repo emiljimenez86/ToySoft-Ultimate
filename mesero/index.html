@@ -2,11 +2,29 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Mesero - ToySoft</title>
-  <meta http-equiv="refresh" content="0;url=../mesero.html">
-  <script>location.replace('../mesero.html');</script>
+  <title>ToySoft Mesero</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0dcaf0">
+  <link rel="manifest" href="/manifest-mesero.json">
+  <style>html,body{margin:0;height:100%;background:#111}</style>
 </head>
 <body>
-  <p><a href="../mesero.html">Abrir Mesero</a></p>
+<script>
+(function () {
+  fetch('/mesero.html' + location.search, { cache: 'no-store', credentials: 'same-origin' })
+    .then(function (respuesta) {
+      if (!respuesta.ok) throw new Error('mesero');
+      return respuesta.text();
+    })
+    .then(function (html) {
+      document.open();
+      document.write(html);
+      document.close();
+    })
+    .catch(function () {
+      document.body.innerHTML = '<p style="color:#fff;font-family:sans-serif;padding:24px">No se pudo abrir Mesero. Revisa la conexión e inténtalo de nuevo.</p>';
+    });
+})();
+</script>
 </body>
 </html>
