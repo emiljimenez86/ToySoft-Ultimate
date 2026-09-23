@@ -27,7 +27,8 @@
     'contadorRecoger', 'ultimaFechaContadores', 'nombresDomiciliarios',
     'historialVentas', 'ventas', 'facturasPendientes', 'historialGastos', 'gastos',
     'historialCierres', 'historialCierresOperativos', 'inventario', 'clientes',
-    'recordatorios', 'recordatoriosActivos', 'cotizaciones', 'logoNegocio'
+    'recordatorios', 'recordatoriosActivos', 'cotizaciones', 'logoNegocio',
+    'facturacionElectronica'
   ];
 
   function configValida(cfg) {
@@ -120,6 +121,22 @@
     return cuentaActiva() && getRol() === 'mesero';
   }
 
+  function esPos() {
+    return cuentaActiva() && getRol() === 'pos';
+  }
+
+  function esPropietario() {
+    return cuentaActiva() && getRol() === 'propietario';
+  }
+
+  function esCaja() {
+    return cuentaActiva() && (getRol() === 'admin' || getRol() === 'pos');
+  }
+
+  function puedeEscribirCaja() {
+    return esAdminNegocio() || esPos();
+  }
+
   function normalizarSexoMesero(valor) {
     const s = String(valor || '').trim().toLowerCase();
     if (s === 'f' || s === 'femenino' || s === 'mujer' || s === 'mesera') return 'femenino';
@@ -140,9 +157,13 @@
     }
   }
 
-  function nombreMeseroActual() {
+  function nombreUsuarioActual() {
     const u = usuarioDoc || {};
     return String(u.nombre || '').trim();
+  }
+
+  function nombreMeseroActual() {
+    return nombreUsuarioActual();
   }
 
   function sexoMeseroActual() {
@@ -335,7 +356,7 @@
     return data;
   }
 
-  async function crearORecuperarAuthMesero(correo, clave, nombre) {
+  async function crearORecuperarAuthEquipo(correo, clave, nombre) {
     try {
       const creado = await llamarIdentityToolkit('accounts:signUp', {
         email: correo,
@@ -343,7 +364,7 @@
         displayName: nombre || '',
         returnSecureToken: true
       });
-      if (!creado || !creado.localId) throw new Error('No se pudo crear la cuenta del mesero.');
+      if (!creado || !creado.localId) throw new Error('No se pudo crear la cuenta.');
       return creado.localId;
     } catch (error) {
       if (!error || error.code !== 'auth/email-already-in-use') throw error;
@@ -395,8 +416,14 @@
     if (mismo && mismo.rol === 'admin') {
       throw new Error('Ese correo es del administrador.');
     }
+    if (mismo && mismo.rol === 'pos') {
+      throw new Error('Ese correo ya es de un punto de venta.');
+    }
+    if (mismo && mismo.rol === 'propietario') {
+      throw new Error('Ese correo ya es de un propietario.');
+    }
 
-    const uid = await crearORecuperarAuthMesero(correo, clave, nombreLimpio);
+    const uid = await crearORecuperarAuthEquipo(correo, clave, nombreLimpio);
     if (!uid) throw new Error('No se pudo crear la cuenta del mesero.');
     if (!auth().currentUser) throw new Error('Se perdió la sesión del administrador. Vuelve a entrar e intenta de nuevo.');
 
@@ -495,6 +522,239 @@
       throw error;
     }
     return { uid: id, nombre: nombreLimpio, sexo: sexoLimpio };
+  }
+
+  async function crearCuentaPos(nombre, email, password) {
+    if (!esAdminNegocio()) throw new Error('Solo el administrador puede crear puntos de venta.');
+    if (!negocioIdActual) await asegurarNegocio();
+    const nombreLimpio = String(nombre || '').trim();
+    const correo = normalizarCorreo(email);
+    const clave = normalizarClave(password);
+    if (!nombreLimpio) throw new Error('Escribe el nombre del punto de venta.');
+    if (!correo) throw new Error('Escribe el correo del punto de venta.');
+    if (clave.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+    if (!auth().currentUser) throw new Error('Se perdió la sesión del administrador. Vuelve a entrar.');
+
+    const actuales = await listarUsuariosNegocio(true);
+    const mismo = actuales.filter(function (u) {
+      return normalizarCorreo(u.email) === correo;
+    })[0];
+    if (mismo && mismo.rol === 'admin') {
+      throw new Error('Ese correo es del administrador.');
+    }
+    if (mismo && mismo.rol === 'mesero') {
+      throw new Error('Ese correo ya es de un mesero.');
+    }
+    if (mismo && mismo.rol === 'propietario') {
+      throw new Error('Ese correo ya es de un propietario.');
+    }
+
+    const uid = await crearORecuperarAuthEquipo(correo, clave, nombreLimpio);
+    if (!uid) throw new Error('No se pudo crear la cuenta del punto de venta.');
+    if (!auth().currentUser) throw new Error('Se perdió la sesión del administrador. Vuelve a entrar e intenta de nuevo.');
+
+    if (mismo && mismo.uid && mismo.uid !== uid) {
+      try {
+        await db().collection('usuarios').doc(mismo.uid).set({
+          activo: false,
+          eliminadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (e) {}
+    }
+
+    try {
+      await db().collection('usuarios').doc(uid).set({
+        email: correo,
+        rol: 'pos',
+        negocioId: negocioIdActual,
+        nombre: nombreLimpio,
+        activo: true,
+        creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      if (error && /permission/i.test(String(error.message || ''))) {
+        throw new Error('Ese correo ya pertenece a otra cuenta. Usa uno distinto.');
+      }
+      throw error;
+    }
+    return { uid: uid, email: correo, nombre: nombreLimpio, rol: 'pos' };
+  }
+
+  async function eliminarPos(uid) {
+    if (!esAdminNegocio()) throw new Error('Solo el administrador puede eliminar puntos de venta.');
+    const id = String(uid || '').trim();
+    if (!id) throw new Error('Falta el punto de venta a eliminar.');
+    if (auth().currentUser && auth().currentUser.uid === id) {
+      throw new Error('No puedes eliminar tu propia cuenta.');
+    }
+    const ref = db().collection('usuarios').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+    if (data.negocioId !== negocioIdActual) throw new Error('Ese usuario no es de este negocio.');
+    if (data.rol !== 'pos') throw new Error('Solo se pueden eliminar puntos de venta.');
+    await ref.set({
+      activo: false,
+      eliminadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  }
+
+  async function actualizarPos(uid, nombre, password) {
+    if (!esAdminNegocio()) throw new Error('Solo el administrador puede modificar puntos de venta.');
+    const id = String(uid || '').trim();
+    const nombreLimpio = String(nombre || '').trim();
+    const clave = normalizarClave(password);
+    if (!id) throw new Error('Falta el punto de venta a modificar.');
+    if (!nombreLimpio) throw new Error('Escribe el nombre del punto de venta.');
+    if (clave && clave.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+
+    const ref = db().collection('usuarios').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) throw new Error('Ese punto de venta no existe.');
+    const data = snap.data() || {};
+    if (data.negocioId !== negocioIdActual) throw new Error('Ese usuario no es de este negocio.');
+    if (data.rol !== 'pos') throw new Error('Solo se pueden modificar puntos de venta.');
+
+    await ref.set({
+      nombre: nombreLimpio,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    if (!clave) return { uid: id, nombre: nombreLimpio };
+
+    const correo = normalizarCorreo(data.email);
+    if (!correo) return { uid: id, nombre: nombreLimpio };
+    try {
+      await llamarIdentityToolkit('accounts:signInWithPassword', {
+        email: correo,
+        password: clave,
+        returnSecureToken: true
+      });
+    } catch (error) {
+      if (esErrorClaveAuth(error)) {
+        throw new Error('El nombre se actualizó. Para una contraseña nueva elimina el punto de venta y créalo otra vez con otro correo.');
+      }
+      throw error;
+    }
+    return { uid: id, nombre: nombreLimpio };
+  }
+
+  async function crearCuentaPropietario(nombre, email, password) {
+    if (!esAdminNegocio()) throw new Error('Solo el administrador puede crear propietarios.');
+    if (!negocioIdActual) await asegurarNegocio();
+    const nombreLimpio = String(nombre || '').trim();
+    const correo = normalizarCorreo(email);
+    const clave = normalizarClave(password);
+    if (!nombreLimpio) throw new Error('Escribe el nombre del propietario.');
+    if (!correo) throw new Error('Escribe el correo del propietario.');
+    if (clave.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+    if (!auth().currentUser) throw new Error('Se perdió la sesión del administrador. Vuelve a entrar.');
+
+    const actuales = await listarUsuariosNegocio(true);
+    const mismo = actuales.filter(function (u) {
+      return normalizarCorreo(u.email) === correo;
+    })[0];
+    if (mismo && mismo.rol === 'admin') {
+      throw new Error('Ese correo es del administrador.');
+    }
+    if (mismo && mismo.rol === 'mesero') {
+      throw new Error('Ese correo ya es de un mesero.');
+    }
+    if (mismo && mismo.rol === 'pos') {
+      throw new Error('Ese correo ya es de un punto de venta.');
+    }
+    if (mismo && mismo.rol === 'propietario') {
+      throw new Error('Ese correo ya es de un propietario.');
+    }
+
+    const uid = await crearORecuperarAuthEquipo(correo, clave, nombreLimpio);
+    if (!uid) throw new Error('No se pudo crear la cuenta del propietario.');
+    if (!auth().currentUser) throw new Error('Se perdió la sesión del administrador. Vuelve a entrar e intenta de nuevo.');
+
+    if (mismo && mismo.uid && mismo.uid !== uid) {
+      try {
+        await db().collection('usuarios').doc(mismo.uid).set({
+          activo: false,
+          eliminadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (e) {}
+    }
+
+    try {
+      await db().collection('usuarios').doc(uid).set({
+        email: correo,
+        rol: 'propietario',
+        negocioId: negocioIdActual,
+        nombre: nombreLimpio,
+        activo: true,
+        creadoEn: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      if (error && /permission/i.test(String(error.message || ''))) {
+        throw new Error('Ese correo ya pertenece a otra cuenta. Usa uno distinto.');
+      }
+      throw error;
+    }
+    return { uid: uid, email: correo, nombre: nombreLimpio, rol: 'propietario' };
+  }
+
+  async function eliminarPropietario(uid) {
+    if (!esAdminNegocio()) throw new Error('Solo el administrador puede eliminar propietarios.');
+    const id = String(uid || '').trim();
+    if (!id) throw new Error('Falta el propietario a eliminar.');
+    if (auth().currentUser && auth().currentUser.uid === id) {
+      throw new Error('No puedes eliminar tu propia cuenta.');
+    }
+    const ref = db().collection('usuarios').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+    if (data.negocioId !== negocioIdActual) throw new Error('Ese usuario no es de este negocio.');
+    if (data.rol !== 'propietario') throw new Error('Solo se pueden eliminar propietarios.');
+    await ref.set({
+      activo: false,
+      eliminadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  }
+
+  async function actualizarPropietario(uid, nombre, password) {
+    if (!esAdminNegocio()) throw new Error('Solo el administrador puede modificar propietarios.');
+    const id = String(uid || '').trim();
+    const nombreLimpio = String(nombre || '').trim();
+    const clave = normalizarClave(password);
+    if (!id) throw new Error('Falta el propietario a modificar.');
+    if (!nombreLimpio) throw new Error('Escribe el nombre del propietario.');
+    if (clave && clave.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres.');
+
+    const ref = db().collection('usuarios').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) throw new Error('Ese propietario no existe.');
+    const data = snap.data() || {};
+    if (data.negocioId !== negocioIdActual) throw new Error('Ese usuario no es de este negocio.');
+    if (data.rol !== 'propietario') throw new Error('Solo se pueden modificar propietarios.');
+
+    await ref.set({
+      nombre: nombreLimpio,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    if (!clave) return { uid: id, nombre: nombreLimpio };
+
+    const correo = normalizarCorreo(data.email);
+    if (!correo) return { uid: id, nombre: nombreLimpio };
+    try {
+      await llamarIdentityToolkit('accounts:signInWithPassword', {
+        email: correo,
+        password: clave,
+        returnSecureToken: true
+      });
+    } catch (error) {
+      if (esErrorClaveAuth(error)) {
+        throw new Error('El nombre se actualizó. Para una contraseña nueva elimina el propietario y créalo otra vez con otro correo.');
+      }
+      throw error;
+    }
+    return { uid: id, nombre: nombreLimpio };
   }
 
   async function asegurarNegocio(opciones) {
@@ -708,7 +968,7 @@
       return nube;
     }
     if (local.categorias.length || local.productos.length) {
-      if (esMesero()) return local;
+      if (!esAdminNegocio()) return local;
       await guardarCatalogo(local);
       return local;
     }
@@ -902,7 +1162,9 @@
       impresoraCocinaIp: localStorage.getItem('impresoraCocinaIp') || '',
       impresoraCocinaPuerto: localStorage.getItem('impresoraCocinaPuerto') || '9100',
       impresoraCocinaAncho: localStorage.getItem('impresoraCocinaAncho') || '80'
-    }), flagsBotonesPOSDesdeStorage());
+    }), flagsBotonesPOSDesdeStorage(), {
+      posRequiereLogin: localStorage.getItem('posRequiereLogin') === 'true'
+    });
   }
 
   function operacionLimpia(datos) {
@@ -921,7 +1183,9 @@
       cocinaSonidoActivado: origen.cocinaSonidoActivado !== false,
       cocinaIntervaloActualizacion: String(origen.cocinaIntervaloActualizacion || '30'),
       sesionesCobradas: sesiones
-    }, camposImpresoraCocina(origen), flagsBotonesPOSDesdeDatos(origen)), function (clave, valor) {
+    }, camposImpresoraCocina(origen), flagsBotonesPOSDesdeDatos(origen), {
+      posRequiereLogin: origen.posRequiereLogin === true
+    }), function (clave, valor) {
       return valor === undefined ? null : valor;
     });
     return JSON.parse(texto);
@@ -943,7 +1207,9 @@
       cocinaSonidoActivado: origen.cocinaSonidoActivado !== false,
       cocinaIntervaloActualizacion: String(origen.cocinaIntervaloActualizacion || '30'),
       sesionesCobradas: sesiones
-    }, camposImpresoraCocina(origen), flagsBotonesPOSDesdeDatos(origen));
+    }, camposImpresoraCocina(origen), flagsBotonesPOSDesdeDatos(origen), {
+      posRequiereLogin: origen.posRequiereLogin === true
+    });
   }
 
   function escribirOperacionLocal(datos) {
@@ -968,6 +1234,7 @@
     FLAGS_BOTONES_POS.forEach(function (clave) {
       localStorage.setItem(clave, local[clave] ? 'true' : 'false');
     });
+    localStorage.setItem('posRequiereLogin', local.posRequiereLogin ? 'true' : 'false');
     localStorage.setItem('posBotonesDefaultsVersion', String(local.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION));
     return local;
   }
@@ -1017,7 +1284,7 @@
       contadorRecoger: escrito.contadorRecoger,
       actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
     };
-    if (!esMesero()) {
+    if (!esMesero() && !esPropietario()) {
       payload.ultimaFechaContadores = escrito.ultimaFechaContadores;
       payload.nombresDomiciliarios = escrito.nombresDomiciliarios;
       payload.pantallaCocinaActivada = escrito.pantallaCocinaActivada;
@@ -1030,6 +1297,7 @@
       payload.posMostrarInventario = escrito.posMostrarInventario;
       payload.posMostrarCierreAdmin = escrito.posMostrarCierreAdmin;
       payload.posMostrarBalance = escrito.posMostrarBalance;
+      payload.posRequiereLogin = escrito.posRequiereLogin === true;
       payload.posBotonesDefaultsVersion = escrito.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION;
       payload.sesionesCobradas = unirSesionesCobradas(escrito);
     }
@@ -1090,6 +1358,7 @@
         posMostrarInventario: nube.posMostrarInventario,
         posMostrarCierreAdmin: nube.posMostrarCierreAdmin,
         posMostrarBalance: nube.posMostrarBalance,
+        posRequiereLogin: nube.posRequiereLogin === true,
         posBotonesDefaultsVersion: nube.posBotonesDefaultsVersion
       });
       const dataSnap = snap.data() || {};
@@ -1126,6 +1395,7 @@
       posMostrarInventario: nube.posMostrarInventario,
       posMostrarCierreAdmin: nube.posMostrarCierreAdmin,
       posMostrarBalance: nube.posMostrarBalance,
+      posRequiereLogin: nube.posRequiereLogin === true,
       posBotonesDefaultsVersion: nube.posBotonesDefaultsVersion
     };
   }
@@ -1348,6 +1618,10 @@
       nube.push(ventaLimpia(data));
     });
     if (nube.length === 0 && local.length) {
+      if (!puedeEscribirCaja()) {
+        escribirVentasLocal(nube.length ? nube : local);
+        return nube.length ? nube : local;
+      }
       await subirVentasEnLotes(local);
       escribirVentasLocal(local);
       return local;
@@ -1362,7 +1636,7 @@
         faltan.push(v);
       }
     });
-    if (faltan.length) await subirVentasEnLotes(faltan);
+    if (faltan.length && puedeEscribirCaja()) await subirVentasEnLotes(faltan);
     const merged = Array.from(mapa.values());
     escribirVentasLocal(merged);
     return merged;
@@ -1466,6 +1740,10 @@
       nube.push(objetoLimpio(data));
     });
     if (nube.length === 0 && local.length) {
+      if (!puedeEscribirCaja()) {
+        escribirLocal(nube.length ? nube : local);
+        return nube.length ? nube : local;
+      }
       await subirListaEnLotes(nombreCol, local);
       escribirLocal(local);
       return local;
@@ -1480,7 +1758,7 @@
         faltan.push(v);
       }
     });
-    if (faltan.length) await subirListaEnLotes(nombreCol, faltan);
+    if (faltan.length && puedeEscribirCaja()) await subirListaEnLotes(nombreCol, faltan);
     const merged = Array.from(mapa.values());
     escribirLocal(merged);
     return merged;
@@ -1618,6 +1896,65 @@
       return lista;
     } finally {
       liberarPersistiendoFinanzas();
+    }
+  }
+
+  async function vaciarColeccionDocs(col) {
+    const snap = await col.get();
+    const refs = [];
+    snap.forEach(function (doc) { refs.push(doc.ref); });
+    for (let i = 0; i < refs.length; i += 400) {
+      const lote = refs.slice(i, i + 400);
+      const batch = db().batch();
+      lote.forEach(function (ref) { batch.delete(ref); });
+      await batch.commit();
+    }
+  }
+
+  function vaciarContableLocal() {
+    escribirVentasLocal([]);
+    escribirGastosLocal([]);
+    escribirCierresLocal([]);
+    escribirCierresOperativosLocal([]);
+    localStorage.setItem('domicilios', JSON.stringify([]));
+    localStorage.setItem('mesasActivas', JSON.stringify([]));
+    localStorage.setItem('estadoMesas', JSON.stringify([]));
+    localStorage.setItem('ordenesCocina', JSON.stringify([]));
+    localStorage.setItem('ordenesPendientes', JSON.stringify([]));
+    localStorage.setItem('historialCocina', JSON.stringify([]));
+    localStorage.setItem('pedidosCocinaListos', JSON.stringify([]));
+    localStorage.setItem('contadorDomicilios', '0');
+    localStorage.setItem('contadorRecoger', '0');
+    localStorage.setItem('ultimaFechaContadores', new Date().toLocaleDateString());
+    localStorage.removeItem('contadorDelivery');
+    localStorage.removeItem('ultimaHoraCierre');
+    localStorage.removeItem('ultimaBaseCaja');
+    limpiarSesionesCobradas();
+    try { window.ventas = []; } catch (e) { /* ignore */ }
+    try { window.gastos = []; } catch (e) { /* ignore */ }
+  }
+
+  async function vaciarDatosContables() {
+    marcarPersistiendoVentas();
+    marcarPersistiendoFinanzas();
+    marcarPersistiendoOperacion();
+    try {
+      vaciarContableLocal();
+      if (estaListo() && negocioIdActual && puedeEscribirCaja()) {
+        await vaciarColeccionDocs(colVentas());
+        await vaciarColeccionDocs(colNegocio('gastos'));
+        await vaciarColeccionDocs(colNegocio('cierres'));
+        await vaciarColeccionDocs(colNegocio('cierresOperativos'));
+      }
+      vaciarContableLocal();
+      if (estaListo() && puedeEscribirCaja()) {
+        await persistirOperacionInmediato();
+        await persistirConfigCaja();
+      }
+    } finally {
+      liberarPersistiendoVentas();
+      liberarPersistiendoFinanzas();
+      liberarPersistiendoOperacion();
     }
   }
 
@@ -1818,7 +2155,7 @@
       const data = snap.data() || {};
       if (!Array.isArray(data.items)) {
         if (local.length) {
-          await guardarInventarioNube(local);
+          if (puedeEscribirCaja()) await guardarInventarioNube(local);
           return inventarioLimpio(local);
         }
         return [];
@@ -1827,12 +2164,12 @@
       const fusion = fusionarInventario(local, nube);
       escribirInventarioLocal(fusion);
       if (JSON.stringify(fusion) !== JSON.stringify(nube)) {
-        await guardarInventarioNube(fusion);
+        if (puedeEscribirCaja()) await guardarInventarioNube(fusion);
       }
       return fusion;
     }
     if (local.length) {
-      await guardarInventarioNube(local);
+      if (puedeEscribirCaja()) await guardarInventarioNube(local);
       return inventarioLimpio(local);
     }
     return [];
@@ -1868,6 +2205,89 @@
   function refExtras() {
     if (!negocioIdActual) throw new Error('No hay negocio asociado a esta cuenta');
     return db().collection('negocios').doc(negocioIdActual).collection('config').doc('extras');
+  }
+
+  function refFacturacion() {
+    if (!negocioIdActual) throw new Error('No hay negocio asociado a esta cuenta');
+    return db().collection('negocios').doc(negocioIdActual).collection('config').doc('facturacion');
+  }
+
+  function resolucionFacturacionLimpia(datos) {
+    const d = datos && typeof datos === 'object' ? datos : {};
+    const num = function (v) {
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    };
+    return {
+      numero: String(d.numero || '').trim(),
+      fecha: String(d.fecha || '').trim(),
+      prefijo: String(d.prefijo || '').trim().toUpperCase().slice(0, 4),
+      rangoDesde: num(d.rangoDesde),
+      rangoHasta: num(d.rangoHasta),
+      vigenciaDesde: String(d.vigenciaDesde || '').trim(),
+      vigenciaHasta: String(d.vigenciaHasta || '').trim(),
+      proximoConsecutivo: num(d.proximoConsecutivo)
+    };
+  }
+
+  function facturacionLimpia(datos) {
+    const d = datos && typeof datos === 'object' ? datos : {};
+    const tarifa = parseFloat(d.tarifaInc);
+    return {
+      tipoDocumentoEmisor: d.tipoDocumentoEmisor === 'CC' ? 'CC' : 'NIT',
+      digitoVerificacion: String(d.digitoVerificacion || '').replace(/\D/g, '').slice(0, 1),
+      municipio: String(d.municipio || '').trim(),
+      codigoDane: String(d.codigoDane || '').replace(/\D/g, '').slice(0, 8),
+      regimen: (d.regimen === 'no_responsable' || d.regimen === 'simple') ? d.regimen : 'iva',
+      aplicaIncRestaurantes: d.aplicaIncRestaurantes === true,
+      tarifaInc: Number.isFinite(tarifa) ? tarifa : 8,
+      responsabilidades: String(d.responsabilidades || '').trim(),
+      documentoPorDefecto: d.documentoPorDefecto === 'factura' ? 'factura' : 'pos',
+      resolucionPos: resolucionFacturacionLimpia(d.resolucionPos),
+      resolucionFactura: resolucionFacturacionLimpia(d.resolucionFactura)
+    };
+  }
+
+  function snapshotFacturacionLocal() {
+    try {
+      const bruto = JSON.parse(localStorage.getItem('facturacionElectronica') || '{}');
+      return facturacionLimpia(bruto);
+    } catch (e) {
+      return facturacionLimpia({});
+    }
+  }
+
+  function escribirFacturacionLocal(datos) {
+    const limpio = facturacionLimpia(datos);
+    localStorage.setItem('facturacionElectronica', JSON.stringify(limpio));
+    return limpio;
+  }
+
+  async function persistirFacturacion(datos) {
+    if (!esAdminNegocio()) return snapshotFacturacionLocal();
+    const limpio = escribirFacturacionLocal(datos != null ? datos : snapshotFacturacionLocal());
+    if (!negocioIdActual) await asegurarNegocio();
+    if (!estaListo() || !negocioIdActual) return limpio;
+    await refFacturacion().set(Object.assign({}, limpio, {
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }), { merge: true });
+    return limpio;
+  }
+
+  async function sincronizarFacturacion() {
+    if (!negocioIdActual) await asegurarNegocio();
+    const local = snapshotFacturacionLocal();
+    if (!negocioIdActual) return local;
+    const snap = await refFacturacion().get();
+    if (snap.exists) {
+      const data = snap.data() || {};
+      delete data.actualizadoEn;
+      return escribirFacturacionLocal(data);
+    }
+    if (esAdminNegocio() && (local.resolucionPos.numero || local.resolucionFactura.numero || local.municipio)) {
+      await persistirFacturacion(local);
+    }
+    return local;
   }
 
   function snapshotDatosLocal() {
@@ -2027,6 +2447,7 @@
   }
 
   async function persistirExtras() {
+    if (!esAdminNegocio()) return snapshotExtrasLocal();
     if (!negocioIdActual) await asegurarNegocio();
     const local = snapshotExtrasLocal();
     if (!estaListo() || !negocioIdActual) return local;
@@ -2057,7 +2478,7 @@
       escribirExtrasLocal(data);
       return snapshotExtrasLocal();
     }
-    if (local.logoNegocio || (local.configuracionEmailJS && local.configuracionEmailJS.emailDestino)) {
+    if (esAdminNegocio() && (local.logoNegocio || (local.configuracionEmailJS && local.configuracionEmailJS.emailDestino))) {
       await persistirExtras();
     }
     return local;
@@ -2085,7 +2506,8 @@
   async function sincronizarResto() {
     const datos = await sincronizarDatos();
     const extras = await sincronizarExtras();
-    return { datos: datos, extras: extras };
+    const facturacion = await sincronizarFacturacion();
+    return { datos: datos, extras: extras, facturacion: facturacion };
   }
 
   const PIN_DEFAULTS_VERSION = 2;
@@ -2200,7 +2622,7 @@
   }
 
   async function persistirRoles(hashes) {
-    if (esMesero()) return hashes || {};
+    if (!esAdminNegocio()) return hashes || {};
     if (!negocioIdActual) await asegurarNegocio();
     const actuales = await hashesEfectivos();
     const payload = Object.assign({}, actuales, hashes || {});
@@ -2441,13 +2863,23 @@
     crearCuentaMesero: crearCuentaMesero,
     actualizarMesero: actualizarMesero,
     eliminarMesero: eliminarMesero,
+    crearCuentaPos: crearCuentaPos,
+    actualizarPos: actualizarPos,
+    eliminarPos: eliminarPos,
+    crearCuentaPropietario: crearCuentaPropietario,
+    actualizarPropietario: actualizarPropietario,
+    eliminarPropietario: eliminarPropietario,
     getRol: getRol,
     esAdminNegocio: esAdminNegocio,
     esMesero: esMesero,
+    esPos: esPos,
+    esPropietario: esPropietario,
+    esCaja: esCaja,
     sexoMeseroActual: sexoMeseroActual,
     etiquetaRolMeseroActual: etiquetaRolMeseroActual,
     uidMeseroActual: uidMeseroActual,
     nombreMeseroActual: nombreMeseroActual,
+    nombreUsuarioActual: nombreUsuarioActual,
     guardarNombreUsuario: guardarNombreUsuario,
     guardarDatosNegocio: guardarDatosNegocio,
     obtenerDatosNegocio: obtenerDatosNegocio,
@@ -2472,6 +2904,7 @@
     ventasDesdeLocal: fusionarVentasLocales,
     guardarGasto: guardarGasto,
     eliminarGastoNube: eliminarGastoNube,
+    vaciarDatosContables: vaciarDatosContables,
     gastosDesdeLocal: function () { return fusionarListasLocales(['historialGastos', 'gastos']); },
     guardarCierre: guardarCierre,
     guardarCierreOperativo: guardarCierreOperativo,
@@ -2494,6 +2927,9 @@
     persistirExtras: persistirExtras,
     sincronizarExtras: sincronizarExtras,
     escucharExtras: escucharExtras,
+    persistirFacturacion: persistirFacturacion,
+    sincronizarFacturacion: sincronizarFacturacion,
+    facturacionDesdeLocal: snapshotFacturacionLocal,
     sincronizarResto: sincronizarResto,
     hashPin: hashPin,
     pinCorrecto: pinCorrecto,

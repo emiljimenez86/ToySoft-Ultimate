@@ -37,8 +37,24 @@ service cloud.firestore {
       return sameNegocio(negocioId) && userData().rol == 'admin';
     }
 
+    function sameNegocioCaja(negocioId) {
+      return sameNegocio(negocioId) && userData().rol in ['admin', 'pos'];
+    }
+
+    function sameNegocioConsulta(negocioId) {
+      return sameNegocio(negocioId) && userData().rol in ['admin', 'pos', 'propietario'];
+    }
+
+    function sameNegocioLectura(negocioId) {
+      return sameNegocio(negocioId) && userData().rol in ['admin', 'mesero', 'pos', 'propietario'];
+    }
+
     function sameNegocioStaff(negocioId) {
-      return sameNegocio(negocioId) && userData().rol in ['admin', 'mesero'];
+      return sameNegocio(negocioId) && userData().rol in ['admin', 'mesero', 'pos'];
+    }
+
+    function rolEquipo(rol) {
+      return rol in ['mesero', 'pos', 'propietario'];
     }
 
     match /codigosEquipo/{codigo} {
@@ -70,7 +86,7 @@ service cloud.firestore {
           )
         ) || (
           isAdmin()
-          && request.resource.data.rol == 'mesero'
+          && rolEquipo(request.resource.data.rol)
           && request.resource.data.negocioId == userData().negocioId
         )
       );
@@ -82,18 +98,18 @@ service cloud.firestore {
         ) || (
           isAdmin()
           && resource.data.negocioId == userData().negocioId
-          && resource.data.rol == 'mesero'
+          && rolEquipo(resource.data.rol)
           && request.resource.data.negocioId == resource.data.negocioId
-          && request.resource.data.rol == 'mesero'
+          && request.resource.data.rol == resource.data.rol
         )
       );
       allow delete: if isAdmin()
         && resource.data.negocioId == userData().negocioId
-        && resource.data.rol == 'mesero';
+        && rolEquipo(resource.data.rol);
     }
 
     match /negocios/{negocioId} {
-      allow read: if sameNegocioStaff(negocioId);
+      allow read: if sameNegocioLectura(negocioId);
       allow create: if signedIn()
         && existsAfter(userPath())
         && userAfter().rol == 'admin'
@@ -102,35 +118,41 @@ service cloud.firestore {
       allow delete: if false;
 
       match /catalogo/{docId} {
-        allow read: if sameNegocioStaff(negocioId);
+        allow read: if sameNegocioLectura(negocioId);
         allow write: if sameNegocioAdmin(negocioId);
       }
       match /operacion/{docId} {
-        allow read, write: if sameNegocioStaff(negocioId);
+        allow read: if sameNegocioLectura(negocioId);
+        allow write: if sameNegocioStaff(negocioId);
       }
       match /ventas/{docId} {
-        allow read, write: if sameNegocioAdmin(negocioId);
+        allow read: if sameNegocioConsulta(negocioId);
+        allow write: if sameNegocioCaja(negocioId);
       }
       match /gastos/{docId} {
-        allow read, write: if sameNegocioAdmin(negocioId);
+        allow read: if sameNegocioConsulta(negocioId);
+        allow write: if sameNegocioCaja(negocioId);
       }
       match /cierres/{docId} {
-        allow read, write: if sameNegocioAdmin(negocioId);
+        allow read: if sameNegocioConsulta(negocioId);
+        allow write: if sameNegocioCaja(negocioId);
       }
       match /cierresOperativos/{docId} {
-        allow read, write: if sameNegocioAdmin(negocioId);
+        allow read: if sameNegocioConsulta(negocioId);
+        allow write: if sameNegocioCaja(negocioId);
       }
       match /inventario/{docId} {
-        allow read, write: if sameNegocioAdmin(negocioId);
+        allow read: if sameNegocioConsulta(negocioId);
+        allow write: if sameNegocioCaja(negocioId);
       }
       match /datos/{docId} {
-        allow read: if sameNegocioStaff(negocioId);
-        allow create: if sameNegocioAdmin(negocioId) || (
+        allow read: if sameNegocioLectura(negocioId);
+        allow create: if sameNegocioCaja(negocioId) || (
           sameNegocioStaff(negocioId)
           && request.resource.data.keys().hasOnly(['clientes', 'actualizadoEn'])
           && request.resource.data.clientes is list
         );
-        allow update: if sameNegocioAdmin(negocioId) || (
+        allow update: if sameNegocioCaja(negocioId) || (
           sameNegocioStaff(negocioId)
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['clientes', 'actualizadoEn'])
@@ -140,13 +162,14 @@ service cloud.firestore {
             || request.resource.data.clientes.size() >= resource.data.clientes.size()
           )
         );
-        allow delete: if sameNegocioAdmin(negocioId);
+        allow delete: if sameNegocioCaja(negocioId);
       }
       match /config/{docId} {
-        allow read, write: if sameNegocioAdmin(negocioId);
+        allow read: if sameNegocioConsulta(negocioId);
+        allow write: if sameNegocioAdmin(negocioId);
       }
       match /{subcol}/{docId} {
-        allow read, write: if sameNegocioAdmin(negocioId);
+        allow read, write: if sameNegocioCaja(negocioId);
       }
     }
   }

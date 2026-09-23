@@ -1,16 +1,40 @@
 let deferredPrompt;
-const installButton = document.getElementById('installButton');
+
+function botonesInstalar() {
+    const list = [];
+    const byId = document.getElementById('installButton');
+    if (byId) list.push(byId);
+    document.querySelectorAll('[data-install-pwa]').forEach(function (el) {
+        if (list.indexOf(el) === -1) list.push(el);
+    });
+    return list;
+}
 
 function esPaginaMesero() {
     return (window.location.pathname || '').toLowerCase().indexOf('mesero') !== -1;
 }
 
+function esPaginaPos() {
+    const ruta = (window.location.pathname || '').toLowerCase();
+    return /\/pos(\.html)?\/?$/.test(ruta) || /pos\.html$/i.test(ruta);
+}
+
+function esPaginaPropietario() {
+    return (window.location.pathname || '').toLowerCase().indexOf('propietario') !== -1;
+}
+
 function claveInstalacion() {
-    return esPaginaMesero() ? 'appInstalledMesero' : 'appInstalled';
+    if (esPaginaMesero()) return 'appInstalledMesero';
+    if (esPaginaPos()) return 'appInstalledPos';
+    if (esPaginaPropietario()) return 'appInstalledPropietario';
+    return 'appInstalled';
 }
 
 function nombreAppInstalacion() {
-    return esPaginaMesero() ? 'ToySoft Mesero' : 'ToySoft Ultimate';
+    if (esPaginaMesero()) return 'ToySoft Mesero';
+    if (esPaginaPos()) return 'ToySoft POS';
+    if (esPaginaPropietario()) return 'ToySoft Propietario';
+    return 'ToySoft Ultimate';
 }
 
 function appEstaInstalada() {
@@ -27,16 +51,16 @@ function esIPhone() {
 }
 
 function showInstallButton() {
-    if (installButton) {
-        installButton.style.display = 'block';
-    }
+    botonesInstalar().forEach(function (el) {
+        el.style.display = '';
+    });
 }
 
 function hideInstallButton() {
-    if (installButton) {
-        installButton.style.display = 'none';
-        localStorage.setItem(claveInstalacion(), 'true');
-    }
+    botonesInstalar().forEach(function (el) {
+        el.style.display = 'none';
+    });
+    localStorage.setItem(claveInstalacion(), 'true');
 }
 
 function asegurarAvisoIos() {
@@ -123,7 +147,7 @@ async function installPWA() {
         return;
     }
     try {
-        const registration = await navigator.serviceWorker.register('./sw.js?v=31');
+        const registration = await navigator.serviceWorker.register('./sw.js?v=33');
         console.log('ServiceWorker registrado:', registration);
 
         await navigator.serviceWorker.ready;
@@ -168,7 +192,7 @@ function showInstallInstructions() {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('./sw.js?v=31');
+            const registration = await navigator.serviceWorker.register('./sw.js?v=33');
             console.log('ServiceWorker registrado:', registration);
         } catch (error) {
             console.error('Error al registrar ServiceWorker:', error);

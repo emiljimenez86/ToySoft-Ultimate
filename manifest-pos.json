@@ -1,0 +1,26 @@
+{
+  "id": "./POS.html",
+  "name": "ToySoft POS",
+  "short_name": "ToySoft POS",
+  "description": "Punto de Venta ToySoft para restaurantes",
+  "start_url": "./POS.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#0dcaf0",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "./image/logo-ToySoft.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./image/logo-ToySoft.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

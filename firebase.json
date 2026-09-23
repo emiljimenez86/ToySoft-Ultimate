@@ -11,7 +11,11 @@
     ],
     "rewrites": [
       { "source": "/mesero", "destination": "/mesero.html" },
-      { "source": "/mesero/", "destination": "/mesero.html" }
+      { "source": "/mesero/", "destination": "/mesero.html" },
+      { "source": "/pos", "destination": "/POS.html" },
+      { "source": "/pos/", "destination": "/POS.html" },
+      { "source": "/propietario", "destination": "/propietario.html" },
+      { "source": "/propietario/", "destination": "/propietario.html" }
     ]
   }
 }

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ToySoft Propietario</title>
+  <meta name="description" content="App del propietario ToySoft: balance, gastos, inventario y cierres en tiempo real">
+  <meta name="theme-color" content="#0dcaf0">
+  <meta name="application-name" content="ToySoft Propietario">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ToySoft Propietario">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="icon" type="image/png" href="./image/logo-ToySoft.png">
+  <link rel="apple-touch-icon" href="./image/logo-ToySoft.png">
+  <link rel="manifest" href="./manifest-propietario.json">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;800;900&family=Exo+2:wght@400;600;700;800&family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    html, body.pagina-propietario {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      justify-content: flex-start !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      min-height: 0 !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      height: 100svh !important;
+      max-height: 100vh !important;
+      max-height: 100dvh !important;
+      max-height: 100svh !important;
+      overflow: hidden !important;
+    }
+    body { background: #111; color: #fff; padding-bottom: 0; font-size: 16px; }
+    #appPropietario, #loginPropietario { width: 100%; max-width: 100%; }
+    #loginPropietario { flex: 1; overflow-y: auto; min-height: 0; }
+    #appPropietario {
+      flex: 1 1 0;
+      display: none;
+      flex-direction: column;
+      align-items: stretch;
+      min-height: 0;
+      overflow: hidden;
+      width: 100%;
+    }
+    #appPropietario.app-visible { display: flex !important; }
+    .propietario-top {
+      position: relative;
+      flex-shrink: 0;
+      z-index: 20;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      padding: 12px 16px 14px;
+      text-align: center;
+      width: 100%;
+    }
+    .btn-actualizar-propietario {
+      position: absolute;
+      top: 12px;
+      left: max(10px, env(safe-area-inset-left));
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid rgba(13, 202, 240, 0.45);
+      border-radius: 50%;
+      background: linear-gradient(180deg, rgba(13, 202, 240, 0.22), rgba(255, 255, 255, 0.06));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
+      cursor: pointer;
+      z-index: 22;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .btn-actualizar-propietario.girando i { animation: girarActualizar 0.65s linear infinite; }
+    @keyframes girarActualizar { to { transform: rotate(360deg); } }
+    .propietario-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .logo-propietario-top {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 2px solid #0dcaf0;
+      box-shadow: 0 6px 16px rgba(13, 202, 240, 0.25);
+      background: #111;
+    }
+    .propietario-marca {
+      font-family: 'Exo 2', 'Rajdhani', sans-serif;
+      font-weight: 800;
+      font-size: 1.45rem;
+      color: #0dcaf0;
+    }
+    .propietario-usuario { color: #fff; font-size: 1rem; font-weight: 600; margin-top: 4px; }
+    .propietario-rol { color: #8b9aa3; font-size: 0.95rem; font-weight: 700; }
+    .punto-vivo {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: #2ecc71;
+      box-shadow: 0 0 8px rgba(46, 204, 113, 0.8);
+      vertical-align: middle;
+    }
+    .propietario-cuerpo {
+      flex: 1 1 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      min-height: 0;
+      width: 100%;
+      padding: 12px 14px 18px;
+    }
+    .selector-dia {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 480px;
+      margin: 0 auto 14px;
+    }
+    .btn-dia {
+      flex: 0 0 44px;
+      width: 44px;
+      height: 44px;
+      border: 1.5px solid rgba(13, 202, 240, 0.55);
+      border-radius: 12px;
+      background: rgba(13, 202, 240, 0.08);
+      color: #0dcaf0;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+    .btn-dia:active { transform: scale(0.96); }
+    .selector-dia #fechaPropietario {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 44px;
+      padding: 8px 10px;
+      border: 1.5px solid rgba(13, 202, 240, 0.55);
+      border-radius: 12px;
+      background: #1a1a1a;
+      color: #fff;
+      font-weight: 700;
+      font-size: 1rem;
+      color-scheme: dark;
+    }
+    .resumen-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      max-width: 480px;
+      margin: 0 auto 16px;
+    }
+    .tarjeta-dato {
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+    .tarjeta-dato .etiqueta {
+      color: #8b9aa3;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tarjeta-dato .valor {
+      font-family: 'Rajdhani', 'Exo 2', sans-serif;
+      font-size: 1.85rem;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-top: 2px;
+    }
+    .tarjeta-dato.ventas .valor { color: #0dcaf0; }
+    .tarjeta-dato.gastos .valor { color: #ffc107; }
+    .tarjeta-dato.balance .valor { color: #2ecc71; }
+    .tarjeta-dato.balance.negativo .valor { color: #ff6b6b; }
+    .detalle-pagos {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      max-width: 480px;
+      margin: 0 auto 16px;
+    }
+    .chip-pago {
+      background: #181818;
+      border: 1px solid #2c2c2c;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .chip-pago span { display: block; color: #8b9aa3; font-size: 0.75rem; font-weight: 700; }
+    .chip-pago strong { color: #fff; font-size: 1.05rem; }
+    .chip-pago.resta strong { color: #ffc107; }
+    .bloque-lista {
+      max-width: 480px;
+      margin: 0 auto 18px;
+    }
+    .bloque-lista h6 {
+      color: #8b9aa3;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .item-lista {
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .item-lista .titulo { font-weight: 700; }
+    .item-lista .meta { color: #8b9aa3; font-size: 0.82rem; }
+    .item-lista .monto { color: #0dcaf0; font-weight: 800; }
+    .item-lista .monto.gasto { color: #ffc107; }
+    .item-lista.alerta { border-color: #ff6b6b; }
+    .item-lista.alerta .monto { color: #ff6b6b; }
+    .vacio-lista { color: #8b9aa3; font-size: 0.9rem; }
+    .cabecera-productos {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .cabecera-productos h6 { margin-bottom: 0; }
+    .btn-mas-productos {
+      flex: 0 0 44px;
+      width: 44px;
+      height: 44px;
+      border: 1.5px solid #0dcaf0;
+      border-radius: 50%;
+      background: rgba(13, 202, 240, 0.12);
+      color: #0dcaf0;
+      font-size: 1.55rem;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .btn-mas-productos.abierto {
+      background: #0dcaf0;
+      color: #082830;
+    }
+    .fila-producto {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 52px minmax(88px, auto);
+      gap: 8px;
+      align-items: center;
+    }
+    .fila-producto .cant { color: #8b9aa3; font-weight: 700; text-align: right; }
+    .fila-tipo {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto 36px;
+      gap: 8px;
+      align-items: center;
+    }
+    .fila-tipo .cant { color: #8b9aa3; font-weight: 700; text-align: right; white-space: nowrap; }
+    .fila-tipo .titulo i { color: #0dcaf0; margin-right: 6px; }
+    .btn-mas-productos.chico {
+      flex: 0 0 36px;
+      width: 36px;
+      height: 36px;
+      font-size: 1.3rem;
+    }
+    .detalle-interno { margin: -2px 0 8px; }
+    .resumen-gastos-formas {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .chip-gasto-forma {
+      background: #181818;
+      border: 1px solid #2c2c2c;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .chip-gasto-forma span { display: block; color: #8b9aa3; font-size: 0.75rem; font-weight: 700; }
+    .chip-gasto-forma strong { font-size: 1.05rem; }
+    .chip-gasto-forma.caja strong { color: #ffc107; }
+    .chip-gasto-forma.contado strong { color: #3d9bff; }
+    .chip-gasto-forma.credito strong { color: #ff6b6b; }
+    .badge-forma {
+      display: inline-block;
+      margin-top: 3px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 800;
+    }
+    .badge-forma.caja { background: rgba(255, 193, 7, 0.18); color: #ffc107; }
+    .badge-forma.contado { background: rgba(61, 155, 255, 0.18); color: #9ecbff; }
+    .badge-forma.credito { background: rgba(255, 107, 107, 0.18); color: #ff8a8a; }
+    .meta-balance {
+      max-width: 480px;
+      margin: -8px auto 14px;
+      color: #8b9aa3;
+      font-size: 0.78rem;
+      text-align: center;
+    }
+    .chrome-inferior {
+      flex: 0 0 auto;
+      background: #141414;
+      border-top: 1px solid #2c2c2c;
+      padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+      width: 100%;
+    }
+    .bottom-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      margin: 0 auto 4px;
+      max-width: 480px;
+    }
+    .btn-ayuda-propietario {
+      border: none;
+      border-radius: 22px;
+      width: 132px;
+      min-height: 40px;
+      padding: 4px 10px;
+      background: linear-gradient(135deg, #0dcaf0 0%, #0a58ca 100%);
+      box-shadow: 0 6px 16px rgba(13, 202, 240, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+    .btn-ayuda-propietario img {
+      width: 22px;
+      height: 22px;
+      margin-right: 6px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .btn-ayuda-propietario span {
+      font-family: 'Orbitron', 'Exo 2', monospace;
+      font-weight: 800;
+      font-size: 0.62rem;
+      line-height: 1.05;
+    }
+    .btn-salir-propietario {
+      min-width: 108px;
+      min-height: 34px;
+      padding: 6px 18px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      border-radius: 18px;
+    }
+    .propietario-footer {
+      text-align: center;
+      color: #8b9aa3;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      margin: 4px 0 0;
+      padding: 4px 8px 0;
+    }
+    .propietario-footer .autor { color: #0dcaf0; font-weight: 600; }
+    .login-propietario {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px calc(16px + env(safe-area-inset-bottom));
+      background: #111;
+    }
+    .login-propietario .form-control {
+      background: #1a1a1a;
+      color: #fff;
+      border-color: #444;
+      min-height: 52px;
+      font-size: 1.1rem;
+    }
+    .login-propietario .btn { min-height: 52px; font-size: 1.1rem; }
+    .login-propietario .form-control::placeholder { color: #888; }
+    .login-password-wrap { position: relative; display: block; }
+    .login-password-wrap .form-control { width: 100%; padding-right: 2.75rem; }
+    .login-password-toggle {
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #8b9aa3;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      padding: 0;
+      z-index: 2;
+    }
+    .login-password-toggle:hover, .login-password-toggle[aria-pressed="true"] { color: #0dcaf0; }
+    .login-password-toggle svg { width: 18px; height: 18px; pointer-events: none; }
+    .logo-propietario {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #0dcaf0;
+      box-shadow: 0 8px 24px rgba(13, 202, 240, 0.25);
+      background: #1a1a1a;
+    }
+    #btnAyudaFlotante { display: none !important; }
+  </style>
+</head>
+<body class="pagina-propietario">
+  <div id="loginPropietario" class="login-propietario" style="display: none;">
+    <img src="image/logo-ToySoft.png" alt="ToySoft" class="logo-propietario mb-3">
+    <h1 class="h3 text-info mb-1">Propietario</h1>
+    <p class="text-white-50 text-center mb-3 px-2">Consulta el negocio desde el celular: balance, gastos, inventario y cierres. Entra con el correo que te dio Administración.</p>
+    <div id="loginMensaje" class="alert alert-danger py-2 px-3 mb-2 w-100" style="display: none; max-width: 420px;"></div>
+    <form class="w-100" style="max-width: 420px;" onsubmit="event.preventDefault(); iniciarSesionPropietario();">
+      <input type="email" id="usuario" class="form-control mb-2" placeholder="Correo" autocomplete="username" required>
+      <div class="login-password-wrap mb-3">
+        <input type="password" id="clave" class="form-control" placeholder="Contraseña" autocomplete="current-password" required>
+        <button type="button" class="login-password-toggle" id="btnVerClave" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña">
+          <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
+            <path d="M3 3l18 18"/>
+            <path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/>
+            <path d="M9.9 5.2A11.4 11.4 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-2.2 3.2"/>
+            <path d="M6.1 6.1A18.5 18.4 0 0 0 2 12s3.5 7 10 7a11.3 11.3 0 0 0 4.2-.8"/>
+          </svg>
+        </button>
+      </div>
+      <div class="d-grid">
+        <button type="submit" class="btn btn-info">Iniciar sesión</button>
+      </div>
+      <div class="mt-2 text-center">
+        <button type="button" id="installButton" class="btn btn-outline-warning btn-sm" onclick="installPWA()">
+          <i class="fas fa-download me-1"></i>Instalar ToySoft Propietario
+        </button>
+      </div>
+      <p class="small text-white-50 mt-3 mb-0">Si no tienes cuenta, pídesela al administrador.</p>
+    </form>
+    <footer class="propietario-footer mt-auto pt-3 pb-2">
+      <div class="copy">© 2026 ToySoft. Todos los derechos reservados.</div>
+      <div class="autor">Emil Jiménez Ortiz - Ing. de Software</div>
+    </footer>
+  </div>
+
+  <div id="appPropietario">
+    <div class="propietario-top">
+      <button type="button" class="btn-actualizar-propietario" id="btnActualizarPropietario" onclick="actualizarPaginaPropietario()" title="Actualizar" aria-label="Actualizar página">
+        <i class="fas fa-arrow-rotate-right"></i>
+      </button>
+      <div class="propietario-brand">
+        <img src="image/logo-ToySoft.png" alt="ToySoft" class="logo-propietario-top">
+        <div class="propietario-marca">ToySoft</div>
+      </div>
+      <div class="propietario-usuario" id="nombreUsuarioPropietario"></div>
+      <div class="propietario-rol"><span class="punto-vivo" aria-hidden="true"></span><span id="rolPropietarioCabecera">Propietario</span></div>
+    </div>
+
+    <div class="propietario-cuerpo">
+      <div class="selector-dia">
+        <button type="button" class="btn-dia" onclick="cambiarDiaPropietario(-1)" aria-label="Día anterior"><i class="fas fa-chevron-left"></i></button>
+        <input type="date" id="fechaPropietario" onchange="cambiarFechaPropietario()">
+        <button type="button" class="btn-dia" onclick="cambiarDiaPropietario(1)" aria-label="Día siguiente"><i class="fas fa-chevron-right"></i></button>
+      </div>
+
+      <div class="resumen-grid">
+        <div class="tarjeta-dato ventas">
+          <div class="etiqueta">Ventas</div>
+          <div class="valor" id="datoVentas">$ 0</div>
+        </div>
+        <div class="tarjeta-dato gastos">
+          <div class="etiqueta">Gastos</div>
+          <div class="valor" id="datoGastos">$ 0</div>
+        </div>
+        <div class="tarjeta-dato balance" id="tarjetaBalance">
+          <div class="etiqueta">Balance</div>
+          <div class="valor" id="datoBalance">$ 0</div>
+        </div>
+      </div>
+
+      <div class="detalle-pagos">
+        <div class="chip-pago"><span>Efectivo</span><strong id="datoEfectivo">$ 0</strong></div>
+        <div class="chip-pago"><span>Transferencia</span><strong id="datoTransferencia">$ 0</strong></div>
+        <div class="chip-pago"><span>Tarjeta</span><strong id="datoTarjeta">$ 0</strong></div>
+        <div class="chip-pago"><span>Crédito</span><strong id="datoCredito">$ 0</strong></div>
+        <div class="chip-pago"><span>Tickets</span><strong id="datoTickets">0</strong></div>
+        <div class="chip-pago resta"><span>Domicilios</span><strong id="datoDomicilios">$ 0</strong></div>
+        <div class="chip-pago resta"><span>Propinas</span><strong id="datoPropinas">$ 0</strong></div>
+      </div>
+      <div class="meta-balance" id="notaBalance"></div>
+
+      <div class="bloque-lista">
+        <div class="cabecera-productos">
+          <h6>Productos vendidos</h6>
+          <button type="button" class="btn-mas-productos" id="btnMasProductos" onclick="alternarProductosPropietario()" aria-label="Ver productos vendidos" aria-expanded="false">+</button>
+        </div>
+        <div id="listaProductosVendidos" style="display: none;"></div>
+      </div>
+      <div class="bloque-lista">
+        <h6>Ventas por tipo</h6>
+        <div id="listaVentasPorTipo"></div>
+      </div>
+      <div class="bloque-lista">
+        <h6>Ventas por mesero</h6>
+        <div id="listaVentasPorMesero"></div>
+      </div>
+      <div class="bloque-lista">
+        <h6>Domicilios y domiciliarios</h6>
+        <div id="listaDomiciliarios"></div>
+      </div>
+      <div class="bloque-lista">
+        <h6>Propinas</h6>
+        <div id="listaPropinas"></div>
+      </div>
+      <div class="bloque-lista">
+        <h6>Créditos pendientes</h6>
+        <div id="listaCreditos"></div>
+      </div>
+      <div class="bloque-lista">
+        <h6>Gastos</h6>
+        <div class="resumen-gastos-formas">
+          <div class="chip-gasto-forma caja"><span>Sale de la caja</span><strong id="gastoSaleCaja">$ 0</strong></div>
+          <div class="chip-gasto-forma contado"><span>Al contado, no sale de caja</span><strong id="gastoAlContado">$ 0</strong></div>
+          <div class="chip-gasto-forma credito"><span>Crédito con el proveedor</span><strong id="gastoCreditoProveedor">$ 0</strong></div>
+        </div>
+        <div class="cabecera-productos">
+          <h6 style="text-transform: none; letter-spacing: 0; color: #8b9aa3;">Detalle</h6>
+          <button type="button" class="btn-mas-productos chico" id="btnMasGastos" onclick="alternarGastosPropietario()" aria-label="Ver gastos" aria-expanded="false">+</button>
+        </div>
+        <div id="listaGastos" style="display: none;"></div>
+      </div>
+      <div class="bloque-lista">
+        <div class="cabecera-productos">
+          <h6>Inventario bajo</h6>
+          <button type="button" class="btn-mas-productos" id="btnMasInventario" onclick="alternarInventarioPropietario()" aria-label="Ver inventario bajo" aria-expanded="false">+</button>
+        </div>
+        <div id="listaInventarioBajo" style="display: none;"></div>
+      </div>
+      <div class="bloque-lista">
+        <div class="cabecera-productos">
+          <h6>Cierres</h6>
+          <button type="button" class="btn-mas-productos" id="btnMasCierres" onclick="alternarCierresPropietario()" aria-label="Ver cierres" aria-expanded="false">+</button>
+        </div>
+        <div id="listaCierres" style="display: none;"></div>
+      </div>
+    </div>
+
+    <div class="chrome-inferior">
+      <div class="bottom-actions">
+        <button type="button" id="btnAyudaPropietario" class="btn-ayuda-propietario" onclick="mostrarAyudaContextual()" title="Ayuda (F1)">
+          <img src="image/logo-ToySoft.png" alt="ToySoft">
+          <span>Toy de<br>Ayudas</span>
+        </button>
+        <button type="button" class="btn btn-outline-danger btn-salir-propietario" onclick="cerrarSesion()">Salir</button>
+      </div>
+      <footer class="propietario-footer">
+        <div class="copy">© 2026 ToySoft. Todos los derechos reservados.</div>
+        <div class="autor">Emil Jiménez Ortiz - Ing. de Software</div>
+      </footer>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalAyuda" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title">
+            <img src="image/logo-ToySoft.png" alt="ToySoft" style="width: 32px; height: 32px; margin-right: 8px; vertical-align: middle; border-radius: 50%; object-fit: cover;">
+            <span style="font-weight: 600; font-size: 1.2rem; color: #0dcaf0;">Toy Ayudas</span>
+            <span id="tituloAyuda" style="color: #ffffff; font-size: 1rem; margin-left: 8px;">- Propietario</span>
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="contenidoAyuda"></div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js?v=25"></script>
+  <script src="firebase-init.js?v=44"></script>
+  <script src="gastos-modelo.js?v=26"></script>
+  <script src="seguridad.js?v=30"></script>
+  <script src="propietario.js?v=5"></script>
+  <script src="ayuda.js?v=53"></script>
+  <script src="install.js?v=30"></script>
+  <script>
+    (function () {
+      function pintarOjo(visible) {
+        var boton = document.getElementById('btnVerClave');
+        if (!boton) return;
+        var ojo = boton.querySelector('.icon-eye');
+        var ojoOff = boton.querySelector('.icon-eye-off');
+        if (ojo) ojo.style.display = visible ? 'none' : 'block';
+        if (ojoOff) ojoOff.style.display = visible ? 'block' : 'none';
+        boton.setAttribute('aria-pressed', visible ? 'true' : 'false');
+        boton.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+        boton.title = visible ? 'Ocultar contraseña' : 'Mostrar contraseña';
+      }
+      window.alternarVerClave = function (evento) {
+        if (evento) {
+          evento.preventDefault();
+          evento.stopPropagation();
+        }
+        var input = document.getElementById('clave');
+        if (!input) return;
+        var visible = input.getAttribute('data-clave-visible') !== '1';
+        input.setAttribute('data-clave-visible', visible ? '1' : '0');
+        try { input.type = visible ? 'text' : 'password'; } catch (e) {}
+        input.style.webkitTextSecurity = visible ? 'none' : 'disc';
+        pintarOjo(visible);
+      };
+      document.addEventListener('click', function (evento) {
+        var boton = evento.target.closest ? evento.target.closest('#btnVerClave') : null;
+        if (boton) window.alternarVerClave(evento);
+      });
+    })();
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof iniciarPantallaPropietario === 'function') iniciarPantallaPropietario();
+    });
+  </script>
+</body>
+</html>

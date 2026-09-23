@@ -547,7 +547,11 @@ async function inicializarAdministracion() {
   cargarConfigHorarioOperacion();
   if (typeof cargarPinesEnFormulario === 'function') cargarPinesEnFormulario();
   if (typeof cargarConfigBotonesPOS === 'function') cargarConfigBotonesPOS();
+  if (typeof cargarConfigPosLogin === 'function') cargarConfigPosLogin();
+  if (typeof cargarFacturacionElectronica === 'function') await cargarFacturacionElectronica();
   if (typeof cargarEquipoNegocio === 'function') await cargarEquipoNegocio();
+  if (typeof cargarEquipoPos === 'function') await cargarEquipoPos();
+  if (typeof cargarEquipoPropietario === 'function') await cargarEquipoPropietario();
   
   // Iniciar backup automático
   iniciarBackupAutomatico();
@@ -653,6 +657,20 @@ function guardarConfigBotonesPOS() {
     ToySoftFirebase.persistirOperacionInmediato();
   }
   alert('Botones del POS guardados.');
+}
+
+function cargarConfigPosLogin() {
+  const chk = document.getElementById('posRequiereLogin');
+  if (chk) chk.checked = localStorage.getItem('posRequiereLogin') === 'true';
+}
+
+function guardarConfigPosLogin() {
+  const chk = document.getElementById('posRequiereLogin');
+  const activo = !!(chk && chk.checked);
+  localStorage.setItem('posRequiereLogin', activo ? 'true' : 'false');
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
+    ToySoftFirebase.persistirOperacionInmediato();
+  }
 }
 
 function textoSeguroEquipo(valor) {
@@ -781,7 +799,9 @@ async function cargarEquipoNegocio() {
     }
     const visible = document.getElementById('enlaceMeseroVisible');
     if (visible) visible.textContent = enlaceMeseroParaEnviar().replace(/^https?:\/\//, '');
-    const usuarios = await ToySoftFirebase.listarUsuariosNegocio();
+    const usuarios = (await ToySoftFirebase.listarUsuariosNegocio()).filter(function (u) {
+      return u.rol !== 'pos' && u.rol !== 'propietario';
+    });
     usuarios.sort(function (a, b) {
       if (a.rol === 'mesero' && b.rol !== 'mesero') return -1;
       if (a.rol !== 'mesero' && b.rol === 'mesero') return 1;
@@ -885,6 +905,416 @@ async function eliminarMeseroEquipo(uid) {
     mostrarMensajeEquipoMesero('Mesero eliminado.', 'ok');
   } catch (error) {
     mostrarMensajeEquipoMesero((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message, 'error');
+  }
+}
+
+let usuariosPosCache = [];
+let posEquipoRecienteUid = '';
+
+function enlacePosParaEnviar() {
+  const host = String((window.location && window.location.hostname) || '');
+  if (/toysoft\.co$/i.test(host)) {
+    return window.location.origin + '/pos';
+  }
+  try {
+    return new URL('POS.html', window.location.href).href;
+  } catch (e) {
+    return 'https://ultimate.toysoft.co/pos';
+  }
+}
+
+function copiarEnlacePos() {
+  const enlace = enlacePosParaEnviar();
+  const visible = document.getElementById('enlacePosVisible');
+  if (visible) visible.textContent = enlace.replace(/^https?:\/\//, '');
+  const ok = function () {
+    mostrarMensajeEquipoPos('Enlace copiado. Envíalo a la caja y listo.', 'ok');
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(enlace).then(ok).catch(function () {
+      window.prompt('Copia este enlace:', enlace);
+    });
+    return;
+  }
+  window.prompt('Copia este enlace:', enlace);
+}
+
+function mostrarMensajeEquipoPos(texto, tipo) {
+  const el = document.getElementById('mensajeEquipoPos');
+  if (!el) {
+    if (texto) alert(texto);
+    return;
+  }
+  if (!texto) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  el.style.display = 'block';
+  el.textContent = texto;
+  el.className = 'alert py-2 px-3 small mb-3 ' + (tipo === 'ok' ? 'alert-success' : 'alert-danger');
+}
+
+function uidPosEditando() {
+  return (document.getElementById('posEditandoUid') && document.getElementById('posEditandoUid').value || '').trim();
+}
+
+function cancelarEdicionPos() {
+  const uidEl = document.getElementById('posEditandoUid');
+  const nombre = document.getElementById('nombrePosNuevo');
+  const correo = document.getElementById('correoPosNuevo');
+  const clave = document.getElementById('clavePosNuevo');
+  const boton = document.getElementById('btnCrearPos');
+  const cancelar = document.getElementById('btnCancelarPos');
+  if (uidEl) uidEl.value = '';
+  if (nombre) nombre.value = '';
+  if (correo) {
+    correo.value = '';
+    correo.readOnly = false;
+  }
+  if (clave) {
+    clave.value = '';
+    clave.required = true;
+    clave.placeholder = 'Mínimo 6 caracteres';
+  }
+  if (boton) boton.innerHTML = 'Agregar';
+  if (cancelar) cancelar.style.display = 'none';
+}
+
+function editarPosEquipo(uid) {
+  const caja = usuariosPosCache.filter(function (u) {
+    return u.rol === 'pos' && String(u.uid) === String(uid);
+  })[0];
+  if (!caja) {
+    mostrarMensajeEquipoPos('No se encontró el punto de venta a editar.', 'error');
+    return;
+  }
+  const uidEl = document.getElementById('posEditandoUid');
+  const nombre = document.getElementById('nombrePosNuevo');
+  const correo = document.getElementById('correoPosNuevo');
+  const clave = document.getElementById('clavePosNuevo');
+  const boton = document.getElementById('btnCrearPos');
+  const cancelar = document.getElementById('btnCancelarPos');
+  if (uidEl) uidEl.value = caja.uid;
+  if (nombre) nombre.value = caja.nombre || '';
+  if (correo) {
+    correo.value = caja.email || '';
+    correo.readOnly = true;
+  }
+  if (clave) {
+    clave.value = '';
+    clave.required = false;
+    clave.placeholder = 'Dejar vacío para no cambiar';
+  }
+  if (boton) boton.innerHTML = '<i class="fas fa-save me-1"></i>Actualizar';
+  if (cancelar) cancelar.style.display = '';
+  mostrarMensajeEquipoPos('', '');
+  if (nombre) {
+    nombre.focus();
+    nombre.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+async function cargarEquipoPos() {
+  const listaEl = document.getElementById('listaUsuariosPos');
+  if (!listaEl || !window.ToySoftFirebase) return;
+  try {
+    const visible = document.getElementById('enlacePosVisible');
+    if (visible) visible.textContent = enlacePosParaEnviar().replace(/^https?:\/\//, '');
+    const usuarios = (await ToySoftFirebase.listarUsuariosNegocio()).filter(function (u) {
+      return u.rol === 'pos';
+    });
+    usuarios.sort(function (a, b) {
+      return String(a.nombre || a.email || '').localeCompare(String(b.nombre || b.email || ''), 'es');
+    });
+    usuariosPosCache = usuarios.slice();
+    if (!usuarios.length) {
+      listaEl.innerHTML = '<p class="text-white-50 small mb-0">Todavía no hay cuentas de punto de venta.</p>';
+      return;
+    }
+    listaEl.innerHTML = usuarios.map(function (u) {
+      const nombre = textoSeguroEquipo(u.nombre || 'Sin nombre');
+      const email = textoSeguroEquipo(u.email || u.uid);
+      const uidAttr = textoSeguroEquipo(u.uid);
+      const reciente = posEquipoRecienteUid && String(u.uid) === String(posEquipoRecienteUid);
+      const acciones = '<div class="d-flex gap-2">' +
+        '<button type="button" class="btn btn-sm btn-outline-info" title="Editar" data-uid="' + uidAttr + '" onclick="editarPosEquipo(this.getAttribute(\'data-uid\'))">' +
+        '<i class="fas fa-pen"></i></button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar" data-uid="' + uidAttr + '" onclick="eliminarPosEquipo(this.getAttribute(\'data-uid\'))">' +
+        '<i class="fas fa-trash"></i></button></div>';
+      const badgeAgregado = reciente ? '<span class="badge bg-success ms-1">Agregado</span>' : '';
+      return '<div class="equipo-item' + (reciente ? ' recien-agregado' : '') + '">' +
+        '<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">' +
+        '<div class="flex-grow-1">' +
+        '<h6 class="mb-1">' + nombre + badgeAgregado + '</h6>' +
+        '<small class="text-white-50 d-block">' + email + '</small>' +
+        '<span class="badge bg-info text-dark mt-1">Punto de Venta</span></div>' +
+        acciones + '</div></div>';
+    }).join('');
+  } catch (error) {
+    listaEl.innerHTML = '<p class="text-warning small mb-0">' + textoSeguroEquipo((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message) + '</p>';
+  }
+}
+
+async function guardarPosDesdeAdmin() {
+  const nombre = (document.getElementById('nombrePosNuevo') && document.getElementById('nombrePosNuevo').value || '').trim();
+  const correo = (document.getElementById('correoPosNuevo') && document.getElementById('correoPosNuevo').value || '').trim();
+  const clave = (document.getElementById('clavePosNuevo') && document.getElementById('clavePosNuevo').value || '');
+  const uid = uidPosEditando();
+  const boton = document.getElementById('btnCrearPos');
+  if (!window.ToySoftFirebase) {
+    mostrarMensajeEquipoPos('No hay conexión con Firebase.', 'error');
+    return;
+  }
+  if (boton) boton.disabled = true;
+  try {
+    if (uid) {
+      if (typeof ToySoftFirebase.actualizarPos !== 'function') {
+        mostrarMensajeEquipoPos('No se puede modificar el punto de venta en esta versión.', 'error');
+        return;
+      }
+      await ToySoftFirebase.actualizarPos(uid, nombre, clave);
+      posEquipoRecienteUid = uid;
+      cancelarEdicionPos();
+      await cargarEquipoPos();
+      mostrarMensajeEquipoPos('Punto de venta actualizado.', 'ok');
+      return;
+    }
+    if (typeof ToySoftFirebase.crearCuentaPos !== 'function') {
+      mostrarMensajeEquipoPos('No hay conexión con Firebase.', 'error');
+      return;
+    }
+    const creado = await ToySoftFirebase.crearCuentaPos(nombre, correo, clave);
+    posEquipoRecienteUid = creado && creado.uid ? creado.uid : '';
+    cancelarEdicionPos();
+    await cargarEquipoPos();
+    mostrarMensajeEquipoPos((nombre || 'Punto de venta') + ' quedó agregado. Envíale el enlace /pos.', 'ok');
+  } catch (error) {
+    mostrarMensajeEquipoPos((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message, 'error');
+    if (uid) {
+      posEquipoRecienteUid = uid;
+      await cargarEquipoPos();
+    }
+  } finally {
+    if (boton) boton.disabled = false;
+  }
+}
+
+async function eliminarPosEquipo(uid) {
+  if (!confirm('¿Eliminar este punto de venta? Ya no podrá entrar.')) return;
+  try {
+    await ToySoftFirebase.eliminarPos(uid);
+    if (uidPosEditando() === String(uid)) cancelarEdicionPos();
+    if (String(posEquipoRecienteUid) === String(uid)) posEquipoRecienteUid = '';
+    await cargarEquipoPos();
+    mostrarMensajeEquipoPos('Punto de venta eliminado.', 'ok');
+  } catch (error) {
+    mostrarMensajeEquipoPos((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message, 'error');
+  }
+}
+
+let usuariosPropietarioCache = [];
+let propietarioEquipoRecienteUid = '';
+
+function enlacePropietarioParaEnviar() {
+  const host = String((window.location && window.location.hostname) || '');
+  if (/toysoft\.co$/i.test(host)) {
+    return window.location.origin + '/propietario';
+  }
+  try {
+    return new URL('propietario.html', window.location.href).href;
+  } catch (e) {
+    return 'https://ultimate.toysoft.co/propietario';
+  }
+}
+
+function copiarEnlacePropietario() {
+  const enlace = enlacePropietarioParaEnviar();
+  const visible = document.getElementById('enlacePropietarioVisible');
+  if (visible) visible.textContent = enlace.replace(/^https?:\/\//, '');
+  const ok = function () {
+    mostrarMensajeEquipoPropietario('Enlace copiado. Envíalo al dueño y listo.', 'ok');
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(enlace).then(ok).catch(function () {
+      window.prompt('Copia este enlace:', enlace);
+    });
+    return;
+  }
+  window.prompt('Copia este enlace:', enlace);
+}
+
+function mostrarMensajeEquipoPropietario(texto, tipo) {
+  const el = document.getElementById('mensajeEquipoPropietario');
+  if (!el) {
+    if (texto) alert(texto);
+    return;
+  }
+  if (!texto) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  el.style.display = 'block';
+  el.textContent = texto;
+  el.className = 'alert py-2 px-3 small mb-3 ' + (tipo === 'ok' ? 'alert-success' : 'alert-danger');
+}
+
+function uidPropietarioEditando() {
+  return (document.getElementById('propietarioEditandoUid') && document.getElementById('propietarioEditandoUid').value || '').trim();
+}
+
+function cancelarEdicionPropietario() {
+  const uidEl = document.getElementById('propietarioEditandoUid');
+  const nombre = document.getElementById('nombrePropietarioNuevo');
+  const correo = document.getElementById('correoPropietarioNuevo');
+  const clave = document.getElementById('clavePropietarioNuevo');
+  const boton = document.getElementById('btnCrearPropietario');
+  const cancelar = document.getElementById('btnCancelarPropietario');
+  if (uidEl) uidEl.value = '';
+  if (nombre) nombre.value = '';
+  if (correo) {
+    correo.value = '';
+    correo.readOnly = false;
+  }
+  if (clave) {
+    clave.value = '';
+    clave.required = true;
+    clave.placeholder = 'Mínimo 6 caracteres';
+  }
+  if (boton) boton.innerHTML = 'Agregar';
+  if (cancelar) cancelar.style.display = 'none';
+}
+
+function editarPropietarioEquipo(uid) {
+  const dueño = usuariosPropietarioCache.filter(function (u) {
+    return u.rol === 'propietario' && String(u.uid) === String(uid);
+  })[0];
+  if (!dueño) {
+    mostrarMensajeEquipoPropietario('No se encontró el propietario a editar.', 'error');
+    return;
+  }
+  const uidEl = document.getElementById('propietarioEditandoUid');
+  const nombre = document.getElementById('nombrePropietarioNuevo');
+  const correo = document.getElementById('correoPropietarioNuevo');
+  const clave = document.getElementById('clavePropietarioNuevo');
+  const boton = document.getElementById('btnCrearPropietario');
+  const cancelar = document.getElementById('btnCancelarPropietario');
+  if (uidEl) uidEl.value = dueño.uid;
+  if (nombre) nombre.value = dueño.nombre || '';
+  if (correo) {
+    correo.value = dueño.email || '';
+    correo.readOnly = true;
+  }
+  if (clave) {
+    clave.value = '';
+    clave.required = false;
+    clave.placeholder = 'Dejar vacío para no cambiar';
+  }
+  if (boton) boton.innerHTML = '<i class="fas fa-save me-1"></i>Actualizar';
+  if (cancelar) cancelar.style.display = '';
+  mostrarMensajeEquipoPropietario('', '');
+  if (nombre) {
+    nombre.focus();
+    nombre.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+async function cargarEquipoPropietario() {
+  const listaEl = document.getElementById('listaUsuariosPropietario');
+  if (!listaEl || !window.ToySoftFirebase) return;
+  try {
+    const visible = document.getElementById('enlacePropietarioVisible');
+    if (visible) visible.textContent = enlacePropietarioParaEnviar().replace(/^https?:\/\//, '');
+    const usuarios = (await ToySoftFirebase.listarUsuariosNegocio()).filter(function (u) {
+      return u.rol === 'propietario';
+    });
+    usuarios.sort(function (a, b) {
+      return String(a.nombre || a.email || '').localeCompare(String(b.nombre || b.email || ''), 'es');
+    });
+    usuariosPropietarioCache = usuarios.slice();
+    if (!usuarios.length) {
+      listaEl.innerHTML = '<p class="text-white-50 small mb-0">Todavía no hay cuentas de propietario.</p>';
+      return;
+    }
+    listaEl.innerHTML = usuarios.map(function (u) {
+      const nombre = textoSeguroEquipo(u.nombre || 'Sin nombre');
+      const email = textoSeguroEquipo(u.email || u.uid);
+      const uidAttr = textoSeguroEquipo(u.uid);
+      const reciente = propietarioEquipoRecienteUid && String(u.uid) === String(propietarioEquipoRecienteUid);
+      const acciones = '<div class="d-flex gap-2">' +
+        '<button type="button" class="btn btn-sm btn-outline-info" title="Editar" data-uid="' + uidAttr + '" onclick="editarPropietarioEquipo(this.getAttribute(\'data-uid\'))">' +
+        '<i class="fas fa-pen"></i></button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar" data-uid="' + uidAttr + '" onclick="eliminarPropietarioEquipo(this.getAttribute(\'data-uid\'))">' +
+        '<i class="fas fa-trash"></i></button></div>';
+      const badgeAgregado = reciente ? '<span class="badge bg-success ms-1">Agregado</span>' : '';
+      return '<div class="equipo-item' + (reciente ? ' recien-agregado' : '') + '">' +
+        '<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">' +
+        '<div class="flex-grow-1">' +
+        '<h6 class="mb-1">' + nombre + badgeAgregado + '</h6>' +
+        '<small class="text-white-50 d-block">' + email + '</small>' +
+        '<span class="badge bg-info text-dark mt-1">Propietario</span></div>' +
+        acciones + '</div></div>';
+    }).join('');
+  } catch (error) {
+    listaEl.innerHTML = '<p class="text-warning small mb-0">' + textoSeguroEquipo((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message) + '</p>';
+  }
+}
+
+async function guardarPropietarioDesdeAdmin() {
+  const nombre = (document.getElementById('nombrePropietarioNuevo') && document.getElementById('nombrePropietarioNuevo').value || '').trim();
+  const correo = (document.getElementById('correoPropietarioNuevo') && document.getElementById('correoPropietarioNuevo').value || '').trim();
+  const clave = (document.getElementById('clavePropietarioNuevo') && document.getElementById('clavePropietarioNuevo').value || '');
+  const uid = uidPropietarioEditando();
+  const boton = document.getElementById('btnCrearPropietario');
+  if (!window.ToySoftFirebase) {
+    mostrarMensajeEquipoPropietario('No hay conexión con Firebase.', 'error');
+    return;
+  }
+  if (boton) boton.disabled = true;
+  try {
+    if (uid) {
+      if (typeof ToySoftFirebase.actualizarPropietario !== 'function') {
+        mostrarMensajeEquipoPropietario('No se puede modificar el propietario en esta versión.', 'error');
+        return;
+      }
+      await ToySoftFirebase.actualizarPropietario(uid, nombre, clave);
+      propietarioEquipoRecienteUid = uid;
+      cancelarEdicionPropietario();
+      await cargarEquipoPropietario();
+      mostrarMensajeEquipoPropietario('Propietario actualizado.', 'ok');
+      return;
+    }
+    if (typeof ToySoftFirebase.crearCuentaPropietario !== 'function') {
+      mostrarMensajeEquipoPropietario('No hay conexión con Firebase.', 'error');
+      return;
+    }
+    const creado = await ToySoftFirebase.crearCuentaPropietario(nombre, correo, clave);
+    propietarioEquipoRecienteUid = creado && creado.uid ? creado.uid : '';
+    cancelarEdicionPropietario();
+    await cargarEquipoPropietario();
+    mostrarMensajeEquipoPropietario((nombre || 'Propietario') + ' quedó agregado. Envíale el enlace /propietario.', 'ok');
+  } catch (error) {
+    mostrarMensajeEquipoPropietario((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message, 'error');
+    if (uid) {
+      propietarioEquipoRecienteUid = uid;
+      await cargarEquipoPropietario();
+    }
+  } finally {
+    if (boton) boton.disabled = false;
+  }
+}
+
+async function eliminarPropietarioEquipo(uid) {
+  if (!confirm('¿Eliminar este propietario? Ya no podrá entrar.')) return;
+  try {
+    await ToySoftFirebase.eliminarPropietario(uid);
+    if (uidPropietarioEditando() === String(uid)) cancelarEdicionPropietario();
+    if (String(propietarioEquipoRecienteUid) === String(uid)) propietarioEquipoRecienteUid = '';
+    await cargarEquipoPropietario();
+    mostrarMensajeEquipoPropietario('Propietario eliminado.', 'ok');
+  } catch (error) {
+    mostrarMensajeEquipoPropietario((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message, 'error');
   }
 }
 
@@ -1085,7 +1515,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     cargarConfigHorarioOperacion();
     cargarConfigPantallaCocina();
     if (typeof cargarConfigBotonesPOS === 'function') cargarConfigBotonesPOS();
+    if (typeof cargarConfigPosLogin === 'function') cargarConfigPosLogin();
     if (typeof cargarEquipoNegocio === 'function') cargarEquipoNegocio();
+    if (typeof cargarEquipoPos === 'function') cargarEquipoPos();
+    if (typeof cargarEquipoPropietario === 'function') cargarEquipoPropietario();
 });
 
 // Funciones para Categorías
@@ -2474,6 +2907,162 @@ function aplicarDatosNegocioEnFormulario(datos) {
     document.getElementById('telefonoNegocio').value = datos.telefono || '';
 }
 
+function alternarFacturacionElectronica() {
+    const cuerpo = document.getElementById('cuerpoFacturacionElectronica');
+    const btn = document.getElementById('btnToggleFacturacion');
+    const pista = document.getElementById('pistaFacturacionCerrada');
+    if (!cuerpo) return;
+    const vaAbrir = cuerpo.style.display === 'none';
+    cuerpo.style.display = vaAbrir ? 'block' : 'none';
+    if (btn) {
+        btn.textContent = vaAbrir ? '−' : '+';
+        btn.setAttribute('aria-expanded', vaAbrir ? 'true' : 'false');
+        btn.setAttribute('aria-label', vaAbrir ? 'Cerrar facturación electrónica' : 'Abrir facturación electrónica');
+    }
+    if (pista) pista.style.display = vaAbrir ? 'none' : '';
+}
+
+function feValor(id) {
+    const el = document.getElementById(id);
+    return el ? String(el.value || '').trim() : '';
+}
+
+function feNumero(id) {
+    const n = parseInt(feValor(id), 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function fePoner(id, valor) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = valor == null ? '' : valor;
+}
+
+function leerResolucionFacturacionFormulario(prefijo) {
+    return {
+        numero: feValor(prefijo + 'Numero'),
+        fecha: feValor(prefijo + 'Fecha'),
+        prefijo: feValor(prefijo + 'Prefijo').toUpperCase().slice(0, 4),
+        rangoDesde: feNumero(prefijo + 'Desde'),
+        rangoHasta: feNumero(prefijo + 'Hasta'),
+        vigenciaDesde: feValor(prefijo + 'VigDesde'),
+        vigenciaHasta: feValor(prefijo + 'VigHasta'),
+        proximoConsecutivo: feNumero(prefijo + 'Consecutivo')
+    };
+}
+
+function aplicarResolucionFacturacionFormulario(prefijo, datos) {
+    const d = datos || {};
+    fePoner(prefijo + 'Numero', d.numero || '');
+    fePoner(prefijo + 'Fecha', d.fecha || '');
+    fePoner(prefijo + 'Prefijo', d.prefijo || '');
+    fePoner(prefijo + 'Desde', d.rangoDesde || '');
+    fePoner(prefijo + 'Hasta', d.rangoHasta || '');
+    fePoner(prefijo + 'VigDesde', d.vigenciaDesde || '');
+    fePoner(prefijo + 'VigHasta', d.vigenciaHasta || '');
+    fePoner(prefijo + 'Consecutivo', d.proximoConsecutivo || '');
+}
+
+function validarResolucionFacturacion(nombre, res) {
+    if (!res || (!res.numero && !res.prefijo && !res.rangoDesde && !res.rangoHasta)) return '';
+    if (res.prefijo && res.prefijo.length > 4) return nombre + ': el prefijo tiene máximo 4 caracteres.';
+    if (res.rangoHasta && res.rangoDesde && res.rangoHasta < res.rangoDesde) {
+        return nombre + ': el rango hasta no puede ser menor que el rango desde.';
+    }
+    if (res.proximoConsecutivo && res.rangoDesde && res.proximoConsecutivo < res.rangoDesde) {
+        return nombre + ': el próximo consecutivo está por debajo del rango autorizado.';
+    }
+    if (res.proximoConsecutivo && res.rangoHasta && res.proximoConsecutivo > res.rangoHasta) {
+        return nombre + ': el próximo consecutivo supera el rango autorizado.';
+    }
+    if (res.vigenciaDesde && res.vigenciaHasta && res.vigenciaHasta < res.vigenciaDesde) {
+        return nombre + ': la vigencia hasta no puede ser anterior a la vigencia desde.';
+    }
+    return '';
+}
+
+function mostrarMensajeFacturacion(texto, tipo) {
+    const el = document.getElementById('mensajeFacturacionElectronica');
+    if (!el) return;
+    el.style.display = 'block';
+    el.className = 'alert py-2 px-3 small mt-3 mb-0 alert-' + (tipo || 'info');
+    el.textContent = texto;
+}
+
+function leerFacturacionElectronicaFormulario() {
+    const chkInc = document.getElementById('feAplicaInc');
+    return {
+        tipoDocumentoEmisor: feValor('feTipoDocumento') || 'NIT',
+        digitoVerificacion: feValor('feDigitoVerificacion').replace(/\D/g, '').slice(0, 1),
+        municipio: feValor('feMunicipio'),
+        codigoDane: feValor('feCodigoDane').replace(/\D/g, '').slice(0, 8),
+        regimen: feValor('feRegimen') || 'iva',
+        aplicaIncRestaurantes: !!(chkInc && chkInc.checked),
+        tarifaInc: parseFloat(feValor('feTarifaInc')) || 8,
+        responsabilidades: feValor('feResponsabilidades'),
+        documentoPorDefecto: feValor('feDocDefecto') || 'pos',
+        resolucionPos: leerResolucionFacturacionFormulario('fePos'),
+        resolucionFactura: leerResolucionFacturacionFormulario('feFev')
+    };
+}
+
+function aplicarFacturacionElectronicaFormulario(datos) {
+    if (!datos) return;
+    fePoner('feTipoDocumento', datos.tipoDocumentoEmisor || 'NIT');
+    fePoner('feDigitoVerificacion', datos.digitoVerificacion || '');
+    fePoner('feMunicipio', datos.municipio || '');
+    fePoner('feCodigoDane', datos.codigoDane || '');
+    fePoner('feRegimen', datos.regimen || 'iva');
+    const chkInc = document.getElementById('feAplicaInc');
+    if (chkInc) chkInc.checked = datos.aplicaIncRestaurantes === true;
+    fePoner('feTarifaInc', datos.tarifaInc != null ? datos.tarifaInc : 8);
+    fePoner('feResponsabilidades', datos.responsabilidades || '');
+    fePoner('feDocDefecto', datos.documentoPorDefecto || 'pos');
+    aplicarResolucionFacturacionFormulario('fePos', datos.resolucionPos);
+    aplicarResolucionFacturacionFormulario('feFev', datos.resolucionFactura);
+}
+
+async function guardarFacturacionElectronica() {
+    const datos = leerFacturacionElectronicaFormulario();
+    const errorPos = validarResolucionFacturacion('Resolución POS', datos.resolucionPos);
+    const errorFev = validarResolucionFacturacion('Resolución factura', datos.resolucionFactura);
+    if (errorPos || errorFev) {
+        mostrarMensajeFacturacion(errorPos || errorFev, 'danger');
+        return;
+    }
+    localStorage.setItem('facturacionElectronica', JSON.stringify(datos));
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirFacturacion === 'function' && ToySoftFirebase.estaListo()) {
+        try {
+            await ToySoftFirebase.persistirFacturacion(datos);
+            mostrarMensajeFacturacion('Datos de facturación guardados. Aún no se envían documentos a la DIAN.', 'success');
+            return;
+        } catch (error) {
+            console.error(error);
+            mostrarMensajeFacturacion('Se guardaron en este equipo, pero no en la nube: ' + ((window.ToySoftFirebase && ToySoftFirebase.mensajeErrorAuth(error)) || error.message), 'warning');
+            return;
+        }
+    }
+    mostrarMensajeFacturacion('Datos de facturación guardados en este equipo.', 'success');
+}
+
+async function cargarFacturacionElectronica() {
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.sincronizarFacturacion === 'function') {
+        try {
+            const datosNube = await ToySoftFirebase.sincronizarFacturacion();
+            if (datosNube) {
+                aplicarFacturacionElectronicaFormulario(datosNube);
+                return;
+            }
+        } catch (error) {
+            console.warn('No se pudo leer la facturación electrónica', error);
+        }
+    }
+    try {
+        const local = JSON.parse(localStorage.getItem('facturacionElectronica') || 'null');
+        aplicarFacturacionElectronicaFormulario(local);
+    } catch (e) {}
+}
+
 // Función para cargar los datos del negocio al iniciar
 async function cargarDatosNegocio() {
     if (window.ToySoftFirebase) {
@@ -2507,6 +3096,9 @@ async function verificarAcceso() {
         }
         localStorage.setItem('sesionActiva', 'true');
         if (typeof redirigirMeseroSiNoCorresponde === 'function' && redirigirMeseroSiNoCorresponde()) {
+            return false;
+        }
+        if (typeof redirigirPosSiNoCorresponde === 'function' && redirigirPosSiNoCorresponde()) {
             return false;
         }
         console.log('Sesión Firebase verificada');
@@ -2842,39 +3434,128 @@ function actualizarEstadoEmailJS(mensaje, tipo = 'info') {
 
 // ===== HERRAMIENTAS DEL SISTEMA =====
 
-// Función para confirmar reinicio del sistema
+let herramientaSistemaPendiente = 'reinicio';
+
+function prepararModalHerramientaSistema(tipo) {
+    herramientaSistemaPendiente = tipo === 'contable' ? 'contable' : 'reinicio';
+    const esContable = herramientaSistemaPendiente === 'contable';
+    const titulo = document.getElementById('tituloReinicioSistema');
+    const aviso = document.getElementById('avisoReinicioSistema');
+    const boton = document.getElementById('btnConfirmarReinicioSistema');
+    if (titulo) {
+        titulo.innerHTML = esContable
+            ? '<i class="fas fa-exclamation-triangle me-2"></i>Borrar datos contables'
+            : '<i class="fas fa-exclamation-triangle me-2"></i>Reiniciar sistema';
+    }
+    if (aviso) {
+        aviso.innerHTML = esContable
+            ? '<strong>Advertencia.</strong> Se borran ventas, gastos, créditos pendientes, cierres y el historial de caja. No se tocan categorías, productos ni clientes. Esta acción no se puede deshacer.'
+            : '<strong>Advertencia crítica.</strong> Esta acción borra de forma permanente categorías, productos, clientes, ventas, gastos, configuración e historial. No se puede deshacer.';
+    }
+    if (boton) boton.textContent = esContable ? 'Borrar datos contables' : 'Reiniciar sistema';
+    const pinInput = document.getElementById('pinReinicioSistema');
+    const pinError = document.getElementById('errorPinReinicioSistema');
+    if (pinInput) {
+        pinInput.value = '';
+        pinInput.classList.remove('is-invalid');
+    }
+    if (pinError) pinError.style.display = 'none';
+    const el = document.getElementById('modalReinicioSistema');
+    if (!el || typeof bootstrap === 'undefined') {
+        alert('No se pudo abrir la confirmación.');
+        return;
+    }
+    const modal = bootstrap.Modal.getOrCreateInstance(el);
+    modal.show();
+    el.addEventListener('shown.bs.modal', function enfocarPin() {
+        el.removeEventListener('shown.bs.modal', enfocarPin);
+        if (pinInput) pinInput.focus();
+    });
+}
+
 function confirmarReinicioSistema() {
-    const mensaje = `⚠️ ¡ADVERTENCIA CRÍTICA! ⚠️
+    prepararModalHerramientaSistema('reinicio');
+}
 
-Esta acción eliminará PERMANENTEMENTE:
-• Todas las categorías
-• Todos los productos  
-• Todos los clientes
-• Todas las ventas
-• Todos los gastos
-• Toda la configuración
-• Todo el historial
+function confirmarBorrarDatosContables() {
+    prepararModalHerramientaSistema('contable');
+}
 
-¿Estás COMPLETAMENTE seguro de que quieres reiniciar el sistema?
+async function confirmarReinicioSistemaConPin() {
+    const pinInput = document.getElementById('pinReinicioSistema');
+    const pinError = document.getElementById('errorPinReinicioSistema');
+    const pinIngresado = pinInput ? pinInput.value.trim() : '';
 
-Esta acción NO se puede deshacer.`;
+    if (pinError) pinError.style.display = 'none';
+    if (pinInput) pinInput.classList.remove('is-invalid');
 
-    if (confirm(mensaje)) {
-        const confirmacionFinal = confirm(`🚨 CONFIRMACIÓN FINAL 🚨
-
-¿Estás 100% seguro? 
-Esta acción eliminará TODOS los datos de la aplicación.
-
-Escribe "SI" en el siguiente prompt para confirmar:`);
-        
-        if (confirmacionFinal) {
-            const respuesta = prompt('Escribe "SI" para confirmar el reinicio completo del sistema:');
-            if (respuesta && respuesta.toUpperCase() === 'SI') {
-                reiniciarSistema();
-            } else {
-                alert('❌ Reinicio cancelado. El sistema permanece intacto.');
-            }
+    let correcto = false;
+    try {
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.esPinAdministracion === 'function') {
+            correcto = await ToySoftFirebase.esPinAdministracion(pinIngresado);
+        } else {
+            correcto = pinIngresado === PIN_ADMINISTRACION;
         }
+    } catch (error) {
+        console.error('Error al validar PIN de reinicio', error);
+        alert('No se pudo validar el PIN. Recarga la página e inténtalo de nuevo.');
+        return;
+    }
+
+    if (!correcto) {
+        if (pinInput) {
+            pinInput.classList.add('is-invalid');
+            pinInput.value = '';
+            pinInput.focus();
+        }
+        if (pinError) {
+            pinError.textContent = 'PIN incorrecto. Ingrese el PIN actual de administrador.';
+            pinError.style.display = 'block';
+        }
+        return;
+    }
+
+    const el = document.getElementById('modalReinicioSistema');
+    const modal = el && bootstrap.Modal.getInstance(el);
+    if (modal) modal.hide();
+    if (herramientaSistemaPendiente === 'contable') {
+        borrarDatosContables();
+        return;
+    }
+    reiniciarSistema();
+}
+
+async function borrarDatosContables() {
+    try {
+        if (window.ToySoftFirebase && typeof ToySoftFirebase.vaciarDatosContables === 'function') {
+            await ToySoftFirebase.vaciarDatosContables();
+        } else {
+            localStorage.setItem('ventas', JSON.stringify([]));
+            localStorage.setItem('historialVentas', JSON.stringify([]));
+            localStorage.setItem('facturasPendientes', JSON.stringify([]));
+            localStorage.setItem('gastos', JSON.stringify([]));
+            localStorage.setItem('historialGastos', JSON.stringify([]));
+            localStorage.setItem('historialCierres', JSON.stringify([]));
+            localStorage.setItem('historialCierresOperativos', JSON.stringify([]));
+            localStorage.setItem('domicilios', JSON.stringify([]));
+            localStorage.setItem('mesasActivas', JSON.stringify([]));
+            localStorage.setItem('ordenesCocina', JSON.stringify([]));
+            localStorage.setItem('historialCocina', JSON.stringify([]));
+            localStorage.setItem('pedidosCocinaListos', JSON.stringify([]));
+            localStorage.setItem('contadorDomicilios', '0');
+            localStorage.setItem('contadorRecoger', '0');
+            localStorage.removeItem('ultimaHoraCierre');
+            localStorage.removeItem('ultimaBaseCaja');
+            if (typeof window.ventas !== 'undefined') window.ventas = [];
+            if (typeof window.gastos !== 'undefined') window.gastos = [];
+        }
+        alert('Datos contables borrados. Categorías, productos y clientes se conservan.\n\nLa aplicación se recargará.');
+        setTimeout(function () {
+            window.location.reload();
+        }, 1200);
+    } catch (error) {
+        console.error('Error al borrar datos contables', error);
+        alert('No se pudieron borrar los datos contables: ' + (error && error.message ? error.message : error));
     }
 }
 

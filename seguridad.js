@@ -31,18 +31,93 @@ function destinoMesero() {
     return 'mesero.html';
 }
 
+function paginaEsPos() {
+    const ruta = (window.location.pathname || '').toLowerCase();
+    return /\/pos(\.html)?\/?$/.test(ruta) || ruta.indexOf('/pos.html') !== -1 || /pos\.html$/i.test(ruta);
+}
+
+function destinoPos() {
+    const host = String((window.location && window.location.hostname) || '');
+    if (/toysoft\.co$/i.test(host)) {
+        return '/pos';
+    }
+    return 'POS.html';
+}
+
+function paginaEsPropietario() {
+    const ruta = (window.location.pathname || '').toLowerCase();
+    return ruta.indexOf('propietario') !== -1;
+}
+
+function destinoPropietario() {
+    const host = String((window.location && window.location.hostname) || '');
+    if (/toysoft\.co$/i.test(host)) {
+        return '/propietario';
+    }
+    return 'propietario.html';
+}
+
+function paginaEsAdministracion() {
+    const ruta = (window.location.pathname || '').toLowerCase();
+    return ruta.indexOf('admon.html') !== -1;
+}
+
+function paginaEsInicio() {
+    const ruta = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+    return ruta === '/' || ruta === '' || /\/index(\.html)?$/.test(ruta);
+}
+
+function cuentaEsPos() {
+    return window.ToySoftFirebase && typeof ToySoftFirebase.esPos === 'function' && ToySoftFirebase.esPos();
+}
+
+function cuentaEsPropietario() {
+    return window.ToySoftFirebase && typeof ToySoftFirebase.esPropietario === 'function' && ToySoftFirebase.esPropietario();
+}
+
 function aplicarMenuPorRol() {
     const esMesero = window.ToySoftFirebase && typeof ToySoftFirebase.esMesero === 'function' && ToySoftFirebase.esMesero();
+    const esPos = cuentaEsPos();
+    const esPropietario = cuentaEsPropietario();
     const btnAdmon = document.getElementById('btnInicioAdmon');
     const btnPOS = document.getElementById('btnInicioPOS');
-    if (btnAdmon) btnAdmon.style.display = esMesero ? 'none' : '';
-    if (btnPOS) btnPOS.style.display = esMesero ? 'none' : '';
+    if (btnAdmon) btnAdmon.style.display = (esMesero || esPos || esPropietario) ? 'none' : '';
+    if (btnPOS) btnPOS.style.display = (esMesero || esPropietario) ? 'none' : '';
+    aplicarCabeceraPos();
+}
+
+function aplicarCabeceraPos() {
+    const esPos = cuentaEsPos();
+    const btnInicio = document.getElementById('btnVolverInicioPOS');
+    const btnSalir = document.getElementById('btnCerrarSesionPOS');
+    const nombreEl = document.getElementById('nombreCajaPOS');
+    if (btnInicio) btnInicio.style.display = esPos ? 'none' : '';
+    if (btnSalir) btnSalir.style.display = esPos ? '' : 'none';
+    if (nombreEl) {
+        const nombre = (window.ToySoftFirebase && typeof ToySoftFirebase.nombreUsuarioActual === 'function')
+            ? ToySoftFirebase.nombreUsuarioActual()
+            : '';
+        nombreEl.textContent = esPos && nombre ? nombre : '';
+        nombreEl.style.display = (esPos && nombre) ? '' : 'none';
+    }
 }
 
 function irSegunRol() {
     if (window.ToySoftFirebase && typeof ToySoftFirebase.esMesero === 'function' && ToySoftFirebase.esMesero()) {
         if (!paginaEsMesero()) window.location.href = destinoMesero();
         return true;
+    }
+    if (cuentaEsPropietario()) {
+        if (!paginaEsPropietario()) window.location.href = destinoPropietario();
+        return true;
+    }
+    if (cuentaEsPos()) {
+        if (paginaEsAdministracion() || paginaEsInicio()) {
+            window.location.href = destinoPos();
+            return true;
+        }
+        aplicarMenuPorRol();
+        return paginaEsPos();
     }
     aplicarMenuPorRol();
     return false;
@@ -99,21 +174,100 @@ function redirigirMeseroSiNoCorresponde() {
     return true;
 }
 
+function redirigirPosSiNoCorresponde() {
+    if (!cuentaEsPos()) return false;
+    if (paginaEsPos()) return false;
+    if (paginaEsAdministracion() || paginaEsInicio()) {
+        window.location.href = destinoPos();
+        return true;
+    }
+    return false;
+}
+
+function redirigirPropietarioSiNoCorresponde() {
+    if (!cuentaEsPropietario()) return false;
+    if (paginaEsPropietario()) return false;
+    window.location.href = destinoPropietario();
+    return true;
+}
+
+function posPideLogin() {
+    return localStorage.getItem('posRequiereLogin') === 'true';
+}
+
+function mostrarLoginPOS() {
+    const login = document.getElementById('loginPOS');
+    if (login) login.style.display = 'flex';
+    if (document.body) document.body.classList.add('esperando-acceso-pos');
+}
+
+function ocultarLoginPOS() {
+    const login = document.getElementById('loginPOS');
+    if (login) login.style.display = 'none';
+    if (document.body) document.body.classList.remove('esperando-acceso-pos');
+}
+
+async function iniciarSesionPOS() {
+    const { email, clave } = loginFormularioValores();
+    mostrarLoginMensaje('');
+    if (!window.ToySoftFirebase || !ToySoftFirebase.estaConfigurado()) {
+        mostrarLoginMensaje('No hay conexión con Firebase. Recarga la página.');
+        return;
+    }
+    if (!email || !clave) {
+        mostrarLoginMensaje('Escribe el correo y la contraseña.');
+        return;
+    }
+    try {
+        await ToySoftFirebase.init();
+        await ToySoftFirebase.iniciarSesion(email, clave, '', { soloUnirse: true });
+        if (typeof ToySoftFirebase.esMesero === 'function' && ToySoftFirebase.esMesero()) {
+            try { await ToySoftFirebase.cerrarSesion(); } catch (e) {}
+            mostrarLoginMensaje('Esta cuenta es de mesero. Entra en ultimate.toysoft.co/mesero.');
+            return;
+        }
+        if (cuentaEsPropietario()) {
+            try { await ToySoftFirebase.cerrarSesion(); } catch (e) {}
+            mostrarLoginMensaje('Esta cuenta es de propietario. Entra en ultimate.toysoft.co/propietario.');
+            return;
+        }
+        const esCaja = (typeof ToySoftFirebase.esCaja === 'function' && ToySoftFirebase.esCaja())
+            || (typeof ToySoftFirebase.esAdminNegocio === 'function' && ToySoftFirebase.esAdminNegocio())
+            || cuentaEsPos();
+        if (!esCaja) {
+            try { await ToySoftFirebase.cerrarSesion(); } catch (e) {}
+            mostrarLoginMensaje('Esta cuenta no es de punto de venta. Pide al administrador que te cree en Administración.');
+            return;
+        }
+        localStorage.setItem('sesionActiva', 'true');
+        window.location.reload();
+    } catch (error) {
+        mostrarLoginMensaje(ToySoftFirebase.mensajeErrorAuth(error));
+    }
+}
+
 async function verificarAcceso() {
     const haySesion = await verificarSesion();
     if (!haySesion) {
+        if (document.getElementById('loginPOS') && posPideLogin()) {
+            mostrarLoginPOS();
+            return false;
+        }
         console.log('Redirigiendo al login...');
         window.location.href = 'index.html';
         return false;
     }
     localStorage.setItem('sesionActiva', 'true');
     if (redirigirMeseroSiNoCorresponde()) return false;
+    if (redirigirPropietarioSiNoCorresponde()) return false;
+    if (redirigirPosSiNoCorresponde()) return false;
+    if (paginaEsPos() && window.ToySoftFirebase && typeof ToySoftFirebase.esMesero === 'function' && ToySoftFirebase.esMesero()) {
+        window.location.href = destinoMesero();
+        return false;
+    }
+    ocultarLoginPOS();
+    aplicarCabeceraPos();
     return true;
-}
-
-function paginaEsAdministracion() {
-    const ruta = (window.location.pathname || '').toLowerCase();
-    return ruta.indexOf('admon.html') !== -1;
 }
 
 async function iniciarSesion() {
@@ -207,7 +361,19 @@ async function cerrarSesion() {
         }
     }
     localStorage.removeItem('sesionActiva');
-    window.location.href = paginaEsMesero() ? destinoMesero() : 'index.html';
+    if (paginaEsMesero()) {
+        window.location.href = destinoMesero();
+        return;
+    }
+    if (paginaEsPropietario() || cuentaEsPropietario()) {
+        window.location.href = destinoPropietario();
+        return;
+    }
+    if (paginaEsPos() || cuentaEsPos()) {
+        window.location.href = destinoPos();
+        return;
+    }
+    window.location.href = 'index.html';
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -327,12 +493,15 @@ function actualizarBadgeRecordatorios() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    if (paginaEsMesero()) return;
+    if (paginaEsMesero() || paginaEsPropietario()) return;
     if (!window.ToySoftFirebase || typeof ToySoftFirebase.init !== 'function') return;
     ToySoftFirebase.init().then(function () {
         return ToySoftFirebase.esperarAuth();
     }).then(function (user) {
-        if (user) redirigirMeseroSiNoCorresponde();
+        if (!user) return;
+        if (redirigirMeseroSiNoCorresponde()) return;
+        if (redirigirPropietarioSiNoCorresponde()) return;
+        redirigirPosSiNoCorresponde();
     }).catch(function () {});
 });
 

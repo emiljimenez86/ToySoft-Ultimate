@@ -3245,7 +3245,8 @@ function hashOperacionLocal(datos) {
       posMostrarGastos: datos && datos.posMostrarGastos,
       posMostrarInventario: datos && datos.posMostrarInventario,
       posMostrarCierreAdmin: datos && datos.posMostrarCierreAdmin,
-      posMostrarBalance: datos && datos.posMostrarBalance
+      posMostrarBalance: datos && datos.posMostrarBalance,
+      posRequiereLogin: datos && datos.posRequiereLogin
     });
   } catch (e) {
     return String(Date.now());

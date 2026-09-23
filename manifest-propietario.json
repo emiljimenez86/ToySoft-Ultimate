@@ -1,0 +1,26 @@
+{
+  "id": "./propietario.html",
+  "name": "ToySoft Propietario",
+  "short_name": "ToySoft Dueño",
+  "description": "Panel del propietario ToySoft: balance, gastos, inventario y cierres en tiempo real",
+  "start_url": "./propietario.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#0dcaf0",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "./image/logo-ToySoft.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./image/logo-ToySoft.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

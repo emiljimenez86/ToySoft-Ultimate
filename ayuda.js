@@ -385,7 +385,7 @@ const ayudaContextual = {
             <div class="help-content">
                 <h4><i class="fas fa-cog text-warning"></i> Administración</h4>
                 <div class="alert alert-info">
-                    Aquí configuras el negocio, el menú, el equipo de meseros y los PIN. Los cambios de productos, cocina y botones del POS se ven en todos los equipos de este restaurante.
+                    Aquí configuras el negocio, el menú, el equipo, los PIN, la facturación electrónica (solo el contador) y las copias de seguridad. Los cambios de productos, cocina y botones del POS se ven en todos los equipos de este restaurante.
                 </div>
 
                 <div class="row">
@@ -424,6 +424,23 @@ const ayudaContextual = {
                             <li><strong>Nombre y precio editables:</strong> el cajero los cambia al vender (producto comodín).</li>
                             <li>Usa <strong>MAYÚSCULAS</strong> para que se lean bien en el POS y en cocina.</li>
                         </ul>
+
+                        <h5 class="text-primary"><i class="fas fa-store me-1"></i> Logo y datos del negocio</h5>
+                        <ul>
+                            <li><strong>Logo:</strong> JPG, PNG o GIF, máximo 500 KB. Se usa en impresión.</li>
+                            <li><strong>Datos del negocio:</strong> nombre, NIT, dirección, correo y teléfono. Salen en tickets y facturas.</li>
+                        </ul>
+
+                        <h5 class="text-info"><i class="fas fa-tv me-1"></i> Cocina, mesero e impresora</h5>
+                        <ul>
+                            <li><strong>Pantalla de cocina:</strong> actívala solo si vas a usarla. Puedes poner sonido y abrirla ya.</li>
+                            <li><strong>Imprimir desde el celular del mesero:</strong> es <strong>opcional</strong>. Si lo dejas apagado, el pedido del mesero se imprime en la caja principal, sin entrar a Historial. Si el negocio no usa meseros y todo se toma en caja, déjalo apagado: no hay que poner IP.</li>
+                            <li>Si sí usan la app de mesero y una térmica de red en cocina, enciende esa opción, pon la <strong>IP</strong> (puerto casi siempre <strong>9100</strong>) y guarda.</li>
+                            <li>En cada celular Android instala <strong>RawBT</strong> (gratis). En RawBT agrega la impresora por <strong>WiFi / Ethernet</strong> con la misma IP y déjala predeterminada. El ticket sale y <strong>corta el papel</strong>.</li>
+                            <li>El celular y la térmica deben estar en la <strong>misma WiFi</strong>. Una Epson de escritorio (L4160 y similares) no es la térmica de cocina: esa sale por el diálogo de Android.</li>
+                            <li>Con la IP configurada, al enviar a cocina el ticket sale desde el celular. Si no sale, en caja aparece <strong>Imprimir en esta caja</strong>. Sin IP, la caja imprime sola.</li>
+                            <li><strong>Botones del POS:</strong> oculta Gastos, Inventario, Cierre administrativo o Balance si el cajero no los necesita.</li>
+                        </ul>
                     </div>
 
                     <div class="col-md-6">
@@ -437,22 +454,22 @@ const ayudaContextual = {
                             <li>Cada correo queda ligado a <strong>este</strong> restaurante. No ve datos de otro negocio.</li>
                         </ul>
 
-                        <h5 class="text-info"><i class="fas fa-tv me-1"></i> Cocina, mesero e impresora</h5>
+                        <h5 class="text-warning"><i class="fas fa-cash-register me-1"></i> Punto de Venta</h5>
                         <ul>
-                            <li><strong>Pantalla de cocina:</strong> actívala solo si vas a usarla. Puedes poner sonido y abrirla ya.</li>
-                            <li><strong>Imprimir desde el celular del mesero:</strong> es <strong>opcional</strong>. Si lo dejas apagado, el pedido del mesero se imprime en la caja principal, sin entrar a Historial. Si el negocio no usa meseros y todo se toma en caja, déjalo apagado: no hay que poner IP.</li>
-                            <li>Si sí usan la app de mesero y una térmica de red en cocina, enciende esa opción, pon la <strong>IP</strong> (puerto casi siempre <strong>9100</strong>) y guarda.</li>
-                            <li>En cada celular Android instala <strong>RawBT</strong> (gratis). En RawBT agrega la impresora por <strong>WiFi / Ethernet</strong> con la misma IP y déjala predeterminada. El ticket sale y <strong>corta el papel</strong>.</li>
-                            <li>El celular y la térmica deben estar en la <strong>misma WiFi</strong>. Una Epson de escritorio (L4160 y similares) no es la térmica de cocina: esa sale por el diálogo de Android.</li>
-                            <li>Con la IP configurada, al enviar a cocina el ticket sale desde el celular. Si no sale, en caja aparece <strong>Imprimir en esta caja</strong>. Sin IP, la caja imprime sola.</li>
-                            <li><strong>Botones del POS:</strong> oculta Gastos, Inventario, Cierre administrativo o Balance si el cajero no los necesita.</li>
+                            <li><strong>Pedir correo y contraseña:</strong> apagado, el POS entra directo con la sesión de administración. Encendido, la caja entra en /pos con la cuenta que crees aquí.</li>
+                            <li><strong>Copiar enlace:</strong> envía <strong>ultimate.toysoft.co/pos</strong> a la caja. Esa cuenta solo trabaja el POS, no entra a Administración.</li>
+                            <li><strong>Agregar:</strong> nombre del punto de venta, correo y contraseña (mínimo 6 caracteres).</li>
+                            <li>Entra con ese correo y contraseña. Cobra, mesas, cocina e historial. Los PIN de cada módulo siguen valiendo.</li>
+                            <li><strong>Lápiz / Basura:</strong> igual que en meseros. El correo no se cambia.</li>
                         </ul>
 
-                        <h5 class="text-primary"><i class="fas fa-store me-1"></i> Datos, logo y backup</h5>
+                        <h5 class="text-warning"><i class="fas fa-user-tie me-1"></i> Propietario</h5>
                         <ul>
-                            <li><strong>Datos del negocio:</strong> nombre, NIT, dirección, correo y teléfono. Salen en tickets y facturas.</li>
-                            <li><strong>Logo:</strong> JPG, PNG o GIF, máximo 500 KB. Se usa en impresión.</li>
-                            <li><strong>Exportar / Importar:</strong> respaldo en archivo. Importar reemplaza datos: úsalo con cuidado.</li>
+                            <li><strong>Copiar enlace:</strong> envía <strong>ultimate.toysoft.co/propietario</strong> al dueño. Esa cuenta solo consulta el negocio en el celular.</li>
+                            <li><strong>Agregar:</strong> nombre, correo y contraseña (mínimo 6 caracteres).</li>
+                            <li>Ve balance, gastos, inventario bajo y cierres en tiempo real. No cobra, no toca menú ni Administración.</li>
+                            <li>El administrador también puede entrar ahí con su misma cuenta para ver el panel en el teléfono.</li>
+                            <li><strong>Lápiz / Basura:</strong> igual que en meseros. El correo no se cambia.</li>
                         </ul>
 
                         <h5 class="text-success"><i class="fas fa-key me-1"></i> PIN por módulo</h5>
@@ -461,15 +478,40 @@ const ayudaContextual = {
                             <li>Se guarda cifrado en la nube y aplica en todos los equipos de este negocio.</li>
                             <li>De fábrica: <strong>0011</strong> esta pantalla y <strong>0000</strong> los demás, hasta que los cambies.</li>
                         </ul>
+
+                        <h5 class="text-danger"><i class="fas fa-file-invoice me-1"></i> Facturación electrónica</h5>
+                        <ul>
+                            <li>Está al final, <strong>antes de Backup</strong>. Va <strong>cerrada con un +</strong>.</li>
+                            <li><strong>Usted no la diligencia.</strong> La abre y completa el <strong>contador público</strong> con la resolución de la DIAN (Formato 1876): prefijo, rangos, vigencia y consecutivos.</li>
+                            <li>Al abrirla aparece un aviso rojo: si administra el restaurante y no es el contador, pulse − y no cambie nada.</li>
+                            <li>Todavía <strong>no se envían documentos a la DIAN</strong>. El cobro del POS no cambia.</li>
+                        </ul>
+
+                        <h5 class="text-info"><i class="fas fa-database me-1"></i> Backup y Restauración</h5>
+                        <ul>
+                            <li>Está abajo, justo antes de Herramientas del sistema.</li>
+                            <li><strong>Exportar datos:</strong> descarga una copia de seguridad en este dispositivo. Guárdala en un lugar seguro.</li>
+                            <li><strong>Importar datos:</strong> restaura desde un archivo. Reemplaza datos: úsalo con cuidado.</li>
+                            <li>Haz backup <strong>antes</strong> de borrar datos contables o de reiniciar el sistema.</li>
+                        </ul>
+
+                        <h5 class="text-danger"><i class="fas fa-tools me-1"></i> Herramientas del sistema</h5>
+                        <ul>
+                            <li>Es lo <strong>último</strong> de esta pantalla.</li>
+                            <li><strong>Borrar datos contables:</strong> quita ventas, gastos, créditos y cierres. Deja categorías, productos y clientes. Sirve después de una demostración o pruebas.</li>
+                            <li><strong>Limpiar datos temporales:</strong> solo si la app se traba (mesas, ventas del día, cocina).</li>
+                            <li><strong>Reiniciar sistema:</strong> borra todo, incluido el menú y los clientes. No lo uses salvo que quieras empezar de cero.</li>
+                            <li>Borrar datos contables y Reiniciar sistema piden el <strong>PIN actual de administrador</strong>, recomiendan hacer Backup y avisan que ToySoft no se hace responsable de la pérdida de información.</li>
+                        </ul>
                     </div>
                 </div>
 
-                <div class="alert alert-warning mt-3">
+                <div class="alert alert-danger mt-3">
                     <strong>Importante:</strong>
                     <ul class="mb-0 mt-2">
                         <li>Los productos nuevos o editados se ven de inmediato en caja y en mesero.</li>
-                        <li>No uses <em>Reiniciar sistema</em> salvo que quieras borrar todo. Limpia datos temporales solo si la app se traba.</li>
-                        <li>Haz un backup de vez en cuando y guárdalo en un lugar seguro.</li>
+                        <li>Facturación electrónica es del <strong>contador</strong>, no del administrador del restaurante.</li>
+                        <li>No uses <em>Reiniciar sistema</em> ni <em>Borrar datos contables</em> sin hacer antes un Backup. ToySoft no se hace responsable de la pérdida de información por esos reinicios.</li>
                     </ul>
                 </div>
             </div>
@@ -1013,6 +1055,69 @@ const ayudaContextual = {
                 </div>
             </div>
         `
+    },
+
+    'propietario.html': {
+        titulo: 'Propietario',
+        contenido: `
+            <div class="help-content">
+                <h4><i class="fas fa-user-tie text-info"></i> App del propietario</h4>
+                <div class="alert alert-info">
+                    Entra con el correo y la contraseña que te asignaron en Administración (enlace <strong>ultimate.toysoft.co/propietario</strong>). Ves el negocio en tiempo real, como el Balance del computador. <strong>No cobras, no cambias el menú y no entras a Administración.</strong>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="text-warning">Cómo entrar</h5>
+                        <ul>
+                            <li>Usa el correo y la contraseña de la cuenta de propietario (o la de administrador, si quieres ver este panel en el celular).</li>
+                            <li>Si no tienes cuenta, pídesela a quien maneja Administración.</li>
+                            <li><strong>Salir:</strong> el botón de abajo cierra la sesión.</li>
+                            <li>Instálala en el celular como <strong>ToySoft Propietario</strong>.</li>
+                        </ul>
+
+                        <h5 class="text-info">El día</h5>
+                        <ul>
+                            <li>Elige la fecha o usa las flechas. El resumen es <strong>de ese día</strong>.</li>
+                            <li>No hay semana ni mes: un día a la vez, como en el Balance de caja.</li>
+                            <li>Si el restaurante opera después de medianoche, el día sigue la hora configurada en Administración.</li>
+                        </ul>
+
+                        <h5 class="text-success">Resumen de arriba</h5>
+                        <ul>
+                            <li><strong>Ventas, Gastos y Balance</strong> del día elegido.</li>
+                            <li>El balance resta gastos de caja, créditos, valor de domicilios y <strong>propinas</strong> (las propinas son del personal, igual que el domicilio).</li>
+                            <li>Chips: Efectivo, Transferencia, Tarjeta, Crédito, Tickets, Domicilios y Propinas (estos dos últimos restan).</li>
+                        </ul>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h5 class="text-primary">Detalle (toca el +)</h5>
+                        <ul>
+                            <li><strong>Productos vendidos:</strong> cada producto, cantidad y total.</li>
+                            <li><strong>Ventas por tipo:</strong> mesas, domicilios, recoger y venta rápida. El + de cada tipo muestra sus productos.</li>
+                            <li><strong>Ventas por mesero:</strong> el nombre registrado. Lo vendido en caja, sin mesero, sale como <strong>Caja (POS)</strong>.</li>
+                            <li><strong>Domicilios y domiciliarios:</strong> lo cobrado de domicilio, por persona. Se resta del balance.</li>
+                            <li><strong>Propinas:</strong> total y por venta. Se restan del balance.</li>
+                            <li><strong>Créditos pendientes:</strong> ventas a crédito de ese día.</li>
+                            <li><strong>Gastos:</strong> <em>Sale de la caja</em>, <em>Al contado, no sale de caja</em> y <em>Crédito con el proveedor</em>. El + abre el detalle.</li>
+                            <li><strong>Inventario bajo:</strong> productos en o por debajo del mínimo.</li>
+                            <li><strong>Cierres:</strong> administrativo y operativo de ese día.</li>
+                        </ul>
+
+                        <h5 class="text-info">En vivo</h5>
+                        <ul>
+                            <li>Si en caja cobran o gastan, esto se actualiza solo.</li>
+                            <li><strong>Actualizar:</strong> el círculo de la esquina recarga si el internet se trabó.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning mb-0 mt-3">
+                    El cobro, el menú, los PIN, la facturación electrónica y las herramientas del sistema se manejan en el <strong>Punto de Venta</strong> y en <strong>Administración</strong>. Esta app solo consulta.
+                </div>
+            </div>
+        `
     }
 };
 
@@ -1068,7 +1173,10 @@ function mostrarAyudaContextual() {
 
 // Función para obtener el contexto actual
 function obtenerContextoActual() {
-    const url = window.location.pathname.split('/').pop() || 'index.html';
+    const path = (window.location.pathname || '').toLowerCase();
+    let url = path.split('/').pop() || 'index.html';
+    if (path.indexOf('propietario') !== -1) url = 'propietario.html';
+    if (path.indexOf('mesero') !== -1) url = 'mesero.html';
     return {
         pagina: url,
         modulo: detectarModulo(),
