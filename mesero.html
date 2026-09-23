@@ -2,6 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <base href="/">
+  <script>
+    (function () {
+      var path = location.pathname || '';
+      if (path === '/mesero' || path === '/mesero.html') {
+        location.replace('/mesero/' + location.search + location.hash);
+      }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ToySoft Mesero</title>
   <meta name="description" content="App de mesero ToySoft para tomar pedidos en mesa">
@@ -1356,7 +1365,7 @@
   <script src="seguridad.js?v=30"></script>
   <script src="mesero.js?v=54"></script>
   <script src="ayuda.js?v=47"></script>
-  <script src="install.js?v=34"></script>
+  <script src="install.js?v=35"></script>
   <script>
     (function () {
       function pintarOjo(visible) {

@@ -695,12 +695,12 @@ let meseroEquipoRecienteUid = '';
 function enlaceMeseroParaEnviar() {
   const host = String((window.location && window.location.hostname) || '');
   if (/toysoft\.co$/i.test(host)) {
-    return window.location.origin + '/mesero';
+    return window.location.origin + '/mesero/';
   }
   try {
     return new URL('mesero.html', window.location.href).href;
   } catch (e) {
-    return 'https://ultimate.toysoft.co/mesero';
+    return 'https://ultimate.toysoft.co/mesero/';
   }
 }
 
@@ -924,12 +924,12 @@ let posEquipoRecienteUid = '';
 function enlacePosParaEnviar() {
   const host = String((window.location && window.location.hostname) || '');
   if (/toysoft\.co$/i.test(host)) {
-    return window.location.origin + '/pos';
+    return window.location.origin + '/pos/';
   }
   try {
     return new URL('POS.html', window.location.href).href;
   } catch (e) {
-    return 'https://ultimate.toysoft.co/pos';
+    return 'https://ultimate.toysoft.co/pos/';
   }
 }
 
@@ -1129,12 +1129,12 @@ let propietarioEquipoRecienteUid = '';
 function enlacePropietarioParaEnviar() {
   const host = String((window.location && window.location.hostname) || '');
   if (/toysoft\.co$/i.test(host)) {
-    return window.location.origin + '/propietario';
+    return window.location.origin + '/propietario/';
   }
   try {
     return new URL('propietario.html', window.location.href).href;
   } catch (e) {
-    return 'https://ultimate.toysoft.co/propietario';
+    return 'https://ultimate.toysoft.co/propietario/';
   }
 }
 

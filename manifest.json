@@ -4,6 +4,7 @@
   "short_name": "ToySoft Ultimate",
   "description": "Sistema de Punto de Venta Ultimate Version para Restaurantes",
   "start_url": "./index.html",
+  "scope": "/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0dcaf0",

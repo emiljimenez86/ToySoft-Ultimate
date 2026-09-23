@@ -250,17 +250,37 @@ window.addEventListener('appinstalled', (evt) => {
     deferredPrompt = null;
 });
 
+function esperarPromptInstalacion() {
+    if (deferredPrompt) return Promise.resolve(deferredPrompt);
+    return new Promise(function (resolve) {
+        var listo = false;
+        function terminar(valor) {
+            if (listo) return;
+            listo = true;
+            window.removeEventListener('beforeinstallprompt', alPrompt);
+            resolve(valor || deferredPrompt || null);
+        }
+        function alPrompt(evento) {
+            terminar(evento);
+        }
+        window.addEventListener('beforeinstallprompt', alPrompt);
+        setTimeout(function () { terminar(null); }, 2500);
+    });
+}
+
 async function installPWA() {
     if (esIPhone()) {
         mostrarAvisoIos();
         return;
     }
     try {
-        const registration = await navigator.serviceWorker.register('./sw.js?v=37');
+        const registration = await navigator.serviceWorker.register('/sw.js?v=38');
         console.log('ServiceWorker registrado:', registration);
 
         await navigator.serviceWorker.ready;
         console.log('ServiceWorker listo');
+
+        if (!deferredPrompt) await esperarPromptInstalacion();
 
         if (deferredPrompt) {
             deferredPrompt.prompt();
@@ -301,7 +321,7 @@ function showInstallInstructions() {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('./sw.js?v=37');
+            const registration = await navigator.serviceWorker.register('/sw.js?v=38');
             console.log('ServiceWorker registrado:', registration);
         } catch (error) {
             console.error('Error al registrar ServiceWorker:', error);

@@ -2,6 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <base href="/">
+  <script>
+    (function () {
+      var path = location.pathname || '';
+      if (path === '/propietario' || path === '/propietario.html') {
+        location.replace('/propietario/' + location.search + location.hash);
+      }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>ToySoft Propietario</title>
   <meta name="description" content="App del propietario ToySoft: balance, gastos, inventario y cierres en tiempo real">
@@ -605,7 +614,7 @@
   <script src="seguridad.js?v=30"></script>
   <script src="propietario.js?v=5"></script>
   <script src="ayuda.js?v=53"></script>
-  <script src="install.js?v=34"></script>
+  <script src="install.js?v=35"></script>
   <script>
     (function () {
       function pintarOjo(visible) {

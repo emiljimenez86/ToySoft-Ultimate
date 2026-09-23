@@ -1,17 +1,17 @@
 {
-  "id": "./propietario.html",
+  "id": "/propietario/",
   "related_applications": [
     {
       "platform": "webapp",
-      "url": "./manifest-propietario.json",
-      "id": "./propietario.html"
+      "url": "/manifest-propietario.json",
+      "id": "/propietario/"
     }
   ],
   "name": "ToySoft Propietario",
   "short_name": "ToySoft Dueño",
   "description": "Panel del propietario ToySoft: balance, gastos, inventario y cierres en tiempo real",
-  "start_url": "./propietario.html",
-  "scope": "./",
+  "start_url": "/propietario/",
+  "scope": "/propietario/",
   "display": "standalone",
   "background_color": "#111111",
   "theme_color": "#0dcaf0",
