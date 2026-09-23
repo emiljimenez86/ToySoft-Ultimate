@@ -1,4 +1,4 @@
-const CACHE_NAME = 'toysoft-pos-v69';
+const CACHE_NAME = 'toysoft-pos-v72';
 const urlsToCache = [
     './',
     './index.html',
@@ -81,12 +81,6 @@ self.addEventListener('activate', event => {
                     .map(name => caches.delete(name))
             ))
             .then(() => self.clients.claim())
-            .then(() => self.clients.matchAll({ type: 'window' }))
-            .then(clients => {
-                clients.forEach(client => {
-                    if (client.url && 'navigate' in client) client.navigate(client.url);
-                });
-            })
     );
 });
 

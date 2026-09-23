@@ -579,13 +579,14 @@
       text-shadow: 0 2px 4px rgba(0,0,0,0.4);
     }
     .btn-salir-mesero {
-      width: auto;
+      align-self: center;
+      width: auto !important;
       min-width: 108px;
       min-height: 34px;
-      padding: 6px 18px;
-      font-size: 0.85rem;
+      padding: 6px 18px !important;
+      font-size: 0.85rem !important;
       font-weight: 700;
-      border-radius: 18px;
+      border-radius: 18px !important;
     }
     .pagina-mesero footer.mesero-footer,
     #appMesero footer.mesero-footer,
@@ -868,22 +869,85 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px 16px calc(16px + env(safe-area-inset-bottom));
+      padding: 28px 18px calc(18px + env(safe-area-inset-bottom));
       background: #111;
     }
+    .login-mesero h1 {
+      font-size: 2.35rem !important;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      margin-bottom: 8px !important;
+    }
+    .login-mesero .login-ayuda {
+      max-width: 440px;
+      font-size: 1.05rem !important;
+      line-height: 1.45;
+      color: #b7c3ca !important;
+    }
+    .login-panel {
+      width: 100%;
+      max-width: 440px;
+      margin-top: 8px;
+      padding: 18px 16px 16px;
+      background: linear-gradient(180deg, #1c1c1c 0%, #161616 100%);
+      border: 1px solid #2e2e2e;
+      border-radius: 22px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    }
+    .login-etiqueta {
+      display: block;
+      margin: 0 0 6px;
+      color: #d5e0e6;
+      font-size: 1rem;
+      font-weight: 700;
+    }
     .login-mesero .mesero-footer {
-      margin-top: 24px;
+      margin-top: 22px;
       width: 100%;
     }
-    .login-mesero .form-control {
-      background: #1a1a1a;
-      color: #fff;
-      border-color: #444;
-      min-height: 52px;
-      font-size: 1.1rem;
+    .login-mesero .form-control,
+    .login-mesero .login-password-wrap .form-control {
+      background: #101010 !important;
+      color: #fff !important;
+      border: 1.5px solid #3a3a3a !important;
+      border-radius: 14px !important;
+      min-height: 58px !important;
+      height: auto !important;
+      font-size: 1.2rem !important;
+      line-height: 1.3 !important;
+      padding: 14px 16px !important;
     }
-    .login-mesero .btn { min-height: 52px; font-size: 1.1rem; }
-    .login-mesero .form-control::placeholder { color: #888; }
+    .login-mesero .login-password-wrap .form-control {
+      padding-right: 3.4rem !important;
+    }
+    .login-mesero .form-control:focus {
+      border-color: #0dcaf0 !important;
+      box-shadow: 0 0 0 3px rgba(13, 202, 240, 0.22) !important;
+    }
+    .login-mesero .btn-entrar-app {
+      min-height: 58px !important;
+      font-size: 1.15rem !important;
+      font-weight: 800 !important;
+      border-radius: 16px !important;
+      padding: 14px 18px !important;
+      width: 100% !important;
+    }
+    .login-mesero #loginMensaje {
+      max-width: 440px;
+      font-size: 1rem !important;
+      line-height: 1.35;
+      border-radius: 14px;
+    }
+    .login-mesero #installButton,
+    .login-panel #installButton {
+      width: auto !important;
+      min-height: 42px !important;
+      font-size: 0.98rem !important;
+      border-radius: 999px !important;
+      padding: 8px 16px !important;
+    }
+    .login-panel .small { font-size: 0.98rem !important; }
+    .login-mesero .form-control::placeholder { color: #8d99a1; }
     .login-password-wrap {
       position: relative;
       display: block;
@@ -897,11 +961,12 @@
       top: 50%;
       right: 8px;
       transform: translateY(-50%);
-      width: 32px;
-      height: 32px;
+      width: 44px !important;
+      height: 44px !important;
+      min-height: 0 !important;
       margin: 0;
       border: none;
-      border-radius: 6px;
+      border-radius: 10px;
       background: transparent;
       color: #8b9aa3;
       display: grid;
@@ -919,13 +984,13 @@
       outline: none;
     }
     .login-password-toggle svg {
-      width: 18px;
-      height: 18px;
+      width: 24px;
+      height: 24px;
       pointer-events: none;
     }
     .logo-mesero {
-      width: 96px;
-      height: 96px;
+      width: 112px;
+      height: 112px;
       border-radius: 50%;
       object-fit: cover;
       border: 3px solid #0dcaf0;
@@ -1064,10 +1129,12 @@
   <div id="loginMesero" class="login-mesero" style="display: none;">
     <img src="image/logo-ToySoft.png" alt="ToySoft" class="logo-mesero mb-3">
     <h1 class="h3 text-info mb-1">Mesero</h1>
-    <p class="text-white-50 text-center mb-3 px-2">Entra con el correo y la contraseña que te dio Administración. Tu nombre sale en el ticket de cocina.</p>
-    <div id="loginMensaje" class="alert alert-danger py-2 px-3 mb-2 w-100" style="display: none; max-width: 420px;"></div>
-    <form class="w-100" style="max-width: 420px;" onsubmit="event.preventDefault(); iniciarSesionMesero();">
-      <input type="email" id="usuario" class="form-control mb-2" placeholder="Correo" autocomplete="username" required>
+    <p class="login-ayuda text-center mb-3 px-2">Entra con el correo y la contraseña que te dio Administración. Tu nombre sale en el ticket de cocina.</p>
+    <div id="loginMensaje" class="alert alert-danger py-2 px-3 mb-2 w-100" style="display: none; max-width: 440px;"></div>
+    <form class="login-panel" onsubmit="event.preventDefault(); iniciarSesionMesero();">
+      <label class="login-etiqueta" for="usuario">Correo</label>
+      <input type="email" id="usuario" class="form-control mb-3" placeholder="tu@correo.com" autocomplete="username" inputmode="email" required>
+      <label class="login-etiqueta" for="clave">Contraseña</label>
       <div class="login-password-wrap mb-3">
         <input type="password" id="clave" class="form-control" placeholder="Contraseña" autocomplete="current-password" required>
         <button type="button" class="login-password-toggle" id="btnVerClave" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña">
@@ -1084,7 +1151,7 @@
         </button>
       </div>
       <div class="d-grid">
-        <button type="submit" class="btn btn-info">Iniciar sesión</button>
+        <button type="submit" class="btn btn-info btn-entrar-app">Iniciar sesión</button>
       </div>
       <div class="mt-2 text-center">
         <button type="button" id="installButton" class="btn btn-outline-warning btn-sm" onclick="installPWA()">
@@ -1353,11 +1420,11 @@
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js?v=25"></script>
-  <script src="firebase-init.js?v=48"></script>
+  <script src="firebase-init.js?v=49"></script>
   <script src="seguridad.js?v=31"></script>
-  <script src="mesero.js?v=54"></script>
+  <script src="mesero.js?v=56"></script>
   <script src="ayuda.js?v=47"></script>
-  <script src="install.js?v=37"></script>
+  <script src="install.js?v=38"></script>
   <script>
     (function () {
       function pintarOjo(visible) {

@@ -352,20 +352,30 @@
       line-height: 1.05;
     }
     .btn-salir-propietario {
+      align-self: center;
+      width: auto !important;
       min-width: 108px;
       min-height: 34px;
-      padding: 6px 18px;
-      font-size: 0.85rem;
+      padding: 6px 18px !important;
+      font-size: 0.85rem !important;
       font-weight: 700;
-      border-radius: 18px;
+      border-radius: 18px !important;
     }
+    .pagina-propietario footer.propietario-footer,
+    #appPropietario footer.propietario-footer,
     .propietario-footer {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      height: auto !important;
       text-align: center;
       color: #8b9aa3;
       font-size: 0.72rem;
       line-height: 1.35;
-      margin: 4px 0 0;
-      padding: 4px 8px 0;
+      margin: 4px 0 0 !important;
+      padding: 4px 8px 0 !important;
+      background: transparent !important;
+      border: none !important;
     }
     .propietario-footer .autor { color: #0dcaf0; font-weight: 600; }
     .login-propietario {
@@ -374,18 +384,84 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px 16px calc(16px + env(safe-area-inset-bottom));
+      padding: 28px 18px calc(18px + env(safe-area-inset-bottom));
       background: #111;
     }
-    .login-propietario .form-control {
-      background: #1a1a1a;
-      color: #fff;
-      border-color: #444;
-      min-height: 52px;
-      font-size: 1.1rem;
+    .login-propietario h1 {
+      font-size: 2.15rem !important;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      margin-bottom: 8px !important;
     }
-    .login-propietario .btn { min-height: 52px; font-size: 1.1rem; }
-    .login-propietario .form-control::placeholder { color: #888; }
+    .login-propietario .login-ayuda {
+      max-width: 440px;
+      font-size: 1.05rem !important;
+      line-height: 1.45;
+      color: #b7c3ca !important;
+    }
+    .login-panel {
+      width: 100%;
+      max-width: 440px;
+      margin-top: 8px;
+      padding: 18px 16px 16px;
+      background: linear-gradient(180deg, #1c1c1c 0%, #161616 100%);
+      border: 1px solid #2e2e2e;
+      border-radius: 22px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    }
+    .login-etiqueta {
+      display: block;
+      margin: 0 0 6px;
+      color: #d5e0e6;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .login-propietario .propietario-footer {
+      margin-top: 22px;
+      width: 100%;
+    }
+    .login-propietario .form-control,
+    .login-propietario .login-password-wrap .form-control {
+      background: #101010 !important;
+      color: #fff !important;
+      border: 1.5px solid #3a3a3a !important;
+      border-radius: 14px !important;
+      min-height: 58px !important;
+      height: auto !important;
+      font-size: 1.2rem !important;
+      line-height: 1.3 !important;
+      padding: 14px 16px !important;
+    }
+    .login-propietario .login-password-wrap .form-control {
+      padding-right: 3.4rem !important;
+    }
+    .login-propietario .form-control:focus {
+      border-color: #0dcaf0 !important;
+      box-shadow: 0 0 0 3px rgba(13, 202, 240, 0.22) !important;
+    }
+    .login-propietario .btn-entrar-app {
+      min-height: 58px !important;
+      font-size: 1.15rem !important;
+      font-weight: 800 !important;
+      border-radius: 16px !important;
+      padding: 14px 18px !important;
+      width: 100% !important;
+    }
+    .login-propietario #loginMensaje {
+      max-width: 440px;
+      font-size: 1rem !important;
+      line-height: 1.35;
+      border-radius: 14px;
+    }
+    .login-propietario #installButton {
+      width: auto !important;
+      min-height: 42px !important;
+      font-size: 0.98rem !important;
+      border-radius: 999px !important;
+      padding: 8px 16px !important;
+    }
+    .login-panel .small { font-size: 0.98rem !important; }
+    .login-propietario .form-control::placeholder { color: #8d99a1; }
     .login-password-wrap { position: relative; display: block; }
     .login-password-wrap .form-control { width: 100%; padding-right: 2.75rem; }
     .login-password-toggle {
@@ -393,10 +469,11 @@
       top: 50%;
       right: 8px;
       transform: translateY(-50%);
-      width: 32px;
-      height: 32px;
+      width: 44px !important;
+      height: 44px !important;
+      min-height: 0 !important;
       border: none;
-      border-radius: 6px;
+      border-radius: 10px;
       background: transparent;
       color: #8b9aa3;
       display: grid;
@@ -406,10 +483,10 @@
       z-index: 2;
     }
     .login-password-toggle:hover, .login-password-toggle[aria-pressed="true"] { color: #0dcaf0; }
-    .login-password-toggle svg { width: 18px; height: 18px; pointer-events: none; }
+    .login-password-toggle svg { width: 24px; height: 24px; pointer-events: none; }
     .logo-propietario {
-      width: 96px;
-      height: 96px;
+      width: 112px;
+      height: 112px;
       border-radius: 50%;
       object-fit: cover;
       border: 3px solid #0dcaf0;
@@ -423,10 +500,12 @@
   <div id="loginPropietario" class="login-propietario" style="display: none;">
     <img src="image/logo-ToySoft.png" alt="ToySoft" class="logo-propietario mb-3">
     <h1 class="h3 text-info mb-1">Propietario</h1>
-    <p class="text-white-50 text-center mb-3 px-2">Consulta el negocio desde el celular: balance, gastos, inventario y cierres. Entra con el correo que te dio Administración.</p>
-    <div id="loginMensaje" class="alert alert-danger py-2 px-3 mb-2 w-100" style="display: none; max-width: 420px;"></div>
-    <form class="w-100" style="max-width: 420px;" onsubmit="event.preventDefault(); iniciarSesionPropietario();">
-      <input type="email" id="usuario" class="form-control mb-2" placeholder="Correo" autocomplete="username" required>
+    <p class="login-ayuda text-center mb-3 px-2">Consulta el negocio desde el celular: balance, gastos, inventario y cierres. Entra con el correo que te dio Administración.</p>
+    <div id="loginMensaje" class="alert alert-danger py-2 px-3 mb-2 w-100" style="display: none; max-width: 440px;"></div>
+    <form class="login-panel" onsubmit="event.preventDefault(); iniciarSesionPropietario();">
+      <label class="login-etiqueta" for="usuario">Correo</label>
+      <input type="email" id="usuario" class="form-control mb-3" placeholder="tu@correo.com" autocomplete="username" inputmode="email" required>
+      <label class="login-etiqueta" for="clave">Contraseña</label>
       <div class="login-password-wrap mb-3">
         <input type="password" id="clave" class="form-control" placeholder="Contraseña" autocomplete="current-password" required>
         <button type="button" class="login-password-toggle" id="btnVerClave" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña">
@@ -443,7 +522,7 @@
         </button>
       </div>
       <div class="d-grid">
-        <button type="submit" class="btn btn-info">Iniciar sesión</button>
+        <button type="submit" class="btn btn-info btn-entrar-app">Iniciar sesión</button>
       </div>
       <div class="mt-2 text-center">
         <button type="button" id="installButton" class="btn btn-outline-warning btn-sm" onclick="installPWA()">
@@ -601,12 +680,12 @@
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js?v=25"></script>
-  <script src="firebase-init.js?v=48"></script>
+  <script src="firebase-init.js?v=50"></script>
   <script src="gastos-modelo.js?v=26"></script>
   <script src="seguridad.js?v=31"></script>
-  <script src="propietario.js?v=5"></script>
+  <script src="propietario.js?v=8"></script>
   <script src="ayuda.js?v=53"></script>
-  <script src="install.js?v=37"></script>
+  <script src="install.js?v=38"></script>
   <script>
     (function () {
       function pintarOjo(visible) {

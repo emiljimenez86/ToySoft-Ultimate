@@ -70,6 +70,34 @@
     });
   }
 
+  function recordarRolLocal() {
+    try {
+      const user = appIniciada ? auth().currentUser : null;
+      if (!user || !usuarioDoc) return;
+      localStorage.setItem('sesionActiva', 'true');
+      localStorage.setItem('toysoftSesionUid', user.uid);
+      localStorage.setItem('toysoftSesionRol', String(usuarioDoc.rol || ''));
+    } catch (e) { /* ignore */ }
+  }
+
+  function olvidarRolLocal() {
+    try {
+      localStorage.removeItem('toysoftSesionUid');
+      localStorage.removeItem('toysoftSesionRol');
+    } catch (e) { /* ignore */ }
+  }
+
+  function sesionRecordada(rol) {
+    try {
+      const user = (appIniciada && auth().currentUser) || usuarioAuth;
+      if (!user || !rol) return false;
+      return localStorage.getItem('toysoftSesionUid') === user.uid
+        && localStorage.getItem('toysoftSesionRol') === String(rol);
+    } catch (e) {
+      return false;
+    }
+  }
+
   function db() {
     return firebase.firestore();
   }
@@ -767,14 +795,15 @@
 
     if (userSnap.exists) {
       usuarioDoc = userSnap.data();
-      if (usuarioDoc.activo === false) {
+        if (usuarioDoc.activo === false) {
         usuarioDoc = null;
         negocioIdActual = null;
-        localStorage.removeItem('sesionActiva');
+        olvidarRolLocal();
         try { await auth().signOut(); } catch (e) {}
         throw new Error('Esta cuenta fue eliminada por el administrador.');
       }
       negocioIdActual = usuarioDoc.negocioId;
+      recordarRolLocal();
       if (esAdminNegocio()) {
         asegurarCodigoEquipo().catch(function (e) {
           console.warn('No se pudo asegurar el código de equipo', e);
@@ -817,6 +846,7 @@
     }
 
     aislarCacheSiCambioNegocio(negocioIdActual);
+    recordarRolLocal();
 
     if (negocioIdActual) {
       const negSnap = await db().collection('negocios').doc(negocioIdActual).get();
@@ -2096,11 +2126,18 @@
         configCaja: snapshotConfigCajaLocal()
       };
     }
-    const gastos = await sincronizarLista('gastos', ['historialGastos', 'gastos'], escribirGastosLocal);
-    const cierres = await sincronizarLista('cierres', ['historialCierres'], escribirCierresLocal);
-    const cierresOperativos = await sincronizarLista('cierresOperativos', ['historialCierresOperativos'], escribirCierresOperativosLocal);
-    const configCaja = await sincronizarConfigCaja();
-    return { gastos: gastos, cierres: cierres, cierresOperativos: cierresOperativos, configCaja: configCaja };
+  const resultados = await Promise.all([
+    sincronizarLista('gastos', ['historialGastos', 'gastos'], escribirGastosLocal),
+    sincronizarLista('cierres', ['historialCierres'], escribirCierresLocal),
+    sincronizarLista('cierresOperativos', ['historialCierresOperativos'], escribirCierresOperativosLocal),
+    sincronizarConfigCaja()
+  ]);
+  return {
+    gastos: resultados[0],
+    cierres: resultados[1],
+    cierresOperativos: resultados[2],
+    configCaja: resultados[3]
+  };
   }
 
   let unsubGastos = null;
@@ -2926,6 +2963,7 @@
     codigoEquipoPendiente = '';
     nombreMeseroPendiente = '';
     localStorage.removeItem('sesionActiva');
+    olvidarRolLocal();
     if (appIniciada) {
       await auth().signOut();
     }
@@ -2948,13 +2986,23 @@
         firebase.initializeApp(cfg);
         firebase.auth().languageCode = 'es';
         try {
+          await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        } catch (e) {
+          console.warn('No se pudo guardar la sesión en el celular', e);
+        }
+        try {
           await firebase.firestore().enablePersistence({ synchronizeTabs: true });
         } catch (e) {
           if (e.code !== 'failed-precondition' && e.code !== 'unimplemented') {
             console.warn('Persistencia offline de Firestore:', e);
           }
         }
-        firebase.auth().onAuthStateChanged(function (user) {
+        const authFb = firebase.auth();
+        if (typeof authFb.authStateReady === 'function') {
+          await authFb.authStateReady();
+          notificarAuth(authFb.currentUser);
+        }
+        authFb.onAuthStateChanged(function (user) {
           notificarAuth(user);
         });
         appIniciada = true;
@@ -2982,6 +3030,7 @@
     estaListo: estaListo,
     init: init,
     esperarAuth: esperarAuth,
+    sesionRecordada: sesionRecordada,
     iniciarSesion: iniciarSesion,
     unirseAlNegocio: unirseAlNegocio,
     cerrarSesion: cerrarSesion,

@@ -1638,9 +1638,11 @@ async function iniciarPantallaMesero() {
       mostrarLoginMesero();
       return;
     }
-    if (typeof ToySoftFirebase.esMesero === 'function' && !ToySoftFirebase.esMesero()) {
+    const esMesero = typeof ToySoftFirebase.esMesero === 'function' && ToySoftFirebase.esMesero();
+    const recordado = typeof ToySoftFirebase.sesionRecordada === 'function' && ToySoftFirebase.sesionRecordada('mesero');
+    if (!esMesero && !recordado) {
       mostrarLoginMesero();
-      mostrarLoginMensaje('Esta cuenta no es de mesero. Pide al administrador que te cree en Administración.');
+      mostrarLoginMensaje('');
       return;
     }
     localStorage.setItem('sesionActiva', 'true');

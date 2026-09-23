@@ -23,7 +23,20 @@ function formatearDineroPropietario(valor) {
   return '$ ' + Math.round(Number(valor) || 0).toLocaleString('es-CO');
 }
 
+const cacheFechaPropietario = new Map();
+
 function parseFechaPropietario(valor) {
+  if (typeof valor === 'string') {
+    if (cacheFechaPropietario.has(valor)) return cacheFechaPropietario.get(valor);
+    const fecha = parseFechaTextoPropietario(valor);
+    if (cacheFechaPropietario.size > 3000) cacheFechaPropietario.clear();
+    cacheFechaPropietario.set(valor, fecha);
+    return fecha;
+  }
+  return parseFechaTextoPropietario(valor);
+}
+
+function parseFechaTextoPropietario(valor) {
   if (valor instanceof Date) {
     return isNaN(valor.getTime()) ? null : valor;
   }
@@ -918,30 +931,53 @@ async function actualizarPaginaPropietario() {
   }
 }
 
+let pinturaPropietarioTimer = 0;
+let pinturaPropietarioSucia = false;
+
+function programarPinturaPropietario() {
+  pinturaPropietarioSucia = true;
+  if (pinturaPropietarioTimer) return;
+  pinturaPropietarioTimer = setTimeout(function () {
+    pinturaPropietarioTimer = 0;
+    if (!pinturaPropietarioSucia) return;
+    pinturaPropietarioSucia = false;
+    pintarDashboardPropietario();
+  }, 40);
+}
+
 async function cargarDatosPropietario() {
   if (!window.ToySoftFirebase) {
     cargarLocalPropietario();
     pintarDashboardPropietario();
     return;
   }
-  try {
-    if (typeof ToySoftFirebase.sincronizarVentas === 'function') {
-      ventasPropietario = await ToySoftFirebase.sincronizarVentas() || [];
-    }
-    if (typeof ToySoftFirebase.sincronizarFinanzas === 'function') {
-      const finanzas = await ToySoftFirebase.sincronizarFinanzas();
+  const tareas = [];
+  const seguir = function (promesa) {
+    tareas.push(promesa.catch(function (e) {
+      console.warn('No se pudo sincronizar el panel del propietario', e);
+    }));
+  };
+  if (typeof ToySoftFirebase.sincronizarVentas === 'function') {
+    seguir(ToySoftFirebase.sincronizarVentas().then(function (lista) {
+      ventasPropietario = lista || [];
+      programarPinturaPropietario();
+    }));
+  }
+  if (typeof ToySoftFirebase.sincronizarFinanzas === 'function') {
+    seguir(ToySoftFirebase.sincronizarFinanzas().then(function (finanzas) {
       gastosPropietario = (finanzas && finanzas.gastos) || [];
       cierresPropietario = (finanzas && finanzas.cierres) || [];
       cierresOperativosPropietario = (finanzas && finanzas.cierresOperativos) || [];
-    }
-    if (typeof ToySoftFirebase.sincronizarInventario === 'function') {
-      inventarioPropietario = await ToySoftFirebase.sincronizarInventario() || [];
-    }
-  } catch (e) {
-    console.warn('No se pudo sincronizar el panel del propietario', e);
-    cargarLocalPropietario();
+      programarPinturaPropietario();
+    }));
   }
-  pintarDashboardPropietario();
+  if (typeof ToySoftFirebase.sincronizarInventario === 'function') {
+    seguir(ToySoftFirebase.sincronizarInventario().then(function (lista) {
+      inventarioPropietario = lista || [];
+      programarPinturaPropietario();
+    }));
+  }
+  await Promise.all(tareas);
 }
 
 function escucharDatosPropietario() {
@@ -949,29 +985,29 @@ function escucharDatosPropietario() {
   if (typeof ToySoftFirebase.escucharVentas === 'function') {
     ToySoftFirebase.escucharVentas(function (lista) {
       ventasPropietario = Array.isArray(lista) ? lista : [];
-      pintarDashboardPropietario();
+      programarPinturaPropietario();
     });
   }
   if (typeof ToySoftFirebase.escucharFinanzas === 'function') {
     ToySoftFirebase.escucharFinanzas({
       gastos: function (lista) {
         gastosPropietario = Array.isArray(lista) ? lista : [];
-        pintarDashboardPropietario();
+        programarPinturaPropietario();
       },
       cierres: function (lista) {
         cierresPropietario = Array.isArray(lista) ? lista : [];
-        pintarDashboardPropietario();
+        programarPinturaPropietario();
       },
       cierresOperativos: function (lista) {
         cierresOperativosPropietario = Array.isArray(lista) ? lista : [];
-        pintarDashboardPropietario();
+        programarPinturaPropietario();
       }
     });
   }
   if (typeof ToySoftFirebase.escucharInventario === 'function') {
     ToySoftFirebase.escucharInventario(function (lista) {
       inventarioPropietario = Array.isArray(lista) ? lista : [];
-      pintarDashboardPropietario();
+      programarPinturaPropietario();
     });
   }
 }
@@ -1025,9 +1061,12 @@ async function iniciarPantallaPropietario() {
       mostrarLoginPropietario();
       return;
     }
-    if (!cuentaPuedeVerPropietario()) {
+    const recordado = window.ToySoftFirebase
+      && typeof ToySoftFirebase.sesionRecordada === 'function'
+      && (ToySoftFirebase.sesionRecordada('propietario') || ToySoftFirebase.sesionRecordada('admin'));
+    if (!cuentaPuedeVerPropietario() && !recordado) {
       mostrarLoginPropietario();
-      mostrarLoginMensaje('Esta cuenta no es de propietario. Pide al administrador que te cree en Administración.');
+      mostrarLoginMensaje('');
       return;
     }
     localStorage.setItem('sesionActiva', 'true');
