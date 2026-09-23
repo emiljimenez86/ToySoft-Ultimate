@@ -1260,6 +1260,90 @@
   }
 
   let persistiendoOperacion = 0;
+  let operacionPendiente = null;
+  let idsMesasVistas = null;
+  let idsCocinaVistas = null;
+
+  function idDeEntrada(item) {
+    if (Array.isArray(item) && item.length >= 1 && item[0] != null) return String(item[0]);
+    if (item && item.id != null && item.datos !== undefined) return String(item.id);
+    return '';
+  }
+
+  function datosDeEntrada(item) {
+    if (Array.isArray(item) && item.length >= 2) return item[1];
+    if (item && item.datos !== undefined) return item.datos;
+    return null;
+  }
+
+  function idsDeLista(lista) {
+    const set = {};
+    (lista || []).forEach(function (item) {
+      const id = idDeEntrada(item);
+      if (id) set[id] = true;
+    });
+    return set;
+  }
+
+  function recordarOperacionVista(mesas, cocina) {
+    idsMesasVistas = idsDeLista(mesas);
+    idsCocinaVistas = idsDeLista(cocina);
+  }
+
+  function sesionDeDatos(datos) {
+    if (!datos || Array.isArray(datos)) return '';
+    return datos.sesionId ? String(datos.sesionId) : '';
+  }
+
+  function fusionarListasOperacion(remotas, locales, sesiones, vistas) {
+    const cobradas = {};
+    (sesiones || []).forEach(function (id) { if (id) cobradas[String(id)] = true; });
+    const mapa = new Map();
+    (remotas || []).forEach(function (item) {
+      const id = idDeEntrada(item);
+      const datos = datosDeEntrada(item);
+      if (!id || datos == null) return;
+      const sid = sesionDeDatos(datos);
+      if (sid && cobradas[sid]) return;
+      mapa.set(id, { id: id, datos: datos });
+    });
+    (locales || []).forEach(function (item) {
+      const id = idDeEntrada(item);
+      const datos = datosDeEntrada(item);
+      if (!id || datos == null) return;
+      const sid = sesionDeDatos(datos);
+      if (sid && cobradas[sid]) {
+        mapa.delete(id);
+        return;
+      }
+      mapa.set(id, { id: id, datos: datos });
+    });
+    if (vistas) {
+      Array.from(mapa.keys()).forEach(function (id) {
+        const sigueEnLocal = (locales || []).some(function (item) { return idDeEntrada(item) === id; });
+        if (!sigueEnLocal && vistas[id]) mapa.delete(id);
+      });
+    }
+    return Array.from(mapa.values());
+  }
+
+  function fusionarHistorial(remoto, local) {
+    const mapa = new Map();
+    (Array.isArray(remoto) ? remoto : []).forEach(function (item) {
+      if (!item) return;
+      const id = item.id != null ? String(item.id) : '';
+      if (!id) return;
+      mapa.set(id, item);
+    });
+    (Array.isArray(local) ? local : []).forEach(function (item) {
+      if (!item) return;
+      const id = item.id != null ? String(item.id) : '';
+      if (!id) return;
+      mapa.set(id, item);
+    });
+    return Array.from(mapa.values());
+  }
+
   function marcarPersistiendoOperacion() {
     persistiendoOperacion += 1;
     try { window._operacionPersistiendo = true; } catch (e) { /* ignore */ }
@@ -1269,8 +1353,21 @@
       persistiendoOperacion = Math.max(0, persistiendoOperacion - 1);
       if (!persistiendoOperacion) {
         try { window._operacionPersistiendo = false; } catch (e) { /* ignore */ }
+        if (operacionPendiente) {
+          const pendiente = operacionPendiente;
+          operacionPendiente = null;
+          aplicarOperacionDesdeNube(pendiente.nube, pendiente.callback, true);
+        }
       }
     }, 700);
+  }
+
+  function publicarOperacion(nube, callback) {
+    if (persistiendoOperacion) {
+      operacionPendiente = { nube: nube, callback: callback };
+      return;
+    }
+    aplicarOperacionDesdeNube(nube, callback, true);
   }
 
   async function guardarOperacion(datos) {
@@ -1306,7 +1403,27 @@
       payload.posBotonesDefaultsVersion = escrito.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION;
       payload.sesionesCobradas = unirSesionesCobradas(escrito);
     }
-    await refOperacion().set(payload, { merge: true });
+    const ref = refOperacion();
+    await db().runTransaction(function (tx) {
+      return tx.get(ref).then(function (snap) {
+        const remoto = snap.exists ? (snap.data() || {}) : {};
+        const sesiones = unirSesionesCobradas(remoto);
+        payload.mesasActivas = fusionarListasOperacion(
+          entradasAObjetos(remoto.mesasActivas),
+          entradasAObjetos(escrito.mesasActivas),
+          sesiones,
+          idsMesasVistas
+        );
+        payload.ordenesCocina = fusionarListasOperacion(
+          entradasAObjetos(remoto.ordenesCocina),
+          entradasAObjetos(escrito.ordenesCocina),
+          sesiones,
+          idsCocinaVistas
+        );
+        payload.historialCocina = fusionarHistorial(remoto.historialCocina, escrito.historialCocina);
+        tx.set(ref, payload, { merge: true });
+      });
+    });
     return escrito;
     } finally {
       liberarPersistiendoOperacion();
@@ -1332,6 +1449,9 @@
     if (!estaListo()) return Promise.resolve();
     return guardarOperacion(snapshotOperacionLocal()).catch(function (error) {
       console.warn('Operación no se guardó en la nube', error);
+      if (esMesero() && typeof window.avisoMesero === 'function') {
+        window.avisoMesero('No se pudo enviar el pedido a la caja. Revisa la conexión.');
+      }
     });
   }
 
@@ -1371,6 +1491,7 @@
       if (Number(dataSnap.posBotonesDefaultsVersion) !== POS_BOTONES_DEFAULTS_VERSION) {
         await persistirOperacionInmediato();
       }
+      recordarOperacionVista(nube.mesasActivas, nube.ordenesCocina);
       return nube;
     }
     if (operacionTieneDatos(local) || local.cocinaIntervaloActualizacion) {
@@ -1414,6 +1535,7 @@
       escribirOperacionLocal(payloadOperacionParaLocal(nube));
     }
     if (typeof callback === 'function') callback(nube);
+    recordarOperacionVista(nube.mesasActivas, nube.ordenesCocina);
   }
 
   async function refrescarOperacionDesdeNube() {
@@ -1438,7 +1560,7 @@
     unsubOperacion = refOperacion().onSnapshot(function (snap) {
       if (!snap.exists) return;
       const nube = operacionDesdeSnap(snap);
-      aplicarOperacionDesdeNube(nube, callback, !persistiendoOperacion);
+      publicarOperacion(nube, callback);
     }, function (error) {
       console.warn('No se pudo escuchar la operación en vivo', error);
     });
