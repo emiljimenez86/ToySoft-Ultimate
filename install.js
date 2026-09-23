@@ -37,9 +37,36 @@ function nombreAppInstalacion() {
     return 'ToySoft Ultimate';
 }
 
-function appEstaInstalada() {
+function abiertoComoApp() {
     return window.matchMedia('(display-mode: standalone)').matches ||
         window.navigator.standalone === true;
+}
+
+function propietarioConfirmado() {
+    return localStorage.getItem('appInstalledPropietario') === 'true' &&
+        localStorage.getItem('appInstalledPropietarioOrigen') === 'instalacion';
+}
+
+function marcarPropietarioInstalado() {
+    localStorage.setItem('appInstalledPropietario', 'true');
+    localStorage.setItem('appInstalledPropietarioOrigen', 'instalacion');
+}
+
+function olvidarPropietarioInstalado() {
+    localStorage.removeItem('appInstalledPropietario');
+    localStorage.removeItem('appInstalledPropietarioOrigen');
+}
+
+function limpiarMarcaFalsaPropietario() {
+    if (!esPaginaPropietario()) return;
+    if (localStorage.getItem('appInstalledPropietario') === 'true' && !propietarioConfirmado()) {
+        olvidarPropietarioInstalado();
+    }
+}
+
+function appEstaInstalada() {
+    if (esPaginaPropietario()) return propietarioConfirmado();
+    return abiertoComoApp();
 }
 
 function esIPhone() {
@@ -61,8 +88,17 @@ function ocultarBotonesInstalar() {
     });
 }
 
+function instalacionRecordada() {
+    if (esPaginaPropietario()) return propietarioConfirmado();
+    return appEstaInstalada() || localStorage.getItem(claveInstalacion()) === 'true';
+}
+
 function showInstallButton() {
     if (esPaginaPos() && !instaladorPosActivo()) {
+        ocultarBotonesInstalar();
+        return;
+    }
+    if (esPaginaPropietario() && instalacionRecordada()) {
         ocultarBotonesInstalar();
         return;
     }
@@ -87,6 +123,7 @@ function hideInstallButton() {
     botonesInstalar().forEach(function (el) {
         el.style.display = 'none';
     });
+    if (esPaginaPropietario()) return;
     localStorage.setItem(claveInstalacion(), 'true');
 }
 
@@ -151,19 +188,64 @@ function ocultarAvisoIos() {
     if (el) el.style.display = 'none';
 }
 
-if (appEstaInstalada() || localStorage.getItem(claveInstalacion()) === 'true') {
-    hideInstallButton();
+function debeOcultarInstalador() {
+    if (esPaginaPropietario()) return propietarioConfirmado();
+    if (abiertoComoApp()) return true;
+    if (esPaginaPos() && !instaladorPosActivo()) return true;
+    return localStorage.getItem(claveInstalacion()) === 'true';
+}
+
+function propietarioFiguraInstalado(app) {
+    const id = String((app && app.id) || '');
+    const url = String((app && app.url) || '');
+    return String((app && app.platform) || '') === 'webapp' &&
+        (id.indexOf('propietario') !== -1 || url.indexOf('manifest-propietario') !== -1);
+}
+
+async function sincronizarInstaladorPropietario() {
+    if (!esPaginaPropietario()) return;
+    if (!navigator.getInstalledRelatedApps) {
+        if (!propietarioConfirmado()) showInstallButton();
+        return;
+    }
+    try {
+        const apps = await navigator.getInstalledRelatedApps();
+        if ((apps || []).some(propietarioFiguraInstalado)) {
+            marcarPropietarioInstalado();
+            ocultarBotonesInstalar();
+            return;
+        }
+        olvidarPropietarioInstalado();
+        showInstallButton();
+    } catch (e) {
+        if (!propietarioConfirmado()) showInstallButton();
+    }
+}
+
+limpiarMarcaFalsaPropietario();
+
+if (debeOcultarInstalador()) {
+    if (esPaginaPos() && !instaladorPosActivo() && !appEstaInstalada()) {
+        ocultarBotonesInstalar();
+    } else {
+        hideInstallButton();
+    }
+} else if (esPaginaPropietario()) {
+    showInstallButton();
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
+    if (esPaginaPropietario()) olvidarPropietarioInstalado();
     showInstallButton();
 });
 
 window.addEventListener('appinstalled', (evt) => {
     console.log('App instalada exitosamente');
+    if (esPaginaPropietario()) marcarPropietarioInstalado();
     hideInstallButton();
+    if (esPaginaPropietario()) ocultarBotonesInstalar();
     ocultarAvisoIos();
     deferredPrompt = null;
 });
@@ -174,7 +256,7 @@ async function installPWA() {
         return;
     }
     try {
-        const registration = await navigator.serviceWorker.register('./sw.js?v=34');
+        const registration = await navigator.serviceWorker.register('./sw.js?v=37');
         console.log('ServiceWorker registrado:', registration);
 
         await navigator.serviceWorker.ready;
@@ -219,7 +301,7 @@ function showInstallInstructions() {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('./sw.js?v=34');
+            const registration = await navigator.serviceWorker.register('./sw.js?v=37');
             console.log('ServiceWorker registrado:', registration);
         } catch (error) {
             console.error('Error al registrar ServiceWorker:', error);
@@ -232,7 +314,14 @@ function iniciarAvisoIos() {
         aplicarInstaladorPos();
         return;
     }
-    if (appEstaInstalada()) {
+    if (esPaginaPropietario()) {
+        if (propietarioConfirmado()) ocultarBotonesInstalar();
+        else showInstallButton();
+        sincronizarInstaladorPropietario();
+        if (!propietarioConfirmado() && esIPhone()) mostrarAvisoIos();
+        return;
+    }
+    if (abiertoComoApp()) {
         hideInstallButton();
         ocultarAvisoIos();
         return;

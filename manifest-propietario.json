@@ -1,5 +1,12 @@
 {
   "id": "./propietario.html",
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "./manifest-propietario.json",
+      "id": "./propietario.html"
+    }
+  ],
   "name": "ToySoft Propietario",
   "short_name": "ToySoft Dueño",
   "description": "Panel del propietario ToySoft: balance, gastos, inventario y cierres en tiempo real",
