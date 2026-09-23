@@ -2335,11 +2335,15 @@ function actualizarVisibilidadBotonesPOS() {
     { id: 'btnCierreAdminPOS', clave: 'posMostrarCierreAdmin' },
     { id: 'btnBalancePOS', clave: 'posMostrarBalance' }
   ];
+  const esCajaDelLocal = window.ToySoftFirebase
+    && typeof ToySoftFirebase.esPos === 'function'
+    && ToySoftFirebase.esPos();
   const version = parseInt(localStorage.getItem('posBotonesDefaultsVersion') || '0', 10) || 0;
   botones.forEach(function (btn) {
     const el = document.getElementById(btn.id);
     if (!el) return;
-    const visible = version < 2 ? true : localStorage.getItem(btn.clave) !== 'false';
+    const ocultoEnCaja = version >= 2 && localStorage.getItem(btn.clave) === 'false';
+    const visible = !esCajaDelLocal || !ocultoEnCaja;
     el.style.display = visible ? 'inline-block' : 'none';
   });
 }

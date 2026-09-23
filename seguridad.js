@@ -28,7 +28,9 @@ function paginaEsMesero() {
 }
 
 function destinoMesero() {
-    return 'mesero.html';
+    const host = String((window.location && window.location.hostname) || '');
+    if (/toysoft\.co$/i.test(host)) return '/mesero/';
+    return 'mesero/';
 }
 
 function paginaEsPos() {
@@ -52,9 +54,9 @@ function paginaEsPropietario() {
 function destinoPropietario() {
     const host = String((window.location && window.location.hostname) || '');
     if (/toysoft\.co$/i.test(host)) {
-        return '/propietario';
+        return '/propietario/';
     }
-    return 'propietario.html';
+    return 'propietario/';
 }
 
 function paginaEsAdministracion() {
@@ -223,12 +225,12 @@ async function iniciarSesionPOS() {
         await ToySoftFirebase.iniciarSesion(email, clave, '', { soloUnirse: true });
         if (typeof ToySoftFirebase.esMesero === 'function' && ToySoftFirebase.esMesero()) {
             try { await ToySoftFirebase.cerrarSesion(); } catch (e) {}
-            mostrarLoginMensaje('Esta cuenta es de mesero. Entra en ultimate.toysoft.co/mesero.');
+            mostrarLoginMensaje('Esta cuenta es de mesero. Entra en ultimate.toysoft.co/mesero/.');
             return;
         }
         if (cuentaEsPropietario()) {
             try { await ToySoftFirebase.cerrarSesion(); } catch (e) {}
-            mostrarLoginMensaje('Esta cuenta es de propietario. Entra en ultimate.toysoft.co/propietario.');
+            mostrarLoginMensaje('Esta cuenta es de propietario. Entra en ultimate.toysoft.co/propietario/.');
             return;
         }
         const esCaja = (typeof ToySoftFirebase.esCaja === 'function' && ToySoftFirebase.esCaja())

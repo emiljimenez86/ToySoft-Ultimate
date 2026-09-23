@@ -574,7 +574,7 @@
                 <h2 class="mb-0 fs-3 fs-md-2"><i class="fas fa-th-large me-2"></i>Botones del POS</h2>
             </div>
             <div class="card-body">
-                <p class="text-muted small mb-3">Por defecto se muestran en el POS. Desactívalos si el cliente no los va a usar.</p>
+                <p class="text-muted small mb-3">Solo ocultan esos botones en la cuenta del punto de venta del local. En Ultimate y en Administración sigues viendo inventario, gastos, cierre y balance.</p>
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" id="posMostrarGastos" checked>
                     <label class="form-check-label" for="posMostrarGastos">Gastos Diarios</label>
@@ -605,7 +605,7 @@
                 <div class="card-body">
                     <p class="text-muted small mb-2">Crea aquí las cuentas de mesero o mesera y envíales el enlace. Entran con el correo y la contraseña que les asignes. El nombre sale en el ticket de cocina. El sexo define si en la app dice Mesero o Mesera.</p>
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                        <span class="small text-warning" id="enlaceMeseroVisible">ultimate.toysoft.co/mesero</span>
+                        <span class="small text-warning" id="enlaceMeseroVisible">ultimate.toysoft.co/mesero/</span>
                         <button type="button" class="btn btn-outline-warning btn-sm" onclick="copiarEnlaceMesero()">
                             <i class="fas fa-copy me-1"></i>Copiar enlace
                         </button>
@@ -708,7 +708,7 @@
                 <div class="card-body">
                     <p class="text-muted small mb-2">Crea una cuenta para que el dueño vea el negocio en el celular: balance, gastos, inventario y cierres. Envíale el enlace. No cobra ni entra a Administración.</p>
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                        <span class="small text-warning" id="enlacePropietarioVisible">ultimate.toysoft.co/propietario</span>
+                        <span class="small text-warning" id="enlacePropietarioVisible">ultimate.toysoft.co/propietario/</span>
                         <button type="button" class="btn btn-outline-warning btn-sm" onclick="copiarEnlacePropietario()">
                             <i class="fas fa-copy me-1"></i>Copiar enlace
                         </button>
@@ -1347,9 +1347,9 @@
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js?v=25"></script>
     <script src="firebase-init.js?v=47"></script>
-    <script src="seguridad.js?v=30"></script>
-    <script src="ayuda.js?v=54"></script>
+    <script src="seguridad.js?v=31"></script>
+    <script src="ayuda.js?v=55"></script>
     <script src="gastos-modelo.js"></script>
-    <script src="admon.js?v=44"></script>
+    <script src="admon.js?v=45"></script>
 </body>
 </html> 

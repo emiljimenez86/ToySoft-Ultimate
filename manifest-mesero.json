@@ -1,23 +1,23 @@
 {
-  "id": "./mesero.html",
+  "id": "/mesero/",
   "name": "ToySoft Mesero",
   "short_name": "ToySoft Mesero",
   "description": "App de mesero ToySoft para tomar pedidos en mesa",
-  "start_url": "./mesero.html",
-  "scope": "./",
+  "start_url": "/mesero/",
+  "scope": "/mesero/",
   "display": "standalone",
   "background_color": "#111111",
   "theme_color": "#0dcaf0",
   "orientation": "any",
   "icons": [
     {
-      "src": "./image/logo-ToySoft.png",
+      "src": "/image/logo-ToySoft.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "./image/logo-ToySoft.png",
+      "src": "/image/logo-ToySoft.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

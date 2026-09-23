@@ -1,4 +1,4 @@
-const CACHE_NAME = 'toysoft-pos-v68';
+const CACHE_NAME = 'toysoft-pos-v69';
 const urlsToCache = [
     './',
     './index.html',
@@ -41,14 +41,15 @@ function esCodigo(request) {
         || url.pathname.endsWith('.css');
 }
 
-function archivoMesero(pathname) {
+function archivoDeApp(pathname) {
     var path = String(pathname || '').toLowerCase();
     if (path.length > 1 && path.charAt(path.length - 1) === '/') path = path.slice(0, -1);
     if (path === '/mesero' || path === '/mesero/index.html') return new URL('./mesero.html', self.registration.scope).href;
+    if (path === '/propietario' || path === '/propietario/index.html') return new URL('./propietario.html', self.registration.scope).href;
     return '';
 }
 
-function servirMesero(url) {
+function servirApp(url) {
     return fetch(url).then(function (response) {
         if (response && response.status === 200) {
             var copia = response.clone();
@@ -92,9 +93,9 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     if (event.request.mode === 'navigate') {
         var mesero = '';
-        try { mesero = archivoMesero(new URL(event.request.url).pathname); } catch (e) {}
+        try { mesero = archivoDeApp(new URL(event.request.url).pathname); } catch (e) {}
         if (mesero) {
-            event.respondWith(servirMesero(mesero));
+            event.respondWith(servirApp(mesero));
             return;
         }
     }

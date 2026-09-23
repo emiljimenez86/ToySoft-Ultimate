@@ -695,12 +695,12 @@ let meseroEquipoRecienteUid = '';
 function enlaceMeseroParaEnviar() {
   const host = String((window.location && window.location.hostname) || '');
   if (/toysoft\.co$/i.test(host)) {
-    return window.location.origin + '/mesero';
+    return window.location.origin + '/mesero/';
   }
   try {
-    return new URL('mesero.html', window.location.href).href;
+    return new URL('mesero/', window.location.href).href;
   } catch (e) {
-    return 'https://ultimate.toysoft.co/mesero';
+    return 'https://ultimate.toysoft.co/mesero/';
   }
 }
 
@@ -1129,12 +1129,12 @@ let propietarioEquipoRecienteUid = '';
 function enlacePropietarioParaEnviar() {
   const host = String((window.location && window.location.hostname) || '');
   if (/toysoft\.co$/i.test(host)) {
-    return window.location.origin + '/propietario';
+    return window.location.origin + '/propietario/';
   }
   try {
-    return new URL('propietario.html', window.location.href).href;
+    return new URL('propietario/', window.location.href).href;
   } catch (e) {
-    return 'https://ultimate.toysoft.co/propietario';
+    return 'https://ultimate.toysoft.co/propietario/';
   }
 }
 
@@ -1303,7 +1303,7 @@ async function guardarPropietarioDesdeAdmin() {
     propietarioEquipoRecienteUid = creado && creado.uid ? creado.uid : '';
     cancelarEdicionPropietario();
     await cargarEquipoPropietario();
-    mostrarMensajeEquipoPropietario((nombre || 'Propietario') + ' quedó agregado. Envíale el enlace /propietario.', 'ok');
+    mostrarMensajeEquipoPropietario((nombre || 'Propietario') + ' quedó agregado. Envíale el enlace /propietario/.', 'ok');
   } catch (error) {
     mostrarMensajeEquipoPropietario((ToySoftFirebase.mensajeErrorAuth && ToySoftFirebase.mensajeErrorAuth(error)) || error.message, 'error');
     if (uid) {

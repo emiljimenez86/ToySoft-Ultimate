@@ -439,7 +439,7 @@ const ayudaContextual = {
                             <li>En cada celular Android instala <strong>RawBT</strong> (gratis). En RawBT agrega la impresora por <strong>WiFi / Ethernet</strong> con la misma IP y déjala predeterminada. El ticket sale y <strong>corta el papel</strong>.</li>
                             <li>El celular y la térmica deben estar en la <strong>misma WiFi</strong>. Una Epson de escritorio (L4160 y similares) no es la térmica de cocina: esa sale por el diálogo de Android.</li>
                             <li>Con la IP configurada, al enviar a cocina el ticket sale desde el celular. Si no sale, en caja aparece <strong>Imprimir en esta caja</strong>. Sin IP, la caja imprime sola.</li>
-                            <li><strong>Botones del POS:</strong> oculta Gastos, Inventario, Cierre administrativo o Balance si el cajero no los necesita.</li>
+                            <li><strong>Botones del POS:</strong> oculta Gastos, Inventario, Cierre administrativo o Balance solo en la cuenta del punto de venta. En Ultimate y en Administración siguen disponibles.</li>
                         </ul>
                     </div>
 
@@ -466,7 +466,7 @@ const ayudaContextual = {
 
                         <h5 class="text-warning"><i class="fas fa-user-tie me-1"></i> Propietario</h5>
                         <ul>
-                            <li><strong>Copiar enlace:</strong> envía <strong>ultimate.toysoft.co/propietario</strong> al dueño. Esa cuenta solo consulta el negocio en el celular.</li>
+                            <li><strong>Copiar enlace:</strong> envía <strong>ultimate.toysoft.co/propietario/</strong> al dueño. Esa cuenta solo consulta el negocio en el celular.</li>
                             <li><strong>Agregar:</strong> nombre, correo y contraseña (mínimo 6 caracteres).</li>
                             <li>Ve balance, gastos, inventario bajo y cierres en tiempo real. No cobra, no toca menú ni Administración.</li>
                             <li>El administrador también puede entrar ahí con su misma cuenta para ver el panel en el teléfono.</li>
@@ -1064,7 +1064,7 @@ const ayudaContextual = {
             <div class="help-content">
                 <h4><i class="fas fa-user-tie text-info"></i> App del propietario</h4>
                 <div class="alert alert-info">
-                    Entra con el correo y la contraseña que te asignaron en Administración (enlace <strong>ultimate.toysoft.co/propietario</strong>). Ves el negocio en tiempo real, como el Balance del computador. <strong>No cobras, no cambias el menú y no entras a Administración.</strong>
+                    Entra con el correo y la contraseña que te asignaron en Administración (enlace <strong>ultimate.toysoft.co/propietario/</strong>). Ves el negocio en tiempo real, como el Balance del computador. <strong>No cobras, no cambias el menú y no entras a Administración.</strong>
                 </div>
 
                 <div class="row">
