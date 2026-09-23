@@ -659,6 +659,13 @@
                         <label class="form-check-label" for="posRequiereLogin">Pedir correo y contraseña al abrir el POS</label>
                     </div>
                     <p class="text-white-50 small mb-3">Si está apagado, el POS entra directo con la sesión de administración. Si lo enciendes, la caja entra en /pos con la cuenta que crees abajo.</p>
+                    <div id="bloqueInstaladorPos" style="display: none;">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="posInstaladorActivo" onchange="guardarConfigPosLogin()">
+                            <label class="form-check-label" for="posInstaladorActivo">Activar instalador del POS</label>
+                        </div>
+                        <p class="text-white-50 small mb-3">Si lo enciendes, en la pantalla de entrada del punto de venta aparece el botón para instalar ToySoft POS.</p>
+                    </div>
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                         <span class="small text-warning" id="enlacePosVisible">ultimate.toysoft.co/pos</span>
                         <button type="button" class="btn btn-outline-warning btn-sm" onclick="copiarEnlacePos()">
@@ -1339,10 +1346,10 @@
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js?v=25"></script>
-    <script src="firebase-init.js?v=46"></script>
+    <script src="firebase-init.js?v=47"></script>
     <script src="seguridad.js?v=30"></script>
-    <script src="ayuda.js?v=53"></script>
+    <script src="ayuda.js?v=54"></script>
     <script src="gastos-modelo.js"></script>
-    <script src="admon.js?v=42"></script>
+    <script src="admon.js?v=43"></script>
 </body>
 </html> 

@@ -3246,7 +3246,8 @@ function hashOperacionLocal(datos) {
       posMostrarInventario: datos && datos.posMostrarInventario,
       posMostrarCierreAdmin: datos && datos.posMostrarCierreAdmin,
       posMostrarBalance: datos && datos.posMostrarBalance,
-      posRequiereLogin: datos && datos.posRequiereLogin
+      posRequiereLogin: datos && datos.posRequiereLogin,
+      posInstaladorActivo: datos && datos.posInstaladorActivo
     });
   } catch (e) {
     return String(Date.now());
@@ -3422,6 +3423,7 @@ function imprimirPedidosNuevosDeMesero(lista) {
 function aplicarOperacionEnPOS(datos) {
   if (window._operacionPersistiendo) return;
   if (!datos) return;
+  if (typeof aplicarInstaladorPos === 'function') aplicarInstaladorPos();
   const hash = hashOperacionLocal(datos);
   if (hash === window._operacionPOSHash) {
     if (purgarMesasCobradas()) {

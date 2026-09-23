@@ -50,10 +50,37 @@ function esIPhone() {
     return false;
 }
 
+function instaladorPosActivo() {
+    return localStorage.getItem('posRequiereLogin') === 'true' &&
+        localStorage.getItem('posInstaladorActivo') === 'true';
+}
+
+function ocultarBotonesInstalar() {
+    botonesInstalar().forEach(function (el) {
+        el.style.display = 'none';
+    });
+}
+
 function showInstallButton() {
+    if (esPaginaPos() && !instaladorPosActivo()) {
+        ocultarBotonesInstalar();
+        return;
+    }
     botonesInstalar().forEach(function (el) {
         el.style.display = '';
     });
+}
+
+function aplicarInstaladorPos() {
+    if (!esPaginaPos()) return;
+    const instalada = appEstaInstalada() || localStorage.getItem(claveInstalacion()) === 'true';
+    if (!instaladorPosActivo() || instalada) {
+        ocultarBotonesInstalar();
+        ocultarAvisoIos();
+        return;
+    }
+    showInstallButton();
+    if (esIPhone()) mostrarAvisoIos();
 }
 
 function hideInstallButton() {
@@ -147,7 +174,7 @@ async function installPWA() {
         return;
     }
     try {
-        const registration = await navigator.serviceWorker.register('./sw.js?v=33');
+        const registration = await navigator.serviceWorker.register('./sw.js?v=34');
         console.log('ServiceWorker registrado:', registration);
 
         await navigator.serviceWorker.ready;
@@ -192,7 +219,7 @@ function showInstallInstructions() {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('./sw.js?v=33');
+            const registration = await navigator.serviceWorker.register('./sw.js?v=34');
             console.log('ServiceWorker registrado:', registration);
         } catch (error) {
             console.error('Error al registrar ServiceWorker:', error);
@@ -201,6 +228,10 @@ if ('serviceWorker' in navigator) {
 }
 
 function iniciarAvisoIos() {
+    if (esPaginaPos()) {
+        aplicarInstaladorPos();
+        return;
+    }
     if (appEstaInstalada()) {
         hideInstallButton();
         ocultarAvisoIos();

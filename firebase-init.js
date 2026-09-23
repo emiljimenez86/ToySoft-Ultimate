@@ -1163,7 +1163,8 @@
       impresoraCocinaPuerto: localStorage.getItem('impresoraCocinaPuerto') || '9100',
       impresoraCocinaAncho: localStorage.getItem('impresoraCocinaAncho') || '80'
     }), flagsBotonesPOSDesdeStorage(), {
-      posRequiereLogin: localStorage.getItem('posRequiereLogin') === 'true'
+      posRequiereLogin: localStorage.getItem('posRequiereLogin') === 'true',
+      posInstaladorActivo: localStorage.getItem('posInstaladorActivo') === 'true'
     });
   }
 
@@ -1184,7 +1185,8 @@
       cocinaIntervaloActualizacion: String(origen.cocinaIntervaloActualizacion || '30'),
       sesionesCobradas: sesiones
     }, camposImpresoraCocina(origen), flagsBotonesPOSDesdeDatos(origen), {
-      posRequiereLogin: origen.posRequiereLogin === true
+      posRequiereLogin: origen.posRequiereLogin === true,
+      posInstaladorActivo: origen.posInstaladorActivo === true
     }), function (clave, valor) {
       return valor === undefined ? null : valor;
     });
@@ -1208,7 +1210,8 @@
       cocinaIntervaloActualizacion: String(origen.cocinaIntervaloActualizacion || '30'),
       sesionesCobradas: sesiones
     }, camposImpresoraCocina(origen), flagsBotonesPOSDesdeDatos(origen), {
-      posRequiereLogin: origen.posRequiereLogin === true
+      posRequiereLogin: origen.posRequiereLogin === true,
+      posInstaladorActivo: origen.posInstaladorActivo === true
     });
   }
 
@@ -1235,6 +1238,7 @@
       localStorage.setItem(clave, local[clave] ? 'true' : 'false');
     });
     localStorage.setItem('posRequiereLogin', local.posRequiereLogin ? 'true' : 'false');
+    localStorage.setItem('posInstaladorActivo', local.posInstaladorActivo ? 'true' : 'false');
     localStorage.setItem('posBotonesDefaultsVersion', String(local.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION));
     return local;
   }
@@ -1298,6 +1302,7 @@
       payload.posMostrarCierreAdmin = escrito.posMostrarCierreAdmin;
       payload.posMostrarBalance = escrito.posMostrarBalance;
       payload.posRequiereLogin = escrito.posRequiereLogin === true;
+      payload.posInstaladorActivo = escrito.posInstaladorActivo === true;
       payload.posBotonesDefaultsVersion = escrito.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION;
       payload.sesionesCobradas = unirSesionesCobradas(escrito);
     }
@@ -1359,6 +1364,7 @@
         posMostrarCierreAdmin: nube.posMostrarCierreAdmin,
         posMostrarBalance: nube.posMostrarBalance,
         posRequiereLogin: nube.posRequiereLogin === true,
+        posInstaladorActivo: nube.posInstaladorActivo === true,
         posBotonesDefaultsVersion: nube.posBotonesDefaultsVersion
       });
       const dataSnap = snap.data() || {};
@@ -1396,6 +1402,7 @@
       posMostrarCierreAdmin: nube.posMostrarCierreAdmin,
       posMostrarBalance: nube.posMostrarBalance,
       posRequiereLogin: nube.posRequiereLogin === true,
+      posInstaladorActivo: nube.posInstaladorActivo === true,
       posBotonesDefaultsVersion: nube.posBotonesDefaultsVersion
     };
   }

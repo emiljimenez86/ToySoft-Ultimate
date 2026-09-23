@@ -696,7 +696,7 @@
         <button type="submit" class="btn btn-info">Iniciar sesión</button>
       </div>
       <div class="mt-2 text-center">
-        <button type="button" data-install-pwa class="btn btn-outline-warning btn-sm" onclick="installPWA()">
+        <button type="button" id="installButtonPos" data-install-pwa class="btn btn-outline-warning btn-sm" style="display: none;" onclick="installPWA()">
           <i class="fas fa-download me-1"></i>Instalar ToySoft POS
         </button>
       </div>
@@ -741,9 +741,6 @@
             <button id="btnCierreAdminPOS" class="btn btn-outline-info" onclick="mostrarModalPin('cierre-administrativo')"><i class="fas fa-calculator"></i> Cierre Administrativo</button>
             <button class="btn btn-outline-success" onclick="mostrarModalCierreOperativo()"><i class="fas fa-user-clock"></i> Cierre Operativo</button>
             <button id="btnBalancePOS" class="btn btn-outline-warning" onclick="mostrarModalPin('balance')"><i class="fas fa-chart-line"></i> Balance</button>
-            <button type="button" id="installButton" class="btn btn-outline-warning" style="display: none;" onclick="installPWA()">
-              <i class="fas fa-download"></i> Instalar ToySoft POS
-            </button>
             <a href="index.html" id="btnVolverInicioPOS" class="btn btn-outline-light"><i class="fas fa-home"></i> Volver al Inicio</a>
             <button type="button" id="btnCerrarSesionPOS" class="btn btn-outline-danger" style="display: none;" onclick="cerrarSesion()"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</button>
 
@@ -3053,14 +3050,14 @@
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js?v=25"></script>
-  <script src="firebase-init.js?v=44"></script>
-  <script src="ayuda.js?v=47"></script>
+  <script src="firebase-init.js?v=45"></script>
+  <script src="ayuda.js?v=48"></script>
   <script src="gastos-modelo.js?v=26"></script>
   <script src="inventario.js?v=26"></script>
-  <script src="app.js?v=46"></script>
+  <script src="app.js?v=47"></script>
   <script src="cotizaciones.js"></script>
   <script src="seguridad.js?v=30"></script>
-  <script src="install.js?v=30"></script>
+  <script src="install.js?v=31"></script>
   <script>
     (function () {
       function pintarOjo(visible) {

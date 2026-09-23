@@ -457,6 +457,7 @@ const ayudaContextual = {
                         <h5 class="text-warning"><i class="fas fa-cash-register me-1"></i> Punto de Venta</h5>
                         <ul>
                             <li><strong>Pedir correo y contraseña:</strong> apagado, el POS entra directo con la sesión de administración. Encendido, la caja entra en /pos con la cuenta que crees aquí.</li>
+                            <li><strong>Activar instalador del POS:</strong> solo aparece con el punto de venta en modo propio. Encendido, en la entrada del POS se ve el botón para instalar ToySoft POS.</li>
                             <li><strong>Copiar enlace:</strong> envía <strong>ultimate.toysoft.co/pos</strong> a la caja. Esa cuenta solo trabaja el POS, no entra a Administración.</li>
                             <li><strong>Agregar:</strong> nombre del punto de venta, correo y contraseña (mínimo 6 caracteres).</li>
                             <li>Entra con ese correo y contraseña. Cobra, mesas, cocina e historial. Los PIN de cada módulo siguen valiendo.</li>

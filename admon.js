@@ -661,13 +661,23 @@ function guardarConfigBotonesPOS() {
 
 function cargarConfigPosLogin() {
   const chk = document.getElementById('posRequiereLogin');
-  if (chk) chk.checked = localStorage.getItem('posRequiereLogin') === 'true';
+  const inst = document.getElementById('posInstaladorActivo');
+  const bloque = document.getElementById('bloqueInstaladorPos');
+  const pide = localStorage.getItem('posRequiereLogin') === 'true';
+  if (chk) chk.checked = pide;
+  if (inst) inst.checked = localStorage.getItem('posInstaladorActivo') === 'true';
+  if (bloque) bloque.style.display = pide ? '' : 'none';
 }
 
 function guardarConfigPosLogin() {
   const chk = document.getElementById('posRequiereLogin');
+  const inst = document.getElementById('posInstaladorActivo');
+  const bloque = document.getElementById('bloqueInstaladorPos');
   const activo = !!(chk && chk.checked);
+  if (!activo && inst) inst.checked = false;
   localStorage.setItem('posRequiereLogin', activo ? 'true' : 'false');
+  localStorage.setItem('posInstaladorActivo', (inst && inst.checked) ? 'true' : 'false');
+  if (bloque) bloque.style.display = activo ? '' : 'none';
   if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
     ToySoftFirebase.persistirOperacionInmediato();
   }
