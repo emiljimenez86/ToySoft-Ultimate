@@ -3263,13 +3263,82 @@ function pedidosCocinaDeMesero(horas) {
   const limite = Date.now() - limiteMs;
   return (historialCocina || []).filter(function (orden) {
     if (!orden || orden.origen !== 'mesero') return false;
-    if (orden.cobrada) return false;
+    if (orden.cobrada || orden.anulada) return false;
     if (orden.sesionId && typeof sesionMesaYaCobrada === 'function' && sesionMesaYaCobrada(orden.sesionId)) return false;
+    if (typeof mesaEstaActiva === 'function' && !mesaEstaActiva(orden.mesa)) return false;
     const t = Date.parse(orden.fecha);
     return Number.isFinite(t) ? t >= limite : true;
   }).sort(function (a, b) {
     return (Date.parse(b && b.fecha) || 0) - (Date.parse(a && a.fecha) || 0);
   });
+}
+
+function anularTicketsMeseroDeMesa(mesaId) {
+  const id = String(mesaId || '');
+  if (!id || !Array.isArray(historialCocina)) return;
+  let cambio = false;
+  historialCocina.forEach(function (orden) {
+    if (!orden || String(orden.mesa) !== id || orden.cobrada || orden.anulada) return;
+    orden.anulada = true;
+    cambio = true;
+  });
+  if (cambio && typeof guardarHistorialCocina === 'function') guardarHistorialCocina();
+}
+
+function restaurarMesasPerdidasDeTicketsMesero() {
+  if (!Array.isArray(historialCocina) || !historialCocina.length) return false;
+  const porMesa = new Map();
+  historialCocina.forEach(function (orden) {
+    if (!orden || orden.origen !== 'mesero' || orden.cobrada || orden.anulada) return;
+    if (orden.sesionId && typeof sesionMesaYaCobrada === 'function' && sesionMesaYaCobrada(orden.sesionId)) return;
+    const mesaId = String(orden.mesa || '');
+    if (!mesaId || mesaEstaActiva(mesaId)) return;
+    const fecha = Date.parse(orden.fecha);
+    if (Number.isFinite(fecha)) {
+      const inicio = new Date();
+      inicio.setHours(0, 0, 0, 0);
+      if (fecha < inicio.getTime()) return;
+    }
+    if (!porMesa.has(mesaId)) porMesa.set(mesaId, []);
+    porMesa.get(mesaId).push(orden);
+  });
+  let cambio = false;
+  porMesa.forEach(function (ordenes, mesaId) {
+    const base = ordenes[ordenes.length - 1] || {};
+    const pedido = crearPedidoMesaVacio({
+      sesionId: base.sesionId || undefined,
+      cliente: base.cliente || undefined,
+      telefono: base.telefono || undefined,
+      direccion: base.direccion || undefined,
+      horaRecoger: base.horaRecoger || undefined,
+      tipo: mesaId.startsWith('DOM-') ? 'domicilio' : (mesaId.startsWith('REC-') ? 'recoger' : 'mesa'),
+      origen: 'mesero',
+      nombreMesero: base.nombreMesero,
+      sexoMesero: base.sexoMesero
+    });
+    pedido.items = [];
+    ordenes.forEach(function (orden) {
+      (orden.items || []).forEach(function (item) {
+        if (!item) return;
+        const ronda = rondaDeItem(item.ronda != null && item.ronda !== '' ? item : { ronda: orden.ronda });
+        const ya = pedido.items.some(function (p) {
+          return String(p.id) === String(item.id) && rondaDeItem(p) === ronda;
+        });
+        if (ya) return;
+        pedido.items.push(Object.assign({}, item, {
+          estado: 'en_cocina',
+          ronda: ronda,
+          sesionId: pedido.sesionId
+        }));
+      });
+    });
+    if (!pedido.items.length) return;
+    sincronizarRondaPedido(pedido);
+    mesasActivas.set(mesaId, pedido);
+    cambio = true;
+  });
+  if (cambio && typeof guardarMesas === 'function') guardarMesas(true);
+  return cambio;
 }
 
 function actualizarBadgeTicketsMesero() {
@@ -3482,6 +3551,7 @@ function aplicarOperacionEnPOS(datos) {
 
   const mesaAntes = mesaSeleccionada;
   if (purgarMesasCobradas()) persistirOperacionTrasCobro();
+  if (typeof restaurarMesasPerdidasDeTicketsMesero === 'function') restaurarMesasPerdidasDeTicketsMesero();
 
   if (typeof actualizarMesasActivas === 'function') actualizarMesasActivas();
   if (mesaSeleccionada && mesaEstaActiva(mesaSeleccionada) && typeof actualizarVistaOrden === 'function') {
@@ -8612,6 +8682,7 @@ function eliminarPedido() {
     });
     limpiarCocinaDeMesa(mesaSeleccionada);
     limpiarCocinaDeMesa(idBorrado);
+    anularTicketsMeseroDeMesa(idBorrado);
 
     guardarMesas(true);
 
