@@ -8,7 +8,7 @@
     }
   ],
   "name": "ToySoft Propietario",
-  "short_name": "ToySoft Dueño",
+  "short_name": "ToySoft Propietario",
   "description": "Panel del propietario ToySoft: balance, gastos, inventario y cierres en tiempo real",
   "start_url": "/propietario/",
   "scope": "/propietario/",

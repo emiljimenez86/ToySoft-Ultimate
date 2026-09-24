@@ -923,6 +923,7 @@ async function actualizarPaginaPropietario() {
   const btn = document.getElementById('btnActualizarPropietario');
   if (btn) btn.classList.add('girando');
   try {
+    escucharDatosPropietario();
     await cargarDatosPropietario();
   } finally {
     setTimeout(function () {
@@ -1041,7 +1042,7 @@ async function iniciarSesionPropietario() {
       mostrarLoginMensaje('Esta cuenta no es de propietario. Pide al administrador que te cree en Administración.');
       return;
     }
-    localStorage.setItem('sesionActiva', 'true');
+    localStorage.setItem('sesionActivaPropietario', 'true');
     mostrarAppPropietario();
     iniciarPropietario();
   } catch (error) {
@@ -1069,7 +1070,7 @@ async function iniciarPantallaPropietario() {
       mostrarLoginMensaje('');
       return;
     }
-    localStorage.setItem('sesionActiva', 'true');
+    localStorage.setItem('sesionActivaPropietario', 'true');
     mostrarAppPropietario();
     iniciarPropietario();
   } catch (error) {

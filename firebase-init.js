@@ -70,20 +70,24 @@
     });
   }
 
+  function claveSesion(nombre) {
+    return appSecundaria() ? nombre + 'Propietario' : nombre;
+  }
+
   function recordarRolLocal() {
     try {
       const user = appIniciada ? auth().currentUser : null;
       if (!user || !usuarioDoc) return;
-      localStorage.setItem('sesionActiva', 'true');
-      localStorage.setItem('toysoftSesionUid', user.uid);
-      localStorage.setItem('toysoftSesionRol', String(usuarioDoc.rol || ''));
+      localStorage.setItem(claveSesion('sesionActiva'), 'true');
+      localStorage.setItem(claveSesion('toysoftSesionUid'), user.uid);
+      localStorage.setItem(claveSesion('toysoftSesionRol'), String(usuarioDoc.rol || ''));
     } catch (e) { /* ignore */ }
   }
 
   function olvidarRolLocal() {
     try {
-      localStorage.removeItem('toysoftSesionUid');
-      localStorage.removeItem('toysoftSesionRol');
+      localStorage.removeItem(claveSesion('toysoftSesionUid'));
+      localStorage.removeItem(claveSesion('toysoftSesionRol'));
     } catch (e) { /* ignore */ }
   }
 
@@ -91,19 +95,41 @@
     try {
       const user = (appIniciada && auth().currentUser) || usuarioAuth;
       if (!user || !rol) return false;
-      return localStorage.getItem('toysoftSesionUid') === user.uid
-        && localStorage.getItem('toysoftSesionRol') === String(rol);
+      return localStorage.getItem(claveSesion('toysoftSesionUid')) === user.uid
+        && localStorage.getItem(claveSesion('toysoftSesionRol')) === String(rol);
     } catch (e) {
       return false;
     }
   }
 
+  function appSecundaria() {
+    return global.TOYSOFT_APP_SECUNDARIA ? String(global.TOYSOFT_APP_SECUNDARIA) : '';
+  }
+
+  function appActual() {
+    if (appFirebase) return appFirebase;
+    const nombre = appSecundaria();
+    const cfg = obtenerConfig();
+    if (!nombre) {
+      if (!firebase.apps.length) firebase.initializeApp(cfg);
+      appFirebase = firebase.app();
+      return appFirebase;
+    }
+    const previa = firebase.apps.filter(function (app) { return app.name === nombre; })[0];
+    appFirebase = previa || firebase.initializeApp(cfg, nombre);
+    return appFirebase;
+  }
+
+  let appFirebase = null;
+
   function db() {
-    return firebase.firestore();
+    if (!appSecundaria()) return firebase.firestore();
+    return appActual().firestore();
   }
 
   function auth() {
-    return firebase.auth();
+    if (!appSecundaria()) return firebase.auth();
+    return appActual().auth();
   }
 
   function estaListo() {
@@ -2114,7 +2140,7 @@
     if (!negocioIdActual) return local;
     const snap = await refConfigCaja().get();
     if (!snap.exists) {
-      if (local.ultimaHoraCierre || local.ultimaBaseCaja || local.operarDespuesMedianoche) {
+      if (puedeEscribirCaja() && (local.ultimaHoraCierre || local.ultimaBaseCaja || local.operarDespuesMedianoche)) {
         await persistirConfigCaja();
       }
       return local;
@@ -2929,7 +2955,7 @@
   }
 
   async function sincronizarRoles() {
-    if (esMesero()) return {};
+    if (esMesero() || esPropietario()) return leerPinesLocal();
     if (!negocioIdActual) await asegurarNegocio();
     if (!negocioIdActual) return hashesEfectivos();
     const snap = await refRoles().get();
@@ -2983,7 +3009,7 @@
         try { await auth().signOut(); } catch (e) {}
         throw error;
       }
-      localStorage.setItem('sesionActiva', 'true');
+      localStorage.setItem(claveSesion('sesionActiva'), 'true');
       try {
         await sincronizarRoles();
       } catch (e) {
@@ -3013,7 +3039,7 @@
         } catch (e) {}
         throw error;
       }
-      localStorage.setItem('sesionActiva', 'true');
+      localStorage.setItem(claveSesion('sesionActiva'), 'true');
       try {
         await sincronizarRoles();
       } catch (e) {
@@ -3059,7 +3085,7 @@
     usuarioDoc = null;
     codigoEquipoPendiente = '';
     nombreMeseroPendiente = '';
-    localStorage.removeItem('sesionActiva');
+    localStorage.removeItem(claveSesion('sesionActiva'));
     olvidarRolLocal();
     if (appIniciada) {
       await auth().signOut();
@@ -3080,21 +3106,22 @@
         return false;
       }
       if (!appIniciada) {
-        firebase.initializeApp(cfg);
-        firebase.auth().languageCode = 'es';
+        if (appSecundaria()) appActual();
+        else firebase.initializeApp(cfg);
+        auth().languageCode = 'es';
         try {
-          await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+          await auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         } catch (e) {
           console.warn('No se pudo guardar la sesión en el celular', e);
         }
         try {
-          await firebase.firestore().enablePersistence({ synchronizeTabs: true });
+          await db().enablePersistence({ synchronizeTabs: !appSecundaria() });
         } catch (e) {
           if (e.code !== 'failed-precondition' && e.code !== 'unimplemented') {
             console.warn('Persistencia offline de Firestore:', e);
           }
         }
-        const authFb = firebase.auth();
+        const authFb = auth();
         if (typeof authFb.authStateReady === 'function') {
           await authFb.authStateReady();
           notificarAuth(authFb.currentUser);
