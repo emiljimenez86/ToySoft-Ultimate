@@ -114,8 +114,11 @@ function hashDeOperacion() {
 }
 
 function persistirMesero(inmediato) {
+  const marca = Date.now();
   mesasActivas.forEach(function (pedido, id) {
-    mesasActivas.set(id, normalizarPedido(pedido));
+    const normalizado = normalizarPedido(pedido);
+    normalizado.actualizadoLocal = marca;
+    mesasActivas.set(id, normalizado);
   });
   if (typeof purgarMesasCobradasMesero === 'function') purgarMesasCobradasMesero(false);
   localStorage.setItem('mesasActivas', JSON.stringify(Array.from(mesasActivas.entries())));

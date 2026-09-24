@@ -1293,6 +1293,23 @@
   let operacionPendiente = null;
   let idsMesasVistas = null;
   let idsCocinaVistas = null;
+  let revisionOperacionLocal = 0;
+  let revisionOperacionConfirmada = 0;
+  let callbackOperacionVivo = null;
+
+  function marcarOperacionLocalPendiente() {
+    revisionOperacionLocal += 1;
+    window._cambiosOperacionPendientes = revisionOperacionLocal - revisionOperacionConfirmada;
+  }
+
+  function operacionLocalEstaPendiente() {
+    return revisionOperacionLocal > revisionOperacionConfirmada;
+  }
+
+  function confirmarRevisionOperacion(revision) {
+    if (revision > revisionOperacionConfirmada) revisionOperacionConfirmada = revision;
+    window._cambiosOperacionPendientes = Math.max(0, revisionOperacionLocal - revisionOperacionConfirmada);
+  }
 
   function idDeEntrada(item) {
     if (Array.isArray(item) && item.length >= 1 && item[0] != null) return String(item[0]);
@@ -1354,7 +1371,53 @@
         if (!sigueEnLocal && vistas[id]) mapa.delete(id);
       });
     }
+    Array.from(mapa.keys()).forEach(function (id) {
+      if (mesasEliminadasLocal[id]) mapa.delete(id);
+    });
     return Array.from(mapa.values());
+  }
+
+  const mesasEliminadasLocal = {};
+
+  function marcarMesaEliminada(id) {
+    const clave = String(id || '');
+    if (!clave) return;
+    mesasEliminadasLocal[clave] = Date.now();
+  }
+
+  function elegirPedidoOperacion(local, remoto) {
+    if (!local) return remoto;
+    if (!remoto) return local;
+    const tl = Number(local.actualizadoLocal) || 0;
+    const tr = Number(remoto.actualizadoLocal) || 0;
+    if (tl > tr) return local;
+    if (tr > tl) return remoto;
+    const il = Array.isArray(local.items) ? local.items.length : 0;
+    const ir = Array.isArray(remoto.items) ? remoto.items.length : 0;
+    if (il > ir) return local;
+    return remoto;
+  }
+
+  function fusionarMesasConMemoria(nube) {
+    const memoria = leerMesasMemoriaOLocal();
+    const remotas = Array.isArray(nube.mesasActivas) ? nube.mesasActivas : [];
+    const mapa = new Map();
+    remotas.forEach(function (par) {
+      const id = idDeEntrada(par);
+      const datos = datosDeEntrada(par);
+      if (!id || datos == null || mesasEliminadasLocal[id]) return;
+      mapa.set(id, datos);
+    });
+    (Array.isArray(memoria) ? memoria : []).forEach(function (par) {
+      const id = idDeEntrada(par);
+      const local = datosDeEntrada(par);
+      if (!id || local == null || mesasEliminadasLocal[id]) return;
+      mapa.set(id, elegirPedidoOperacion(local, mapa.get(id)));
+    });
+    Object.keys(mesasEliminadasLocal).forEach(function (id) {
+      if (!mapa.has(id)) delete mesasEliminadasLocal[id];
+    });
+    return Object.assign({}, nube, { mesasActivas: Array.from(mapa.entries()) });
   }
 
   function fusionarHistorial(remoto, local) {
@@ -1381,61 +1444,80 @@
   function liberarPersistiendoOperacion() {
     setTimeout(function () {
       persistiendoOperacion = Math.max(0, persistiendoOperacion - 1);
-      if (!persistiendoOperacion) {
-        try { window._operacionPersistiendo = false; } catch (e) { /* ignore */ }
-        if (operacionPendiente) {
-          const pendiente = operacionPendiente;
-          operacionPendiente = null;
-          aplicarOperacionDesdeNube(pendiente.nube, pendiente.callback, true);
-        }
-      }
+      if (persistiendoOperacion) return;
+      try { window._operacionPersistiendo = false; } catch (e) { /* ignore */ }
+      operacionPendiente = null;
+      if (operacionLocalEstaPendiente() || !negocioIdActual || !callbackOperacionVivo) return;
+      const callback = callbackOperacionVivo;
+      refOperacion().get().then(function (snap) {
+        if (!snap.exists) return;
+        if (persistiendoOperacion || operacionLocalEstaPendiente()) return;
+        aplicarOperacionDesdeNube(operacionDesdeSnap(snap), callback, true);
+      }).catch(function () { /* ignore */ });
     }, 700);
   }
 
   function publicarOperacion(nube, callback) {
-    if (persistiendoOperacion) {
+    if (callback) callbackOperacionVivo = callback;
+    if (persistiendoOperacion || operacionLocalEstaPendiente()) {
       operacionPendiente = { nube: nube, callback: callback };
       return;
     }
     aplicarOperacionDesdeNube(nube, callback, true);
   }
 
+  let colaGuardarOperacion = Promise.resolve();
   async function guardarOperacion(datos) {
+    const previo = colaGuardarOperacion;
+    let soltar;
+    colaGuardarOperacion = new Promise(function (resolver) { soltar = resolver; });
+    await previo;
+    try {
+      return await guardarOperacionCuerpo(datos);
+    } finally {
+      soltar();
+    }
+  }
+
+  async function guardarOperacionCuerpo(datos) {
     marcarPersistiendoOperacion();
+    let revisionEscrita = revisionOperacionLocal;
     try {
     if (!negocioIdActual) await asegurarNegocio();
-    const limpio = operacionLimpia(datos || snapshotOperacionLocal());
-    const escrito = escribirOperacionLocal(limpio);
-    const payload = {
-      mesasActivas: entradasAObjetos(escrito.mesasActivas),
-      ordenesCocina: entradasAObjetos(escrito.ordenesCocina),
-      historialCocina: escrito.historialCocina,
-      pedidosCocinaListos: escrito.pedidosCocinaListos,
-      contadorDomicilios: escrito.contadorDomicilios,
-      contadorRecoger: escrito.contadorRecoger,
-      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    if (!esMesero() && !esPropietario()) {
-      payload.ultimaFechaContadores = escrito.ultimaFechaContadores;
-      payload.nombresDomiciliarios = escrito.nombresDomiciliarios;
-      payload.pantallaCocinaActivada = escrito.pantallaCocinaActivada;
-      payload.cocinaSonidoActivado = escrito.cocinaSonidoActivado;
-      payload.cocinaIntervaloActualizacion = escrito.cocinaIntervaloActualizacion;
-      payload.impresoraCocinaIp = escrito.impresoraCocinaIp || '';
-      payload.impresoraCocinaPuerto = escrito.impresoraCocinaPuerto || '9100';
-      payload.impresoraCocinaAncho = escrito.impresoraCocinaAncho || '80';
-      payload.posMostrarGastos = escrito.posMostrarGastos;
-      payload.posMostrarInventario = escrito.posMostrarInventario;
-      payload.posMostrarCierreAdmin = escrito.posMostrarCierreAdmin;
-      payload.posMostrarBalance = escrito.posMostrarBalance;
-      payload.posRequiereLogin = escrito.posRequiereLogin === true;
-      payload.posInstaladorActivo = escrito.posInstaladorActivo === true;
-      payload.posBotonesDefaultsVersion = escrito.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION;
-      payload.sesionesCobradas = unirSesionesCobradas(escrito);
-    }
     const ref = refOperacion();
+    let escrito = null;
     await db().runTransaction(function (tx) {
       return tx.get(ref).then(function (snap) {
+        const limpio = operacionLimpia(snapshotOperacionLocal() || datos);
+        revisionEscrita = revisionOperacionLocal;
+        escrito = escribirOperacionLocal(limpio);
+        const payload = {
+          mesasActivas: entradasAObjetos(escrito.mesasActivas),
+          ordenesCocina: entradasAObjetos(escrito.ordenesCocina),
+          historialCocina: escrito.historialCocina,
+          pedidosCocinaListos: escrito.pedidosCocinaListos,
+          contadorDomicilios: escrito.contadorDomicilios,
+          contadorRecoger: escrito.contadorRecoger,
+          actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        if (!esMesero() && !esPropietario()) {
+          payload.ultimaFechaContadores = escrito.ultimaFechaContadores;
+          payload.nombresDomiciliarios = escrito.nombresDomiciliarios;
+          payload.pantallaCocinaActivada = escrito.pantallaCocinaActivada;
+          payload.cocinaSonidoActivado = escrito.cocinaSonidoActivado;
+          payload.cocinaIntervaloActualizacion = escrito.cocinaIntervaloActualizacion;
+          payload.impresoraCocinaIp = escrito.impresoraCocinaIp || '';
+          payload.impresoraCocinaPuerto = escrito.impresoraCocinaPuerto || '9100';
+          payload.impresoraCocinaAncho = escrito.impresoraCocinaAncho || '80';
+          payload.posMostrarGastos = escrito.posMostrarGastos;
+          payload.posMostrarInventario = escrito.posMostrarInventario;
+          payload.posMostrarCierreAdmin = escrito.posMostrarCierreAdmin;
+          payload.posMostrarBalance = escrito.posMostrarBalance;
+          payload.posRequiereLogin = escrito.posRequiereLogin === true;
+          payload.posInstaladorActivo = escrito.posInstaladorActivo === true;
+          payload.posBotonesDefaultsVersion = escrito.posBotonesDefaultsVersion || POS_BOTONES_DEFAULTS_VERSION;
+          payload.sesionesCobradas = unirSesionesCobradas(escrito);
+        }
         const remoto = snap.exists ? (snap.data() || {}) : {};
         const sesiones = unirSesionesCobradas(remoto);
         payload.mesasActivas = fusionarListasOperacion(
@@ -1454,6 +1536,7 @@
         tx.set(ref, payload, { merge: true });
       });
     });
+    confirmarRevisionOperacion(revisionEscrita);
     return escrito;
     } finally {
       liberarPersistiendoOperacion();
@@ -1462,9 +1545,13 @@
 
   let operacionTimer = null;
   function persistirOperacionDebounced() {
+    marcarOperacionLocalPendiente();
     if (operacionTimer) clearTimeout(operacionTimer);
     operacionTimer = setTimeout(function () {
-      if (!estaListo()) return;
+      if (!estaListo()) {
+        confirmarRevisionOperacion(revisionOperacionLocal);
+        return;
+      }
       guardarOperacion(snapshotOperacionLocal()).catch(function (error) {
         console.warn('Operación no se guardó en la nube', error);
       });
@@ -1472,11 +1559,15 @@
   }
 
   function persistirOperacionInmediato() {
+    marcarOperacionLocalPendiente();
     if (operacionTimer) {
       clearTimeout(operacionTimer);
       operacionTimer = null;
     }
-    if (!estaListo()) return Promise.resolve();
+    if (!estaListo()) {
+      confirmarRevisionOperacion(revisionOperacionLocal);
+      return Promise.resolve();
+    }
     return guardarOperacion(snapshotOperacionLocal()).catch(function (error) {
       console.warn('Operación no se guardó en la nube', error);
       if (esMesero() && typeof window.avisoMesero === 'function') {
@@ -1560,6 +1651,8 @@
 
   function aplicarOperacionDesdeNube(nube, callback, escribirLocal) {
     if (!nube) return;
+    nube = fusionarMesasConMemoria(nube);
+    if (operacionLocalEstaPendiente()) return;
     unirSesionesCobradas(nube);
     if (escribirLocal !== false && !persistiendoOperacion) {
       escribirOperacionLocal(payloadOperacionParaLocal(nube));
@@ -1574,7 +1667,7 @@
     if (!snap.exists) return null;
     const nube = operacionDesdeSnap(snap);
     unirSesionesCobradas(nube);
-    if (!persistiendoOperacion) {
+    if (!persistiendoOperacion && !operacionLocalEstaPendiente()) {
       escribirOperacionLocal(payloadOperacionParaLocal(nube));
     }
     return nube;
@@ -3070,6 +3163,7 @@
     sincronizarOperacion: sincronizarOperacion,
     persistirOperacionDebounced: persistirOperacionDebounced,
     persistirOperacionInmediato: persistirOperacionInmediato,
+    marcarMesaEliminada: marcarMesaEliminada,
     refrescarOperacionDesdeNube: refrescarOperacionDesdeNube,
     escucharOperacion: escucharOperacion,
     marcarSesionCobrada: marcarSesionCobrada,

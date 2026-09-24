@@ -4014,24 +4014,37 @@ function cargarDatos() {
 }
 
 // Función para guardar el estado de las mesas
-function guardarMesas() {
+function guardarMesas(inmediato) {
   try {
     console.log('Guardando estado de mesas...');
+    const marca = Date.now();
     mesasActivas.forEach((pedido, mesaId) => {
-      mesasActivas.set(mesaId, normalizarPedidoMesa(pedido));
+      const normalizado = normalizarPedidoMesa(pedido);
+      normalizado.actualizadoLocal = marca;
+      mesasActivas.set(mesaId, normalizado);
     });
     const mesasArray = Array.from(mesasActivas.entries());
     const ordenesCocinaArray = Array.from(ordenesCocina.entries());
     
     localStorage.setItem('mesasActivas', JSON.stringify(mesasArray));
     localStorage.setItem('ordenesCocina', JSON.stringify(ordenesCocinaArray));
-    notificarOperacionNube();
+    notificarOperacionNube(!!inmediato);
     
     console.log('Estado de mesas guardado exitosamente');
   } catch (error) {
     console.error('Error al guardar estado de mesas:', error);
     alert('Error al guardar el estado de las mesas. Por favor, intente nuevamente.');
   }
+}
+
+function textoPedidoExterno(orden, conCliente) {
+  const cliente = orden && orden.cliente ? String(orden.cliente).trim() : '';
+  const cantidad = Array.isArray(orden && orden.items)
+    ? orden.items.reduce((sum, item) => sum + (Number(item && item.cantidad) || 0), 0)
+    : 0;
+  const cantidadTexto = cantidad + ' prod.';
+  if (conCliente && cliente) return cliente + ' · ' + cantidadTexto;
+  return cantidadTexto;
 }
 
 // Función para actualizar la vista de mesas activas
@@ -4045,9 +4058,10 @@ function actualizarMesasActivas() {
 
   mesasActivas.forEach((orden, mesa) => {
     const boton = document.createElement('button');
+    const esExterno = typeof mesa === 'string' && (mesa.startsWith('DOM-') || mesa.startsWith('REC-'));
     
     // Determinar el tipo de botón basado en el ID de la mesa
-    if (mesa.startsWith('DOM-')) {
+    if (typeof mesa === 'string' && mesa.startsWith('DOM-')) {
       const numeroDomicilio = mesa.split('-')[1];
       boton.className = `mesa-btn mesa-domicilio ${mesa === mesaSeleccionada ? 'mesa-seleccionada' : ''}`;
       boton.innerHTML = `
@@ -4056,7 +4070,7 @@ function actualizarMesasActivas() {
           <span class="mesa-numero" style="font-size: 1.5rem;">D${parseInt(numeroDomicilio)}</span>
         </div>
       `;
-    } else if (mesa.startsWith('REC-')) {
+    } else if (typeof mesa === 'string' && mesa.startsWith('REC-')) {
       const numeroRecoger = mesa.split('-')[1];
       boton.className = `mesa-btn mesa-recoger ${mesa === mesaSeleccionada ? 'mesa-seleccionada' : ''}`;
       boton.innerHTML = `
@@ -4076,7 +4090,16 @@ function actualizarMesasActivas() {
     }
 
     boton.onclick = () => seleccionarMesa(mesa);
-    container.appendChild(boton);
+    const pieza = document.createElement('div');
+    pieza.className = 'pedido-externo-item';
+    const pie = document.createElement('div');
+    pie.className = 'pedido-externo-caption';
+    const resumen = textoPedidoExterno(orden, esExterno);
+    pie.textContent = resumen;
+    pie.title = resumen;
+    pieza.appendChild(boton);
+    pieza.appendChild(pie);
+    container.appendChild(pieza);
   });
 }
 
@@ -8546,12 +8569,17 @@ function eliminarPedido() {
   }
 
   if (confirm(mensaje)) {
-    // Eliminar de mesas activas
-    mesasActivas.delete(mesaSeleccionada);
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.marcarMesaEliminada === 'function') {
+      ToySoftFirebase.marcarMesaEliminada(mesaSeleccionada);
+    }
+    const idBorrado = String(mesaSeleccionada);
+    Array.from(mesasActivas.keys()).forEach(function (clave) {
+      if (clave === mesaSeleccionada || String(clave) === idBorrado) mesasActivas.delete(clave);
+    });
     limpiarCocinaDeMesa(mesaSeleccionada);
+    limpiarCocinaDeMesa(idBorrado);
 
-    // Guardar cambios
-    guardarMesas();
+    guardarMesas(true);
 
     // Limpiar la interfaz
     document.getElementById('ordenCuerpo').innerHTML = '';
