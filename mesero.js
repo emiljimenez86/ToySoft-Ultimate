@@ -113,12 +113,32 @@ function hashDeOperacion() {
   }
 }
 
+function firmaPedidoMesero(pedido) {
+  if (!pedido || typeof pedido !== 'object') return '';
+  const copia = {};
+  Object.keys(pedido).forEach(function (clave) {
+    if (clave !== 'actualizadoLocal') copia[clave] = pedido[clave];
+  });
+  try { return JSON.stringify(copia); } catch (e) { return String(Date.now()); }
+}
+
 function persistirMesero(inmediato) {
   const marca = Date.now();
+  if (!window._firmasPedidosMesero) window._firmasPedidosMesero = {};
   mesasActivas.forEach(function (pedido, id) {
     const normalizado = normalizarPedido(pedido);
-    normalizado.actualizadoLocal = marca;
+    const firma = firmaPedidoMesero(normalizado);
+    const previa = window._firmasPedidosMesero[id];
+    if (previa == null) {
+      if (!normalizado.actualizadoLocal) normalizado.actualizadoLocal = marca;
+    } else if (previa !== firma) {
+      normalizado.actualizadoLocal = marca;
+    }
+    window._firmasPedidosMesero[id] = firmaPedidoMesero(normalizado);
     mesasActivas.set(id, normalizado);
+  });
+  Object.keys(window._firmasPedidosMesero).forEach(function (id) {
+    if (!mesasActivas.has(id)) delete window._firmasPedidosMesero[id];
   });
   if (typeof purgarMesasCobradasMesero === 'function') purgarMesasCobradasMesero(false);
   localStorage.setItem('mesasActivas', JSON.stringify(Array.from(mesasActivas.entries())));
@@ -178,11 +198,24 @@ function aplicarOperacionNube(datos) {
   if (window.ToySoftFirebase && typeof ToySoftFirebase.unirSesionesCobradas === 'function') {
     ToySoftFirebase.unirSesionesCobradas(datos);
   }
-  if (persistiendo || window._operacionPersistiendo) {
+  if (persistiendo || window._operacionPersistiendo || window._cambiosOperacionPendientes) {
     if (purgarMesasCobradasMesero(true)) persistirMesasMeseroLocal();
     return;
   }
+  const previas = new Map(mesasActivas);
   const nuevas = mapDesdeEntradas(datos.mesasActivas);
+  previas.forEach(function (pedido, id) {
+    const remoto = nuevas.get(String(id));
+    if (!remoto) {
+      if (Number(pedido && pedido.actualizadoLocal) > 0) nuevas.set(String(id), pedido);
+      return;
+    }
+    const tl = Number(pedido && pedido.actualizadoLocal) || 0;
+    const tr = Number(remoto && remoto.actualizadoLocal) || 0;
+    const il = pedido && Array.isArray(pedido.items) ? pedido.items.length : 0;
+    const ir = remoto && Array.isArray(remoto.items) ? remoto.items.length : 0;
+    if (tl > tr || (tl === tr && il > ir)) nuevas.set(String(id), pedido);
+  });
   mesasActivas = nuevas;
   ordenesCocina = mapDesdeEntradas(datos.ordenesCocina);
   historialCocina = Array.isArray(datos.historialCocina) ? datos.historialCocina : [];

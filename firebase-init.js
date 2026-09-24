@@ -1251,8 +1251,10 @@
     localStorage.setItem('ordenesCocina', JSON.stringify(local.ordenesCocina));
     localStorage.setItem('historialCocina', JSON.stringify(local.historialCocina));
     localStorage.setItem('pedidosCocinaListos', JSON.stringify(local.pedidosCocinaListos));
-    localStorage.setItem('contadorDomicilios', String(local.contadorDomicilios));
-    localStorage.setItem('contadorRecoger', String(local.contadorRecoger));
+    const domGuardado = parseInt(localStorage.getItem('contadorDomicilios') || '0', 10) || 0;
+    const recGuardado = parseInt(localStorage.getItem('contadorRecoger') || '0', 10) || 0;
+    localStorage.setItem('contadorDomicilios', String(Math.max(domGuardado, parseInt(local.contadorDomicilios, 10) || 0)));
+    localStorage.setItem('contadorRecoger', String(Math.max(recGuardado, parseInt(local.contadorRecoger, 10) || 0)));
     if (local.ultimaFechaContadores) {
       localStorage.setItem('ultimaFechaContadores', local.ultimaFechaContadores);
     }
@@ -1363,7 +1365,11 @@
         mapa.delete(id);
         return;
       }
-      mapa.set(id, { id: id, datos: datos });
+      const previo = mapa.get(id);
+      mapa.set(id, {
+        id: id,
+        datos: previo ? elegirPedidoOperacion(datos, previo.datos) : datos
+      });
     });
     if (vistas) {
       Array.from(mapa.keys()).forEach(function (id) {
@@ -1372,7 +1378,10 @@
       });
     }
     Array.from(mapa.keys()).forEach(function (id) {
-      if (mesasEliminadasLocal[id]) mapa.delete(id);
+      if (!mesasEliminadasLocal[id]) return;
+      const sigueEnLocal = (locales || []).some(function (item) { return idDeEntrada(item) === id; });
+      if (sigueEnLocal) delete mesasEliminadasLocal[id];
+      else mapa.delete(id);
     });
     return Array.from(mapa.values());
   }
@@ -1411,7 +1420,8 @@
     (Array.isArray(memoria) ? memoria : []).forEach(function (par) {
       const id = idDeEntrada(par);
       const local = datosDeEntrada(par);
-      if (!id || local == null || mesasEliminadasLocal[id]) return;
+      if (!id || local == null) return;
+      if (mesasEliminadasLocal[id]) delete mesasEliminadasLocal[id];
       mapa.set(id, elegirPedidoOperacion(local, mapa.get(id)));
     });
     Object.keys(mesasEliminadasLocal).forEach(function (id) {
@@ -1548,10 +1558,7 @@
     marcarOperacionLocalPendiente();
     if (operacionTimer) clearTimeout(operacionTimer);
     operacionTimer = setTimeout(function () {
-      if (!estaListo()) {
-        confirmarRevisionOperacion(revisionOperacionLocal);
-        return;
-      }
+      if (!estaListo()) return;
       guardarOperacion(snapshotOperacionLocal()).catch(function (error) {
         console.warn('Operación no se guardó en la nube', error);
       });
@@ -1564,10 +1571,7 @@
       clearTimeout(operacionTimer);
       operacionTimer = null;
     }
-    if (!estaListo()) {
-      confirmarRevisionOperacion(revisionOperacionLocal);
-      return Promise.resolve();
-    }
+    if (!estaListo()) return Promise.resolve();
     return guardarOperacion(snapshotOperacionLocal()).catch(function (error) {
       console.warn('Operación no se guardó en la nube', error);
       if (esMesero() && typeof window.avisoMesero === 'function') {

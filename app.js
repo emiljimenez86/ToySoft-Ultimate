@@ -3439,12 +3439,28 @@ function aplicarOperacionEnPOS(datos) {
   window._operacionPOSHash = hash;
 
   try {
+    const previas = new Map(mesasActivas);
     const entradas = Array.isArray(datos.mesasActivas) ? datos.mesasActivas : [];
     mesasActivas = new Map();
     entradas.forEach(function (par) {
       if (!Array.isArray(par) || par.length < 2 || par[0] == null) return;
       const mesaId = String(par[0]);
       mesasActivas.set(mesaId, typeof normalizarPedidoMesa === 'function' ? normalizarPedidoMesa(par[1]) : par[1]);
+    });
+    previas.forEach(function (pedido, id) {
+      const mesaId = String(id);
+      const remoto = mesasActivas.get(mesaId);
+      if (!remoto) {
+        if (Number(pedido && pedido.actualizadoLocal) > 0) {
+          mesasActivas.set(mesaId, pedido);
+        }
+        return;
+      }
+      const tl = Number(pedido && pedido.actualizadoLocal) || 0;
+      const tr = Number(remoto && remoto.actualizadoLocal) || 0;
+      const il = pedido && Array.isArray(pedido.items) ? pedido.items.length : 0;
+      const ir = remoto && Array.isArray(remoto.items) ? remoto.items.length : 0;
+      if (tl > tr || (tl === tr && il > ir)) mesasActivas.set(mesaId, pedido);
     });
   } catch (error) {
     console.warn('No se pudieron aplicar mesas de la nube', error);
@@ -3460,8 +3476,8 @@ function aplicarOperacionEnPOS(datos) {
   if (typeof imprimirPedidosNuevosDeMesero === 'function') {
     imprimirPedidosNuevosDeMesero(historialCocina);
   }
-  contadorDomicilios = parseInt(datos.contadorDomicilios, 10) || 0;
-  contadorRecoger = parseInt(datos.contadorRecoger, 10) || 0;
+  contadorDomicilios = Math.max(contadorDomicilios || 0, parseInt(datos.contadorDomicilios, 10) || 0);
+  contadorRecoger = Math.max(contadorRecoger || 0, parseInt(datos.contadorRecoger, 10) || 0);
   if (datos.ultimaFechaContadores) ultimaFechaContadores = datos.ultimaFechaContadores;
 
   const mesaAntes = mesaSeleccionada;
@@ -4018,10 +4034,21 @@ function guardarMesas(inmediato) {
   try {
     console.log('Guardando estado de mesas...');
     const marca = Date.now();
+    if (!window._firmasPedidosPOS) window._firmasPedidosPOS = {};
     mesasActivas.forEach((pedido, mesaId) => {
       const normalizado = normalizarPedidoMesa(pedido);
-      normalizado.actualizadoLocal = marca;
+      const firma = firmaPedidoSinMarca(normalizado);
+      const previa = window._firmasPedidosPOS[mesaId];
+      if (previa == null) {
+        if (!normalizado.actualizadoLocal) normalizado.actualizadoLocal = marca;
+      } else if (previa !== firma) {
+        normalizado.actualizadoLocal = marca;
+      }
+      window._firmasPedidosPOS[mesaId] = firmaPedidoSinMarca(normalizado);
       mesasActivas.set(mesaId, normalizado);
+    });
+    Object.keys(window._firmasPedidosPOS).forEach(function (id) {
+      if (!mesasActivas.has(id) && !mesasActivas.has(String(id))) delete window._firmasPedidosPOS[id];
     });
     const mesasArray = Array.from(mesasActivas.entries());
     const ordenesCocinaArray = Array.from(ordenesCocina.entries());
@@ -4035,6 +4062,13 @@ function guardarMesas(inmediato) {
     console.error('Error al guardar estado de mesas:', error);
     alert('Error al guardar el estado de las mesas. Por favor, intente nuevamente.');
   }
+}
+
+function firmaPedidoSinMarca(pedido) {
+  if (!pedido || typeof pedido !== 'object') return '';
+  const copia = Object.assign({}, pedido);
+  delete copia.actualizadoLocal;
+  try { return JSON.stringify(copia); } catch (e) { return String(Date.now()); }
 }
 
 function textoPedidoExterno(orden, conCliente) {
@@ -4797,7 +4831,7 @@ function confirmarAgregarProducto() {
   // Limpiar la variable global
   window.productoSeleccionado = null;
   
-  guardarMesas();
+  guardarMesas(true);
   actualizarVistaOrden(mesaSeleccionada);
   
   // Mostrar confirmación visual
@@ -8469,7 +8503,7 @@ function crearPedidoDomicilioConCliente(cliente) {
   };
 
   mesasActivas.set(idPedido, pedido);
-  guardarMesas();
+  guardarMesas(true);
   actualizarMesasActivas();
   seleccionarMesa(idPedido);
 }
@@ -8494,7 +8528,7 @@ function crearPedidoRecogerConCliente(cliente) {
   };
 
   mesasActivas.set(idPedido, pedido);
-  guardarMesas();
+  guardarMesas(true);
   actualizarMesasActivas();
   seleccionarMesa(idPedido);
 }
