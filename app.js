@@ -3528,9 +3528,8 @@ function aplicarOperacionEnPOS(datos) {
       const mesaId = String(id);
       const remoto = mesasActivas.get(mesaId);
       if (!remoto) {
-        if (Number(pedido && pedido.actualizadoLocal) > 0) {
-          mesasActivas.set(mesaId, pedido);
-        }
+        const marca = Number(pedido && pedido.actualizadoLocal) || 0;
+        if (marca > Date.now() - 4000) mesasActivas.set(mesaId, pedido);
         return;
       }
       const tl = Number(pedido && pedido.actualizadoLocal) || 0;
