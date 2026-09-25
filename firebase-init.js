@@ -1617,7 +1617,25 @@
           sesiones,
           idsCocinaVistas
         );
-        payload.historialCocina = fusionarHistorial(remoto.historialCocina, escrito.historialCocina);
+        const reinicioLocal = marcaContadores(limpio.contadoresReinicioEn);
+        const reinicioRemoto = marcaContadores(remoto.contadoresReinicioEn);
+        if (reinicioLocal > reinicioRemoto) {
+          const idsLocales = {};
+          (escrito.mesasActivas || []).forEach(function (item) {
+            const id = idDeEntrada(item);
+            if (id) idsLocales[id] = true;
+          });
+          payload.mesasActivas = (payload.mesasActivas || []).filter(function (item) {
+            const id = idDeEntrada(item);
+            if (!id || (id.indexOf('DOM-') !== 0 && id.indexOf('REC-') !== 0)) return true;
+            return !!idsLocales[id];
+          });
+          payload.ordenesCocina = entradasAObjetos(escrito.ordenesCocina);
+          payload.historialCocina = Array.isArray(escrito.historialCocina) ? escrito.historialCocina : [];
+          payload.pedidosCocinaListos = Array.isArray(escrito.pedidosCocinaListos) ? escrito.pedidosCocinaListos : [];
+        } else {
+          payload.historialCocina = fusionarHistorial(remoto.historialCocina, escrito.historialCocina);
+        }
         tx.set(ref, payload, { merge: true });
       });
     });

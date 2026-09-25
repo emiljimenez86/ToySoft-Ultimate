@@ -1130,9 +1130,6 @@ function reiniciarSistemaCompleto() {
         // Marcar hora de cierre para que los siguientes cálculos ignoren ventas previas
         localStorage.setItem('ultimaHoraCierre', new Date().toISOString());
         
-        // Reiniciar contadores de DOM/REC (memoria + almacenamiento) → próximo D1 / R1
-        reiniciarContadoresDomRec();
-        
         // 1. Limpiar ventas del día actual
         console.log('🧹 Limpiando ventas del día...');
         localStorage.setItem('ventas', '[]');
@@ -1193,6 +1190,8 @@ function reiniciarSistemaCompleto() {
         // 5. Reiniciar órdenes de cocina
         console.log('👨‍🍳 Reiniciando órdenes de cocina...');
         localStorage.setItem('ordenesCocina', '[]');
+        localStorage.setItem('historialCocina', '[]');
+        localStorage.setItem('pedidosCocinaListos', '[]');
         
         // 6. Limpiar órdenes pendientes
         console.log('📋 Limpiando órdenes pendientes...');
@@ -1206,7 +1205,10 @@ function reiniciarSistemaCompleto() {
         if (typeof ordenesCocina !== 'undefined') {
             ordenesCocina.clear();
         }
-        if (typeof notificarOperacionNube === 'function') notificarOperacionNube(true);
+        if (typeof historialCocina !== 'undefined') {
+            historialCocina = [];
+        }
+        reiniciarContadoresDomRec();
         
         console.log('✅ Sistema reiniciado completamente');
         console.log('📊 Estado después del reinicio:');
@@ -3292,6 +3294,11 @@ function restaurarMesasPerdidasDeTicketsMesero() {
   historialCocina.forEach(function (orden) {
     if (!orden || orden.origen !== 'mesero' || orden.cobrada || orden.anulada) return;
     if (orden.sesionId && typeof sesionMesaYaCobrada === 'function' && sesionMesaYaCobrada(orden.sesionId)) return;
+    const corte = Date.parse(localStorage.getItem('contadoresReinicioEn') || localStorage.getItem('ultimaHoraCierre') || '');
+    if (Number.isFinite(corte)) {
+      const cuando = Date.parse(orden.fecha || '');
+      if (!Number.isFinite(cuando) || cuando < corte) return;
+    }
     const mesaId = String(orden.mesa || '');
     if (!mesaId || mesaEstaActiva(mesaId)) return;
     const fecha = Date.parse(orden.fecha);
@@ -3532,6 +3539,16 @@ function aplicarOperacionEnPOS(datos) {
       const ir = remoto && Array.isArray(remoto.items) ? remoto.items.length : 0;
       if (tl > tr || (tl === tr && il > ir)) mesasActivas.set(mesaId, pedido);
     });
+    const corteReinicio = Date.parse(localStorage.getItem('contadoresReinicioEn') || '');
+    if (Number.isFinite(corteReinicio)) {
+      Array.from(mesasActivas.keys()).forEach(function (mesaId) {
+        const clave = String(mesaId);
+        if (clave.indexOf('DOM-') !== 0 && clave.indexOf('REC-') !== 0) return;
+        const pedido = mesasActivas.get(mesaId);
+        const marca = Number(pedido && pedido.actualizadoLocal) || 0;
+        if (marca > 0 && marca < corteReinicio) mesasActivas.delete(mesaId);
+      });
+    }
   } catch (error) {
     console.warn('No se pudieron aplicar mesas de la nube', error);
   }
@@ -3546,9 +3563,23 @@ function aplicarOperacionEnPOS(datos) {
   if (typeof imprimirPedidosNuevosDeMesero === 'function') {
     imprimirPedidosNuevosDeMesero(historialCocina);
   }
+  const domAntes = contadorDomicilios || 0;
+  const recAntes = contadorRecoger || 0;
   contadorDomicilios = parseInt(localStorage.getItem('contadorDomicilios') || '0', 10) || 0;
   contadorRecoger = parseInt(localStorage.getItem('contadorRecoger') || '0', 10) || 0;
   if (datos.ultimaFechaContadores) ultimaFechaContadores = datos.ultimaFechaContadores;
+  let maxDom = 0;
+  let maxRec = 0;
+  mesasActivas.forEach(function (_pedido, mesaId) {
+    const clave = String(mesaId);
+    const n = parseInt(clave.split('-')[1], 10) || 0;
+    if (clave.indexOf('DOM-') === 0) maxDom = Math.max(maxDom, n);
+    if (clave.indexOf('REC-') === 0) maxRec = Math.max(maxRec, n);
+  });
+  if (contadorDomicilios > domAntes && maxDom <= domAntes) contadorDomicilios = domAntes;
+  if (contadorRecoger > recAntes && maxRec <= recAntes) contadorRecoger = recAntes;
+  localStorage.setItem('contadorDomicilios', String(contadorDomicilios || 0));
+  localStorage.setItem('contadorRecoger', String(contadorRecoger || 0));
 
   const mesaAntes = mesaSeleccionada;
   if (purgarMesasCobradas()) persistirOperacionTrasCobro();
