@@ -1495,6 +1495,7 @@
       const id = idDeEntrada(par);
       const local = datosDeEntrada(par);
       if (!id || local == null) return;
+      if ((id.indexOf('DOM-') === 0 || id.indexOf('REC-') === 0) && !mapa.has(id)) return;
       if (mesasEliminadasLocal[id]) delete mesasEliminadasLocal[id];
       mapa.set(id, elegirPedidoOperacion(local, mapa.get(id)));
     });
