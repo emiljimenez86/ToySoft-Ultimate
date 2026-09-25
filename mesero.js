@@ -193,12 +193,31 @@ function persistirMesasMeseroLocal() {
   localStorage.setItem('ordenesCocina', JSON.stringify(Array.from(ordenesCocina.entries())));
 }
 
+function quitarPedidosYaCerradosEnCaja(datos) {
+  const nuevas = mapDesdeEntradas(datos && datos.mesasActivas);
+  let cambio = false;
+  Array.from(mesasActivas.keys()).forEach(function (id) {
+    if (nuevas.has(String(id))) return;
+    const pedido = mesasActivas.get(id);
+    const marca = Number(pedido && pedido.actualizadoLocal) || 0;
+    if (marca > Date.now() - 4000) return;
+    mesasActivas.delete(id);
+    ordenesCocina.delete(id);
+    cambio = true;
+  });
+  if (!cambio) return;
+  persistirMesasMeseroLocal();
+  hashOperacion = hashDeOperacion();
+  pintarMesero();
+}
+
 function aplicarOperacionNube(datos) {
   if (!datos) return;
   if (window.ToySoftFirebase && typeof ToySoftFirebase.unirSesionesCobradas === 'function') {
     ToySoftFirebase.unirSesionesCobradas(datos);
   }
   if (persistiendo || window._operacionPersistiendo || window._cambiosOperacionPendientes) {
+    quitarPedidosYaCerradosEnCaja(datos);
     if (purgarMesasCobradasMesero(true)) persistirMesasMeseroLocal();
     return;
   }
@@ -218,11 +237,7 @@ function aplicarOperacionNube(datos) {
       }
       return;
     }
-    if (!remoto) {
-      if (esExterno) return;
-      if (marca > 0) nuevas.set(clave, pedido);
-      return;
-    }
+    if (!remoto) return;
     const tl = Number(pedido && pedido.actualizadoLocal) || 0;
     const tr = Number(remoto && remoto.actualizadoLocal) || 0;
     const il = pedido && Array.isArray(pedido.items) ? pedido.items.length : 0;
