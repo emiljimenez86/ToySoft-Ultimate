@@ -122,13 +122,12 @@ function datosNegocioParaTicket() {
 
 function htmlPieDatosNegocioTicket() {
   const d = datosNegocioParaTicket();
-  if (!d.nombre && !d.nit && !d.direccion && !d.correo && !d.telefono) return '';
+  if (!d.nombre && !d.nit && !d.direccion && !d.telefono) return '';
   return `
     <div class="border-top mt-1">
       ${d.nombre ? `<div><strong>${d.nombre}</strong></div>` : ''}
       ${d.nit ? `<div>NIT/Cédula: ${d.nit}</div>` : ''}
       ${d.direccion ? `<div>Dirección: ${d.direccion}</div>` : ''}
-      ${d.correo ? `<div>Correo: ${d.correo}</div>` : ''}
       ${d.telefono ? `<div>Teléfono: ${d.telefono}</div>` : ''}
     </div>
   `;
@@ -1828,6 +1827,7 @@ function reiniciarContadoresDomRec() {
   ultimaFechaContadores = new Date().toLocaleDateString();
   localStorage.setItem('contadorDomicilios', '0');
   localStorage.setItem('contadorRecoger', '0');
+  localStorage.setItem('contadoresReinicioEn', new Date().toISOString());
   localStorage.setItem('ultimaFechaContadores', ultimaFechaContadores);
   // Limpiar clave antigua errónea (admon usaba "contadorDelivery")
   localStorage.removeItem('contadorDelivery');
@@ -3243,6 +3243,7 @@ function hashOperacionLocal(datos) {
       pedidosCocinaListos: datos && datos.pedidosCocinaListos,
       contadorDomicilios: datos && datos.contadorDomicilios,
       contadorRecoger: datos && datos.contadorRecoger,
+      contadoresReinicioEn: datos && datos.contadoresReinicioEn,
       nombresDomiciliarios: datos && datos.nombresDomiciliarios,
       pantallaCocinaActivada: datos && datos.pantallaCocinaActivada,
       cocinaIntervaloActualizacion: datos && datos.cocinaIntervaloActualizacion,
@@ -3545,8 +3546,8 @@ function aplicarOperacionEnPOS(datos) {
   if (typeof imprimirPedidosNuevosDeMesero === 'function') {
     imprimirPedidosNuevosDeMesero(historialCocina);
   }
-  contadorDomicilios = Math.max(contadorDomicilios || 0, parseInt(datos.contadorDomicilios, 10) || 0);
-  contadorRecoger = Math.max(contadorRecoger || 0, parseInt(datos.contadorRecoger, 10) || 0);
+  contadorDomicilios = parseInt(localStorage.getItem('contadorDomicilios') || '0', 10) || 0;
+  contadorRecoger = parseInt(localStorage.getItem('contadorRecoger') || '0', 10) || 0;
   if (datos.ultimaFechaContadores) ultimaFechaContadores = datos.ultimaFechaContadores;
 
   const mesaAntes = mesaSeleccionada;
@@ -8829,9 +8830,20 @@ function procesarPago() {
       : ''),
     total: total,
     metodoPago: metodoPago,
-    montoRecibido: metodoPago === 'efectivo' || metodoPago === 'mixto' ? parseFloat(document.getElementById('montoRecibido').value) : 0,
-    montoTransferencia: metodoPago === 'transferencia' || metodoPago === 'mixto' ? parseFloat(document.getElementById('montoTransferencia').value) : 0,
-    cambio: metodoPago === 'efectivo' || metodoPago === 'mixto' ? Math.round(parseFloat(document.getElementById('montoRecibido').value) - (metodoPago === 'mixto' ? parseFloat(document.getElementById('montoRecibido').value) : total)) : 0,
+    montoRecibido: (function () {
+      if (metodoPago !== 'efectivo' && metodoPago !== 'mixto') return 0;
+      const escrito = parseFloat(document.getElementById('montoRecibido').value);
+      if (Number.isFinite(escrito)) return escrito;
+      return metodoPago === 'efectivo' ? total : 0;
+    })(),
+    montoTransferencia: metodoPago === 'transferencia' || metodoPago === 'mixto' ? (parseFloat(document.getElementById('montoTransferencia').value) || 0) : 0,
+    cambio: (function () {
+      if (metodoPago !== 'efectivo' && metodoPago !== 'mixto') return 0;
+      const escrito = parseFloat(document.getElementById('montoRecibido').value);
+      if (metodoPago === 'mixto') return 0;
+      const recibido = Number.isFinite(escrito) ? escrito : total;
+      return Math.max(0, Math.round(recibido - total));
+    })(),
     numeroTransferencia: metodoPago === 'transferencia' || metodoPago === 'mixto' ? document.getElementById('numeroTransferencia').value : null,
     cliente: pedido.cliente || null,
     telefono: pedido.telefono || null,
@@ -10983,7 +10995,9 @@ function mostrarModalHistorialCocina() {
 
 // Función para formatear número
 function formatearNumero(num) {
-  return num.toLocaleString('es-CO');
+  const n = Number(num);
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('es-CO');
 }
 
 // Función para inicializar WhatsApp Web

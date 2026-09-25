@@ -1208,6 +1208,7 @@
       pedidosCocinaListos: parseJsonLocal('pedidosCocinaListos', []),
       contadorDomicilios: parseInt(localStorage.getItem('contadorDomicilios') || '0', 10) || 0,
       contadorRecoger: parseInt(localStorage.getItem('contadorRecoger') || '0', 10) || 0,
+      contadoresReinicioEn: localStorage.getItem('contadoresReinicioEn') || '',
       ultimaFechaContadores: localStorage.getItem('ultimaFechaContadores') || '',
       nombresDomiciliarios: parseJsonLocal('nombresDomiciliarios', []),
       pantallaCocinaActivada: localStorage.getItem('pantallaCocinaActivada') === 'true',
@@ -1234,6 +1235,7 @@
       pedidosCocinaListos: Array.isArray(origen.pedidosCocinaListos) ? origen.pedidosCocinaListos : [],
       contadorDomicilios: parseInt(origen.contadorDomicilios, 10) || 0,
       contadorRecoger: parseInt(origen.contadorRecoger, 10) || 0,
+      contadoresReinicioEn: origen.contadoresReinicioEn || '',
       ultimaFechaContadores: origen.ultimaFechaContadores || '',
       nombresDomiciliarios: Array.isArray(origen.nombresDomiciliarios) ? origen.nombresDomiciliarios : [],
       pantallaCocinaActivada: origen.pantallaCocinaActivada === true,
@@ -1259,6 +1261,7 @@
       pedidosCocinaListos: Array.isArray(origen.pedidosCocinaListos) ? origen.pedidosCocinaListos : [],
       contadorDomicilios: parseInt(origen.contadorDomicilios, 10) || 0,
       contadorRecoger: parseInt(origen.contadorRecoger, 10) || 0,
+      contadoresReinicioEn: origen.contadoresReinicioEn || '',
       ultimaFechaContadores: origen.ultimaFechaContadores || '',
       nombresDomiciliarios: Array.isArray(origen.nombresDomiciliarios) ? origen.nombresDomiciliarios : [],
       pantallaCocinaActivada: origen.pantallaCocinaActivada === true,
@@ -1271,6 +1274,27 @@
     });
   }
 
+  function marcaContadores(valor) {
+    const t = Date.parse(valor || '');
+    return Number.isFinite(t) ? t : 0;
+  }
+
+  function elegirContadoresDomRec(domLocal, recLocal, epochLocal, domRemoto, recRemoto, epochRemoto) {
+    const local = marcaContadores(epochLocal);
+    const remoto = marcaContadores(epochRemoto);
+    if (remoto > local) {
+      return { dom: domRemoto, rec: recRemoto, epoch: epochRemoto || '' };
+    }
+    if (local > remoto) {
+      return { dom: domLocal, rec: recLocal, epoch: epochLocal || '' };
+    }
+    return {
+      dom: Math.max(domLocal, domRemoto),
+      rec: Math.max(recLocal, recRemoto),
+      epoch: epochLocal || epochRemoto || ''
+    };
+  }
+
   function escribirOperacionLocal(datos) {
     const local = operacionParaLocal(datos || {});
     localStorage.setItem('mesasActivas', JSON.stringify(local.mesasActivas));
@@ -1279,8 +1303,20 @@
     localStorage.setItem('pedidosCocinaListos', JSON.stringify(local.pedidosCocinaListos));
     const domGuardado = parseInt(localStorage.getItem('contadorDomicilios') || '0', 10) || 0;
     const recGuardado = parseInt(localStorage.getItem('contadorRecoger') || '0', 10) || 0;
-    localStorage.setItem('contadorDomicilios', String(Math.max(domGuardado, parseInt(local.contadorDomicilios, 10) || 0)));
-    localStorage.setItem('contadorRecoger', String(Math.max(recGuardado, parseInt(local.contadorRecoger, 10) || 0)));
+    const elegido = elegirContadoresDomRec(
+      domGuardado,
+      recGuardado,
+      localStorage.getItem('contadoresReinicioEn') || '',
+      parseInt(local.contadorDomicilios, 10) || 0,
+      parseInt(local.contadorRecoger, 10) || 0,
+      local.contadoresReinicioEn || ''
+    );
+    local.contadorDomicilios = elegido.dom;
+    local.contadorRecoger = elegido.rec;
+    local.contadoresReinicioEn = elegido.epoch;
+    localStorage.setItem('contadorDomicilios', String(elegido.dom));
+    localStorage.setItem('contadorRecoger', String(elegido.rec));
+    if (elegido.epoch) localStorage.setItem('contadoresReinicioEn', elegido.epoch);
     if (local.ultimaFechaContadores) {
       localStorage.setItem('ultimaFechaContadores', local.ultimaFechaContadores);
     }
@@ -1525,6 +1561,18 @@
     await db().runTransaction(function (tx) {
       return tx.get(ref).then(function (snap) {
         const limpio = operacionLimpia(snapshotOperacionLocal() || datos);
+        const remotoPrev = snap.exists ? (snap.data() || {}) : {};
+        const elegido = elegirContadoresDomRec(
+          parseInt(limpio.contadorDomicilios, 10) || 0,
+          parseInt(limpio.contadorRecoger, 10) || 0,
+          limpio.contadoresReinicioEn || '',
+          parseInt(remotoPrev.contadorDomicilios, 10) || 0,
+          parseInt(remotoPrev.contadorRecoger, 10) || 0,
+          remotoPrev.contadoresReinicioEn || ''
+        );
+        limpio.contadorDomicilios = elegido.dom;
+        limpio.contadorRecoger = elegido.rec;
+        limpio.contadoresReinicioEn = elegido.epoch;
         revisionEscrita = revisionOperacionLocal;
         escrito = escribirOperacionLocal(limpio);
         const payload = {
@@ -1534,6 +1582,7 @@
           pedidosCocinaListos: escrito.pedidosCocinaListos,
           contadorDomicilios: escrito.contadorDomicilios,
           contadorRecoger: escrito.contadorRecoger,
+          contadoresReinicioEn: escrito.contadoresReinicioEn || '',
           actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
         };
         if (!esMesero() && !esPropietario()) {
@@ -1621,6 +1670,7 @@
         pedidosCocinaListos: nube.pedidosCocinaListos,
         contadorDomicilios: nube.contadorDomicilios,
         contadorRecoger: nube.contadorRecoger,
+        contadoresReinicioEn: nube.contadoresReinicioEn || '',
         ultimaFechaContadores: nube.ultimaFechaContadores,
         nombresDomiciliarios: nube.nombresDomiciliarios,
         pantallaCocinaActivada: nube.pantallaCocinaActivada,
@@ -1660,6 +1710,7 @@
       pedidosCocinaListos: nube.pedidosCocinaListos,
       contadorDomicilios: nube.contadorDomicilios,
       contadorRecoger: nube.contadorRecoger,
+      contadoresReinicioEn: nube.contadoresReinicioEn || '',
       ultimaFechaContadores: nube.ultimaFechaContadores,
       nombresDomiciliarios: nube.nombresDomiciliarios,
       pantallaCocinaActivada: nube.pantallaCocinaActivada,
@@ -2207,6 +2258,7 @@
     localStorage.setItem('pedidosCocinaListos', JSON.stringify([]));
     localStorage.setItem('contadorDomicilios', '0');
     localStorage.setItem('contadorRecoger', '0');
+    localStorage.setItem('contadoresReinicioEn', new Date().toISOString());
     localStorage.setItem('ultimaFechaContadores', new Date().toLocaleDateString());
     localStorage.removeItem('contadorDelivery');
     localStorage.removeItem('ultimaHoraCierre');
