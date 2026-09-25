@@ -204,10 +204,23 @@ function aplicarOperacionNube(datos) {
   }
   const previas = new Map(mesasActivas);
   const nuevas = mapDesdeEntradas(datos.mesasActivas);
+  let quitoViejos = false;
   previas.forEach(function (pedido, id) {
     const remoto = nuevas.get(String(id));
+    const clave = String(id);
+    const esExterno = clave.indexOf('DOM-') === 0 || clave.indexOf('REC-') === 0;
+    const corte = Date.parse((datos && datos.contadoresReinicioEn) || localStorage.getItem('contadoresReinicioEn') || '');
+    const marca = Number(pedido && pedido.actualizadoLocal) || 0;
+    if (esExterno && Number.isFinite(corte) && !(marca > corte)) {
+      if (remoto) {
+        nuevas.delete(clave);
+        quitoViejos = true;
+      }
+      return;
+    }
     if (!remoto) {
-      if (Number(pedido && pedido.actualizadoLocal) > 0) nuevas.set(String(id), pedido);
+      if (esExterno) return;
+      if (marca > 0) nuevas.set(clave, pedido);
       return;
     }
     const tl = Number(pedido && pedido.actualizadoLocal) || 0;
@@ -217,12 +230,30 @@ function aplicarOperacionNube(datos) {
     if (tl > tr || (tl === tr && il > ir)) nuevas.set(String(id), pedido);
   });
   mesasActivas = nuevas;
+  const corteNube = Date.parse((datos && datos.contadoresReinicioEn) || localStorage.getItem('contadoresReinicioEn') || '');
+  if (Number.isFinite(corteNube)) {
+    Array.from(mesasActivas.keys()).forEach(function (id) {
+      const clave = String(id);
+      if (clave.indexOf('DOM-') !== 0 && clave.indexOf('REC-') !== 0) return;
+      const marca = Number(mesasActivas.get(id) && mesasActivas.get(id).actualizadoLocal) || 0;
+      if (!(marca > corteNube)) {
+        mesasActivas.delete(id);
+        quitoViejos = true;
+      }
+    });
+  }
   ordenesCocina = mapDesdeEntradas(datos.ordenesCocina);
   historialCocina = Array.isArray(datos.historialCocina) ? datos.historialCocina : [];
   mesasActivas.forEach(function (pedido, id) {
     mesasActivas.set(id, normalizarPedido(pedido));
   });
   purgarMesasCobradasMesero(false);
+  if (quitoViejos) {
+    persistirMesasMeseroLocal();
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.persistirOperacionInmediato === 'function') {
+      ToySoftFirebase.persistirOperacionInmediato();
+    }
+  }
   const nuevo = hashDeOperacion();
   if (nuevo === hashOperacion) return;
   hashOperacion = nuevo;

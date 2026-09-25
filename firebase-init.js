@@ -1469,6 +1469,18 @@
     return remoto;
   }
 
+  function quitarExternosPreviosAlReinicio(lista, epoch) {
+    const corte = marcaContadores(epoch);
+    if (!corte) return lista || [];
+    return (lista || []).filter(function (item) {
+      const id = idDeEntrada(item);
+      if (!id || (id.indexOf('DOM-') !== 0 && id.indexOf('REC-') !== 0)) return true;
+      const datos = datosDeEntrada(item);
+      const marca = Number(datos && datos.actualizadoLocal) || 0;
+      return marca > corte;
+    });
+  }
+
   function fusionarMesasConMemoria(nube) {
     const memoria = leerMesasMemoriaOLocal();
     const remotas = Array.isArray(nube.mesasActivas) ? nube.mesasActivas : [];
@@ -1617,6 +1629,8 @@
           sesiones,
           idsCocinaVistas
         );
+        payload.mesasActivas = quitarExternosPreviosAlReinicio(payload.mesasActivas, limpio.contadoresReinicioEn || remoto.contadoresReinicioEn);
+        payload.ordenesCocina = quitarExternosPreviosAlReinicio(payload.ordenesCocina, limpio.contadoresReinicioEn || remoto.contadoresReinicioEn);
         const reinicioLocal = marcaContadores(limpio.contadoresReinicioEn);
         const reinicioRemoto = marcaContadores(remoto.contadoresReinicioEn);
         if (reinicioLocal > reinicioRemoto) {
