@@ -1441,9 +1441,7 @@
     }
     Array.from(mapa.keys()).forEach(function (id) {
       if (!mesasEliminadasLocal[id]) return;
-      const sigueEnLocal = (locales || []).some(function (item) { return idDeEntrada(item) === id; });
-      if (sigueEnLocal) delete mesasEliminadasLocal[id];
-      else mapa.delete(id);
+      mapa.delete(id);
     });
     return Array.from(mapa.values());
   }
@@ -1454,6 +1452,15 @@
     const clave = String(id || '');
     if (!clave) return;
     mesasEliminadasLocal[clave] = Date.now();
+  }
+
+  function olvidarMesaEliminada(id) {
+    const clave = String(id || '');
+    if (clave) delete mesasEliminadasLocal[clave];
+  }
+
+  function mesaEstaEliminada(id) {
+    return !!mesasEliminadasLocal[String(id || '')];
   }
 
   function elegirPedidoOperacion(local, remoto) {
@@ -3280,6 +3287,8 @@
     persistirOperacionDebounced: persistirOperacionDebounced,
     persistirOperacionInmediato: persistirOperacionInmediato,
     marcarMesaEliminada: marcarMesaEliminada,
+    olvidarMesaEliminada: olvidarMesaEliminada,
+    mesaEstaEliminada: mesaEstaEliminada,
     refrescarOperacionDesdeNube: refrescarOperacionDesdeNube,
     escucharOperacion: escucharOperacion,
     marcarSesionCobrada: marcarSesionCobrada,

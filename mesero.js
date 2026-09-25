@@ -198,9 +198,6 @@ function quitarPedidosYaCerradosEnCaja(datos) {
   let cambio = false;
   Array.from(mesasActivas.keys()).forEach(function (id) {
     if (nuevas.has(String(id))) return;
-    const pedido = mesasActivas.get(id);
-    const marca = Number(pedido && pedido.actualizadoLocal) || 0;
-    if (marca > Date.now() - 4000) return;
     mesasActivas.delete(id);
     ordenesCocina.delete(id);
     cambio = true;

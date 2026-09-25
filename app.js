@@ -3502,7 +3502,7 @@ function imprimirPedidosNuevosDeMesero(lista) {
 }
 
 function aplicarOperacionEnPOS(datos) {
-  if (window._operacionPersistiendo) return;
+  if (window._operacionPersistiendo || window._cambiosOperacionPendientes) return;
   if (!datos) return;
   if (typeof aplicarInstaladorPos === 'function') aplicarInstaladorPos();
   const hash = hashOperacionLocal(datos);
@@ -3522,16 +3522,14 @@ function aplicarOperacionEnPOS(datos) {
     entradas.forEach(function (par) {
       if (!Array.isArray(par) || par.length < 2 || par[0] == null) return;
       const mesaId = String(par[0]);
+      if (window.ToySoftFirebase && typeof ToySoftFirebase.mesaEstaEliminada === 'function' && ToySoftFirebase.mesaEstaEliminada(mesaId)) return;
       mesasActivas.set(mesaId, typeof normalizarPedidoMesa === 'function' ? normalizarPedidoMesa(par[1]) : par[1]);
     });
     previas.forEach(function (pedido, id) {
       const mesaId = String(id);
+      if (window.ToySoftFirebase && typeof ToySoftFirebase.mesaEstaEliminada === 'function' && ToySoftFirebase.mesaEstaEliminada(mesaId)) return;
       const remoto = mesasActivas.get(mesaId);
-      if (!remoto) {
-        const marca = Number(pedido && pedido.actualizadoLocal) || 0;
-        if (marca > Date.now() - 4000) mesasActivas.set(mesaId, pedido);
-        return;
-      }
+      if (!remoto) return;
       const tl = Number(pedido && pedido.actualizadoLocal) || 0;
       const tr = Number(remoto && remoto.actualizadoLocal) || 0;
       const il = pedido && Array.isArray(pedido.items) ? pedido.items.length : 0;
@@ -8673,6 +8671,9 @@ function crearNuevaMesa() {
 
   // Crear nueva mesa como objeto (un array pierde los productos al guardar)
   limpiarCocinaDeMesa(numeroMesa);
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.olvidarMesaEliminada === 'function') {
+    ToySoftFirebase.olvidarMesaEliminada(numeroMesa);
+  }
   mesasActivas.set(numeroMesa, crearPedidoMesaVacio());
   guardarMesas();
   
