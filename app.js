@@ -3582,7 +3582,6 @@ function aplicarOperacionEnPOS(datos) {
 
   const mesaAntes = mesaSeleccionada;
   if (purgarMesasCobradas()) persistirOperacionTrasCobro();
-  if (typeof restaurarMesasPerdidasDeTicketsMesero === 'function') restaurarMesasPerdidasDeTicketsMesero();
 
   if (typeof actualizarMesasActivas === 'function') actualizarMesasActivas();
   if (mesaSeleccionada && mesaEstaActiva(mesaSeleccionada) && typeof actualizarVistaOrden === 'function') {
