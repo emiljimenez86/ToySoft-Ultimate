@@ -3530,6 +3530,10 @@ function aplicarOperacionEnPOS(datos) {
       if (window.ToySoftFirebase && typeof ToySoftFirebase.mesaEstaEliminada === 'function' && ToySoftFirebase.mesaEstaEliminada(mesaId)) return;
       const remoto = mesasActivas.get(mesaId);
       if (!remoto) return;
+      if (window.ToySoftFirebase && typeof ToySoftFirebase.elegirPedidoOperacion === 'function') {
+        mesasActivas.set(mesaId, ToySoftFirebase.elegirPedidoOperacion(pedido, remoto));
+        return;
+      }
       const tl = Number(pedido && pedido.actualizadoLocal) || 0;
       const tr = Number(remoto && remoto.actualizadoLocal) || 0;
       const il = pedido && Array.isArray(pedido.items) ? pedido.items.length : 0;
@@ -4901,6 +4905,9 @@ function confirmarAgregarProducto() {
     }
     
     productoExistente.cantidad += cantidad;
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.anotarItemAgregado === 'function') {
+      ToySoftFirebase.anotarItemAgregado(pedido, productoExistente);
+    }
     // Si hay detalles, agregarlos al producto existente
     if (detalles && !productoExistente.detalles) {
       productoExistente.detalles = detalles;
@@ -4908,7 +4915,7 @@ function confirmarAgregarProducto() {
       productoExistente.detalles += '; ' + detalles;
     }
   } else {
-    pedido.items.push({
+    const itemNuevo = {
       id: producto.id,
       nombre: nombreVenta,
       precio: Number(precioVenta),
@@ -4916,7 +4923,11 @@ function confirmarAgregarProducto() {
       detalles: detalles,
       estado: 'pendiente',
       ronda: rondaActual
-    });
+    };
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.anotarItemAgregado === 'function') {
+      ToySoftFirebase.anotarItemAgregado(pedido, itemNuevo);
+    }
+    pedido.items.push(itemNuevo);
   }
 
   console.log('Producto agregado:', producto, 'Cantidad:', cantidad, 'Detalles:', detalles);
@@ -5258,6 +5269,9 @@ function eliminarProductoOrden(boton, mesa, id, ronda) {
     index = pedido.items.findIndex(p => p.nombre === nombreProducto);
   }
   if (index !== -1) {
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.anotarItemEliminado === 'function') {
+      ToySoftFirebase.anotarItemEliminado(pedido, pedido.items[index]);
+    }
     pedido.items.splice(index, 1);
     sincronizarRondaPedido(pedido);
     guardarMesas();
@@ -8587,6 +8601,9 @@ function crearPedidoDomicilioConCliente(cliente) {
   guardarContadores();
   
   const idPedido = `DOM-${contadorDomicilios}`;
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.olvidarMesaEliminada === 'function') {
+    ToySoftFirebase.olvidarMesaEliminada(idPedido);
+  }
   const pedido = {
     tipo: 'domicilio',
     numero: contadorDomicilios,
@@ -8612,6 +8629,9 @@ function crearPedidoRecogerConCliente(cliente) {
   guardarContadores();
   
   const idPedido = `REC-${contadorRecoger}`;
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.olvidarMesaEliminada === 'function') {
+    ToySoftFirebase.olvidarMesaEliminada(idPedido);
+  }
   const pedido = {
     tipo: 'recoger',
     numero: contadorRecoger,

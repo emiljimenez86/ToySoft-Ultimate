@@ -235,6 +235,10 @@ function aplicarOperacionNube(datos) {
       return;
     }
     if (!remoto) return;
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.elegirPedidoOperacion === 'function') {
+      nuevas.set(String(id), ToySoftFirebase.elegirPedidoOperacion(pedido, remoto));
+      return;
+    }
     const tl = Number(pedido && pedido.actualizadoLocal) || 0;
     const tr = Number(remoto && remoto.actualizadoLocal) || 0;
     const il = pedido && Array.isArray(pedido.items) ? pedido.items.length : 0;
@@ -242,6 +246,11 @@ function aplicarOperacionNube(datos) {
     if (tl > tr || (tl === tr && il > ir)) nuevas.set(String(id), pedido);
   });
   mesasActivas = nuevas;
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.mesaEstaEliminada === 'function') {
+    Array.from(mesasActivas.keys()).forEach(function (id) {
+      if (ToySoftFirebase.mesaEstaEliminada(id)) mesasActivas.delete(id);
+    });
+  }
   const corteNube = Date.parse((datos && datos.contadoresReinicioEn) || localStorage.getItem('contadoresReinicioEn') || '');
   if (Number.isFinite(corteNube)) {
     Array.from(mesasActivas.keys()).forEach(function (id) {
@@ -592,6 +601,9 @@ function crearMesaMesero() {
     actualizarPasoAbrirMesa();
     return;
   }
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.olvidarMesaEliminada === 'function') {
+    ToySoftFirebase.olvidarMesaEliminada(numero);
+  }
   mesasActivas.set(numero, crearPedidoMesero('mesa'));
   persistirMesero(true);
   if (input) input.value = '';
@@ -766,6 +778,9 @@ function confirmarPedidoExternoMesero() {
   }
   const guardado = guardarClienteNuevoMesero(cliente, telefono, direccion);
   const siguiente = siguienteIdExternoMesero(tipo);
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.olvidarMesaEliminada === 'function') {
+    ToySoftFirebase.olvidarMesaEliminada(siguiente.id);
+  }
   mesasActivas.set(siguiente.id, crearPedidoMesero(tipo, {
     numero: siguiente.numero,
     cliente: cliente,
@@ -1113,6 +1128,9 @@ function confirmarProductoMesero() {
     });
   if (existente) {
     existente.cantidad = (Number(existente.cantidad) || 0) + cantidad;
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.anotarItemAgregado === 'function') {
+      ToySoftFirebase.anotarItemAgregado(pedido, existente);
+    }
     if (detalles) existente.detalles = existente.detalles ? (existente.detalles + '; ' + detalles) : detalles;
     anotarMeseroEnPedido(pedido, existente);
   } else {
@@ -1126,6 +1144,9 @@ function confirmarProductoMesero() {
       ronda: rondaActual
     };
     anotarMeseroEnPedido(pedido, item);
+    if (window.ToySoftFirebase && typeof ToySoftFirebase.anotarItemAgregado === 'function') {
+      ToySoftFirebase.anotarItemAgregado(pedido, item);
+    }
     pedido.items.push(item);
   }
   mesasActivas.set(mesaSeleccionada, pedido);
@@ -1140,6 +1161,9 @@ function quitarItemMesero(indice) {
   const pedido = normalizarPedido(mesasActivas.get(mesaSeleccionada));
   const item = pedido.items[indice];
   if (!item || item.estado === 'en_cocina') return;
+  if (window.ToySoftFirebase && typeof ToySoftFirebase.anotarItemEliminado === 'function') {
+    ToySoftFirebase.anotarItemEliminado(pedido, item);
+  }
   pedido.items.splice(indice, 1);
   mesasActivas.set(mesaSeleccionada, pedido);
   persistirMesero(true);

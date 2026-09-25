@@ -1270,7 +1270,9 @@
       sesionesCobradas: sesiones
     }, camposImpresoraCocina(origen), flagsBotonesPOSDesdeDatos(origen), {
       posRequiereLogin: origen.posRequiereLogin === true,
-      posInstaladorActivo: origen.posInstaladorActivo === true
+      posInstaladorActivo: origen.posInstaladorActivo === true,
+      pedidosEliminados: origen.pedidosEliminados && typeof origen.pedidosEliminados === 'object' ? origen.pedidosEliminados : {},
+      pedidosReabiertos: origen.pedidosReabiertos && typeof origen.pedidosReabiertos === 'object' ? origen.pedidosReabiertos : {}
     });
   }
 
@@ -1440,27 +1442,109 @@
       });
     }
     Array.from(mapa.keys()).forEach(function (id) {
-      if (!mesasEliminadasLocal[id]) return;
+      if (!pedidoFiguraEliminado(id)) return;
       mapa.delete(id);
     });
     return Array.from(mapa.values());
   }
 
-  const mesasEliminadasLocal = {};
+  function leerMapaLocal(clave) {
+    try {
+      const o = JSON.parse(localStorage.getItem(clave) || '{}');
+      return o && typeof o === 'object' && !Array.isArray(o) ? o : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  let pedidosEliminados = leerMapaLocal('pedidosEliminados');
+  let pedidosReabiertos = leerMapaLocal('pedidosReabiertos');
+  const VIDA_PEDIDO_ELIMINADO = 12 * 60 * 60 * 1000;
+
+  function fusionarMarcas(a, b) {
+    const out = {};
+    [a, b].forEach(function (mapa) {
+      if (!mapa || typeof mapa !== 'object' || Array.isArray(mapa)) return;
+      Object.keys(mapa).forEach(function (k) {
+        out[k] = Math.max(out[k] || 0, Number(mapa[k]) || 0);
+      });
+    });
+    return out;
+  }
+
+  function guardarMarcasPedido() {
+    const ahora = Date.now();
+    Object.keys(pedidosEliminados).forEach(function (id) {
+      const e = Number(pedidosEliminados[id]) || 0;
+      const a = Number(pedidosReabiertos[id]) || 0;
+      if (!e || a >= e || ahora - e > VIDA_PEDIDO_ELIMINADO) delete pedidosEliminados[id];
+    });
+    localStorage.setItem('pedidosEliminados', JSON.stringify(pedidosEliminados));
+    localStorage.setItem('pedidosReabiertos', JSON.stringify(pedidosReabiertos));
+  }
+
+  function aplicarMarcasPedido(eliminados, reabiertos) {
+    pedidosEliminados = fusionarMarcas(pedidosEliminados, eliminados);
+    pedidosReabiertos = fusionarMarcas(pedidosReabiertos, reabiertos);
+    guardarMarcasPedido();
+  }
+
+  function pedidoFiguraEliminado(id) {
+    const clave = String(id || '');
+    const e = Number(pedidosEliminados[clave]) || 0;
+    const a = Number(pedidosReabiertos[clave]) || 0;
+    if (!e || a >= e) return false;
+    if (Date.now() - e > VIDA_PEDIDO_ELIMINADO) return false;
+    return true;
+  }
 
   function marcarMesaEliminada(id) {
     const clave = String(id || '');
     if (!clave) return;
-    mesasEliminadasLocal[clave] = Date.now();
+    pedidosEliminados[clave] = Date.now();
+    delete pedidosReabiertos[clave];
+    guardarMarcasPedido();
   }
 
   function olvidarMesaEliminada(id) {
     const clave = String(id || '');
-    if (clave) delete mesasEliminadasLocal[clave];
+    if (!clave) return;
+    pedidosReabiertos[clave] = Date.now();
+    guardarMarcasPedido();
   }
 
   function mesaEstaEliminada(id) {
-    return !!mesasEliminadasLocal[String(id || '')];
+    return pedidoFiguraEliminado(id);
+  }
+
+  function claveItemPedido(item) {
+    if (!item || item.id == null) return '';
+    const ronda = item.ronda != null && item.ronda !== '' ? String(item.ronda) : '1';
+    return String(item.id) + '@' + ronda;
+  }
+
+  function anotarItemEliminado(pedido, item) {
+    if (!pedido || !item) return pedido;
+    const clave = claveItemPedido(item);
+    if (!clave) return pedido;
+    if (!pedido.itemsEliminados || typeof pedido.itemsEliminados !== 'object' || Array.isArray(pedido.itemsEliminados)) {
+      pedido.itemsEliminados = {};
+    }
+    pedido.itemsEliminados[clave] = Date.now();
+    if (pedido.itemsReabiertos && pedido.itemsReabiertos[clave]) delete pedido.itemsReabiertos[clave];
+    return pedido;
+  }
+
+  function anotarItemAgregado(pedido, item) {
+    if (!pedido || !item) return pedido;
+    const clave = claveItemPedido(item);
+    if (!clave) return pedido;
+    if (!pedido.itemsReabiertos || typeof pedido.itemsReabiertos !== 'object' || Array.isArray(pedido.itemsReabiertos)) {
+      pedido.itemsReabiertos = {};
+    }
+    pedido.itemsReabiertos[clave] = Date.now();
+    if (pedido.itemsEliminados && pedido.itemsEliminados[clave]) delete pedido.itemsEliminados[clave];
+    return pedido;
   }
 
   function elegirPedidoOperacion(local, remoto) {
@@ -1468,12 +1552,32 @@
     if (!remoto) return local;
     const tl = Number(local.actualizadoLocal) || 0;
     const tr = Number(remoto.actualizadoLocal) || 0;
-    if (tl > tr) return local;
-    if (tr > tl) return remoto;
-    const il = Array.isArray(local.items) ? local.items.length : 0;
-    const ir = Array.isArray(remoto.items) ? remoto.items.length : 0;
-    if (il > ir) return local;
-    return remoto;
+    const base = tl >= tr ? local : remoto;
+    const eliminados = fusionarMarcas(local.itemsEliminados, remoto.itemsEliminados);
+    const reabiertos = fusionarMarcas(local.itemsReabiertos, remoto.itemsReabiertos);
+    const porClave = new Map();
+    [remoto, local].forEach(function (pedido) {
+      const marca = Number(pedido && pedido.actualizadoLocal) || 0;
+      const lista = pedido && Array.isArray(pedido.items) ? pedido.items : [];
+      lista.forEach(function (item) {
+        const clave = claveItemPedido(item);
+        if (!clave) return;
+        const previo = porClave.get(clave);
+        if (!previo || marca >= previo.marca) porClave.set(clave, { item: item, marca: marca });
+      });
+    });
+    const items = [];
+    porClave.forEach(function (entrada, clave) {
+      const e = Number(eliminados[clave]) || 0;
+      const r = Number(reabiertos[clave]) || 0;
+      if (e && r <= e) return;
+      items.push(entrada.item);
+    });
+    return Object.assign({}, base, {
+      items: items,
+      itemsEliminados: eliminados,
+      itemsReabiertos: reabiertos
+    });
   }
 
   function quitarExternosPreviosAlReinicio(lista, epoch) {
@@ -1495,19 +1599,15 @@
     remotas.forEach(function (par) {
       const id = idDeEntrada(par);
       const datos = datosDeEntrada(par);
-      if (!id || datos == null || mesasEliminadasLocal[id]) return;
+      if (!id || datos == null || pedidoFiguraEliminado(id)) return;
       mapa.set(id, datos);
     });
     (Array.isArray(memoria) ? memoria : []).forEach(function (par) {
       const id = idDeEntrada(par);
       const local = datosDeEntrada(par);
-      if (!id || local == null) return;
+      if (!id || local == null || pedidoFiguraEliminado(id)) return;
       if (!mapa.has(id)) return;
-      if (mesasEliminadasLocal[id]) delete mesasEliminadasLocal[id];
       mapa.set(id, elegirPedidoOperacion(local, mapa.get(id)));
-    });
-    Object.keys(mesasEliminadasLocal).forEach(function (id) {
-      if (!mapa.has(id)) delete mesasEliminadasLocal[id];
     });
     return Object.assign({}, nube, { mesasActivas: Array.from(mapa.entries()) });
   }
@@ -1625,6 +1725,9 @@
         }
         const remoto = snap.exists ? (snap.data() || {}) : {};
         const sesiones = unirSesionesCobradas(remoto);
+        aplicarMarcasPedido(remoto.pedidosEliminados, remoto.pedidosReabiertos);
+        payload.pedidosEliminados = pedidosEliminados;
+        payload.pedidosReabiertos = pedidosReabiertos;
         payload.mesasActivas = fusionarListasOperacion(
           entradasAObjetos(remoto.mesasActivas),
           entradasAObjetos(escrito.mesasActivas),
@@ -1772,6 +1875,7 @@
 
   function aplicarOperacionDesdeNube(nube, callback, escribirLocal) {
     if (!nube) return;
+    aplicarMarcasPedido(nube.pedidosEliminados, nube.pedidosReabiertos);
     nube = fusionarMesasConMemoria(nube);
     if (operacionLocalEstaPendiente()) return;
     unirSesionesCobradas(nube);
@@ -3289,6 +3393,9 @@
     marcarMesaEliminada: marcarMesaEliminada,
     olvidarMesaEliminada: olvidarMesaEliminada,
     mesaEstaEliminada: mesaEstaEliminada,
+    anotarItemEliminado: anotarItemEliminado,
+    anotarItemAgregado: anotarItemAgregado,
+    elegirPedidoOperacion: elegirPedidoOperacion,
     refrescarOperacionDesdeNube: refrescarOperacionDesdeNube,
     escucharOperacion: escucharOperacion,
     marcarSesionCobrada: marcarSesionCobrada,
